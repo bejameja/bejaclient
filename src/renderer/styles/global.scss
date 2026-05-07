@@ -1,0 +1,91 @@
+@import './reset';
+@import './typography';
+
+#app {
+  display: flex;
+  flex-direction: column;
+  background: $bg;
+}
+
+.page-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: $sp-6;
+}
+
+.section-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: $muted;
+  margin-bottom: $sp-3;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid $border;
+  margin: $sp-4 0;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: $radius;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: $surface-elevated;
+  color: $text-secondary;
+  border: 1px solid $border;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: $sp-3;
+  padding: $sp-10;
+  color: $muted;
+  text-align: center;
+
+  .empty-icon {
+    font-size: 32px;
+    opacity: 0.4;
+  }
+
+  .empty-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: $text-secondary;
+  }
+
+  .empty-text {
+    font-size: 12px;
+  }
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity $transition;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: opacity $transition, transform $transition;
+}
+
+.slide-up-enter-from,
+.slide-up-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
