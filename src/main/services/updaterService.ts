@@ -28,8 +28,14 @@ export function initAutoUpdater(getWindow: () => BrowserWindow | null, log: LogF
   })
 
   autoUpdater.on('error', (err: Error) => {
-    log('ERROR', `updater: ${err?.message ?? err}`)
-    getWindow()?.webContents.send('updater:error', err?.message ?? String(err))
+    const msg = err?.message ?? String(err)
+    // 404 means no launcher release with latest.yml exists yet — not a real error.
+    if (msg.includes('404') || msg.includes('latest.yml')) {
+      log('INFO', 'updater: no launcher release found (404) — skipping')
+      return
+    }
+    log('ERROR', `updater: ${msg}`)
+    getWindow()?.webContents.send('updater:error', msg)
   })
 
   autoUpdater.on('download-progress', (progress: ProgressInfo) => {
