@@ -1,0 +1,97 @@
+name: Release BejaClient JAR
+
+# How to use:
+#   1. Build your JAR locally (./gradlew assembleDist or similar)
+#   2. Copy it to  client-jars/beja-bootstrap-X.Y.Z.jar  and commit+push
+#   3. Go to Actions → "Release BejaClient JAR" → Run workflow → enter version
+#   The workflow will create a GitHub Release, attach the JAR, and update
+#   client-version.json on main so the launcher picks it up automatically.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g. 1.2.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as pre-release?'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Locate JAR
+        id: jar
+        run: |
+          VERSION="${{ inputs.version }}"
+          NAME="beja-bootstrap-${VERSION}.jar"
+          CANDIDATES=(
+            "client-jars/${NAME}"
+            "BejaClient-MC/dist/${NAME}"
+            "dist/${NAME}"
+          )
+          for p in "${CANDIDATES[@]}"; do
+            if [ -f "$p" ]; then
+              echo "path=$p" >> "$GITHUB_OUTPUT"
+              echo "name=${NAME}" >> "$GITHUB_OUTPUT"
+              echo "✅ Found JAR at $p"
+              exit 0
+            fi
+          done
+          echo "❌ JAR not found. Commit beja-bootstrap-${VERSION}.jar to client-jars/ first."
+          exit 1
+
+      - name: Create Release & upload JAR
+        id: release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: client-v${{ inputs.version }}
+          name: BejaClient ${{ inputs.version }}
+          prerelease: ${{ inputs.prerelease }}
+          body: |
+            ## BejaClient ${{ inputs.version }}
+
+            The launcher auto-downloads this update on the next launch.
+
+            **Manual download:** `${{ steps.jar.outputs.name }}`
+          files: ${{ steps.jar.outputs.path }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update client-version.json
+        run: |
+          VERSION="${{ inputs.version }}"
+          NAME="${{ steps.jar.outputs.name }}"
+          REPO="${{ github.repository }}"
+          URL="https://github.com/${REPO}/releases/download/client-v${VERSION}/${NAME}"
+          cat > client-version.json <<EOF
+          {
+            "version": "${VERSION}",
+            "url": "${URL}",
+            "filename": "${NAME}",
+            "releaseDate": "$(date -u +%Y-%m-%d)"
+          }
+          EOF
+          echo "client-version.json:"
+          cat client-version.json
+
+      - name: Commit updated version file
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add client-version.json
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: bump client to v${{ inputs.version }}"
+          git push

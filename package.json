@@ -1,0 +1,112 @@
+{
+  "name": "bejaclient",
+  "productName": "BejaClient",
+  "version": "1.0.9",
+  "description": "A Better Minecraft Launcher",
+  "author": {
+    "name": "BejaClient",
+    "email": "contact@bejaclient.pages.dev"
+  },
+  "main": "dist-electron/main/index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "electron": "electron .",
+    "dist": "npm run build && electron-builder --win --x64",
+    "dist:dir": "npm run build && electron-builder --win --x64 --dir"
+  },
+  "build": {
+    "appId": "com.bejaclient.launcher",
+    "productName": "BejaClient",
+    "copyright": "Copyright © 2026 BejaClient",
+    "icon": "resources/icon.ico",
+    "afterPack": "./build-hooks.js",
+    "directories": {
+      "output": "release",
+      "buildResources": "resources"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "resources/icon.ico"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/icon.ico",
+        "to": "icon.ico"
+      },
+      {
+        "from": "../BejaClient-MC/dist/",
+        "to": "beja-libs/",
+        "filter": ["beja-bootstrap-*.jar", "beja-v1_21-*.jar"]
+      }
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/adm-zip/**/*",
+      "node_modules/discord-rpc/**/*",
+      "node_modules/@xmcl/**/*"
+    ],
+    "win": {
+      "icon": "resources/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName} Setup ${version}.${ext}",
+      "requestedExecutionLevel": "asInvoker",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "installerIcon": "resources/icon.ico",
+      "uninstallerIcon": "resources/icon.ico",
+      "installerHeaderIcon": "resources/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "BejaClient",
+      "menuCategory": false,
+      "license": "resources/LICENSE.txt",
+      "installerLanguages": [
+        "en_US"
+      ],
+      "language": "1033",
+      "uninstallDisplayName": "BejaClient"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "bejameja",
+      "repo": "bejaclient"
+    }
+  },
+  "dependencies": {
+    "@types/adm-zip": "^0.5.8",
+    "@xmcl/core": "^2.15.1",
+    "@xmcl/installer": "^6.1.2",
+    "@xmcl/user": "^4.3.0",
+    "adm-zip": "^0.5.17",
+    "discord-rpc": "^4.0.1",
+    "electron-updater": "^6.8.3",
+    "pinia": "^2.1.7",
+    "skinview3d": "^2.1.0",
+    "vue": "^3.4.0",
+    "vue-router": "^4.2.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.0",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1",
+    "rcedit": "^5.0.2",
+    "sass": "^1.69.5",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.8",
+    "vite-plugin-electron": "^0.15.5",
+    "vite-plugin-electron-renderer": "^0.14.5",
+    "vue-tsc": "^3.2.7"
+  }
+}

@@ -1,0 +1,48 @@
+// ── Four design tokens (the only colors) ─────────────────────────────────────
+$bg:      #000;
+$surface: #111;
+$text:    #fff;
+$border:  #333;
+
+// ── Derived neutrals (aliases for compilation; all gray/white spectrum) ───────
+$surface-elevated: #1a1a1a;
+$border-strong:    #444;
+$text-primary:     #fff;
+$text-secondary:   #ccc;
+$text-nav:         #ccc;
+$text-muted:       #888;
+$muted:            #555;
+
+// These were semantic/accent — now neutral so all variable references compile.
+// Primary actions use white bg + black text (see Button.vue variants).
+$primary:       #fff;
+$primary-hover: #ccc;
+$success:       $muted;
+$warning:       $muted;
+$error:         $muted;
+
+// ── Typography ────────────────────────────────────────────────────────────────
+$font-family:    system-ui, sans-serif;
+$font-condensed: system-ui, sans-serif;
+$font-display:   system-ui, sans-serif;
+
+// ── Accent ────────────────────────────────────────────────────────────────────
+$accent:          #27ade0;
+$surface-panel:   #161616;
+
+// ── Layout ────────────────────────────────────────────────────────────────────
+$titlebar-height:   0px;
+$navbar-height:     0px;
+$sidebar-width:     176px;
+$right-panel-width: 64px;
+$radius:            6px;
+$radius-sm:       4px;
+$radius-lg:       10px;
+
+// ── Spacing ───────────────────────────────────────────────────────────────────
+$sp-1: 4px;   $sp-2: 8px;   $sp-3: 12px;  $sp-4: 16px;
+$sp-5: 20px;  $sp-6: 24px;  $sp-8: 32px;  $sp-10: 40px;
+
+// ── Motion ────────────────────────────────────────────────────────────────────
+$transition:      120ms ease;
+$transition-fast: 80ms ease;
