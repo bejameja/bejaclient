@@ -1,5 +1,5 @@
 import { IpcMain, BrowserWindow } from 'electron'
-import { searchModrinth, getProjectVersions, downloadMod, downloadModVersion, downloadResourcePack, downloadShader, installModpack, ModrinthProjectType } from '../services/modrinthService'
+import { searchModrinth, getProjectVersions, downloadMod, downloadModVersion, downloadResourcePack, downloadShader, downloadDatapack, installModpack, ModrinthProjectType } from '../services/modrinthService'
 import { deleteMod, listMods } from '../services/modService'
 
 export function setupModrinthHandlers(ipcMain: IpcMain, mainWindow: () => BrowserWindow | null): void {
@@ -41,6 +41,13 @@ export function setupModrinthHandlers(ipcMain: IpcMain, mainWindow: () => Browse
 
   ipcMain.handle('modrinth:install-shader', async (event, projectId: string, profileId: string) => {
     await downloadShader(projectId, profileId, msg => {
+      event.sender.send('modrinth:progress', msg)
+    })
+    return true
+  })
+
+  ipcMain.handle('modrinth:install-datapack', async (event, projectId: string, profileId: string) => {
+    await downloadDatapack(projectId, profileId, msg => {
       event.sender.send('modrinth:progress', msg)
     })
     return true

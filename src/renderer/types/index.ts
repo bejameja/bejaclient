@@ -102,7 +102,7 @@ export interface NewsEntry {
 
 export type LaunchStatus = 'idle' | 'starting' | 'running' | 'stopping' | 'error'
 
-export type ModrinthProjectType = 'mod' | 'modpack' | 'resourcepack' | 'shader'
+export type ModrinthProjectType = 'mod' | 'modpack' | 'resourcepack' | 'shader' | 'datapack'
 
 export interface ModrinthHit {
   project_id: string
@@ -205,6 +205,7 @@ declare global {
         installModpack(projectId: string, versionId: string | null): Promise<{ profileId: string; name: string }>
         installResourcePack(projectId: string, profileId: string): Promise<boolean>
         installShader(projectId: string, profileId: string): Promise<boolean>
+        installDatapack(projectId: string, profileId: string): Promise<boolean>
         onProgress(cb: (msg: string) => void): void
         swapMod(profileId: string, oldModId: string, projectId: string, versionId: string): Promise<ModInfo[]>
       }

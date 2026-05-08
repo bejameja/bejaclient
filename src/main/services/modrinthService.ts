@@ -54,7 +54,7 @@ function downloadFile(url: string, dest: string, redirects = 0): Promise<void> {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type ModrinthProjectType = 'mod' | 'modpack' | 'resourcepack' | 'shader'
+export type ModrinthProjectType = 'mod' | 'modpack' | 'resourcepack' | 'shader' | 'datapack'
 
 export interface ModrinthHit {
   project_id: string
@@ -205,6 +205,20 @@ export async function downloadShader(
   const settings = getSettings()
   const gameDir = profile.gameDir || settings.game.defaultGameDir
   await downloadToDir(projectId, path.join(gameDir, 'shaderpacks'), profile.version, undefined, onProgress)
+}
+
+// ── Install datapack ──────────────────────────────────────────────────────────
+
+export async function downloadDatapack(
+  projectId: string,
+  profileId: string,
+  onProgress: (msg: string) => void,
+): Promise<void> {
+  const profile = getProfile(profileId)
+  if (!profile) throw new Error('Profile not found')
+  const settings = getSettings()
+  const gameDir = profile.gameDir || settings.game.defaultGameDir
+  await downloadToDir(projectId, path.join(gameDir, 'datapacks'), profile.version, undefined, onProgress)
 }
 
 // ── Install modpack ───────────────────────────────────────────────────────────

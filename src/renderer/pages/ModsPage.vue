@@ -31,104 +31,6 @@
       </button>
     </div>
 
-    <!-- ── MODULES ──────────────────────────────────────────────────────── -->
-    <template v-if="activeTab === 'modules'">
-      <div class="module-groups">
-        <div v-for="group in moduleGroups" :key="group.category" class="module-group">
-          <div class="module-group-label">{{ group.category }}</div>
-          <div class="module-items">
-            <div v-for="mod in group.modules" :key="mod.id" class="module-wrap">
-
-              <!-- Row -->
-              <div class="module-row" :class="{ active: mod.enabled, editing: editingModuleId === mod.id }">
-                <div class="module-left">
-                  <div class="module-dot" :style="mod.hasColor && mod.enabled ? { background: mod.color } : {}" />
-                  <div class="module-info">
-                    <span class="module-name">{{ mod.name }}</span>
-                    <span class="module-desc">{{ mod.description }}</span>
-                  </div>
-                </div>
-                <div class="module-right">
-                  <span v-if="mod.bind && mod.bind !== 'None'" class="module-bind-badge">{{ mod.bind }}</span>
-                  <button
-                    class="module-gear-btn"
-                    :class="{ active: editingModuleId === mod.id }"
-                    title="Settings"
-                    @click="toggleModuleEdit(mod.id)"
-                  >
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <circle cx="12" cy="12" r="3"/>
-                      <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
-                    </svg>
-                  </button>
-                  <Toggle :model-value="mod.enabled" @update:model-value="val => toggleModule(mod.id, val)" />
-                </div>
-              </div>
-
-              <!-- Settings panel -->
-              <Transition name="edit-expand">
-                <div v-if="editingModuleId === mod.id" class="module-edit-panel">
-
-                  <!-- Keybind -->
-                  <div class="msetting-row">
-                    <span class="msetting-label">Keybind</span>
-                    <button
-                      class="keybind-btn"
-                      :class="{ listening: listeningKeyFor === mod.id }"
-                      @click="startKeyCapture(mod.id)"
-                    >
-                      {{ listeningKeyFor === mod.id ? 'Press a key…' : (mod.bind || 'None') }}
-                    </button>
-                    <button v-if="mod.bind && mod.bind !== 'None'" class="keybind-clear" @click="clearBind(mod.id)">✕</button>
-                  </div>
-
-                  <!-- Color -->
-                  <div v-if="mod.hasColor" class="msetting-row">
-                    <span class="msetting-label">Color</span>
-                    <div class="color-wrap">
-                      <input type="color" :value="mod.color" class="color-input" @input="e => setModuleColor(mod.id, (e.target as HTMLInputElement).value)" />
-                      <span class="color-hex">{{ mod.color }}</span>
-                    </div>
-                  </div>
-
-                  <!-- Extra settings -->
-                  <div v-for="s in mod.settings" :key="s.id" class="msetting-row">
-                    <span class="msetting-label">{{ s.label }}</span>
-                    <div v-if="s.type === 'number'" class="slider-wrap">
-                      <input
-                        type="range"
-                        :min="s.min"
-                        :max="s.max"
-                        :step="s.step ?? 0.1"
-                        :value="s.value"
-                        class="msetting-slider"
-                        @input="e => setModuleSetting(mod.id, s.id, parseFloat((e.target as HTMLInputElement).value))"
-                      />
-                      <span class="slider-val">{{ Number(s.value).toFixed(s.step && s.step >= 1 ? 0 : 1) }}</span>
-                    </div>
-                    <Toggle
-                      v-else-if="s.type === 'toggle'"
-                      :model-value="s.value"
-                      @update:model-value="val => setModuleSetting(mod.id, s.id, val)"
-                    />
-                    <select
-                      v-else-if="s.type === 'select'"
-                      :value="s.value"
-                      class="edit-select msetting-select"
-                      @change="e => setModuleSetting(mod.id, s.id, (e.target as HTMLSelectElement).value)"
-                    >
-                      <option v-for="opt in s.options" :key="opt" :value="opt">{{ opt }}</option>
-                    </select>
-                  </div>
-
-                </div>
-              </Transition>
-            </div>
-          </div>
-        </div>
-      </div>
-    </template>
-
     <!-- ── INSTALLED ─────────────────────────────────────────────────────── -->
     <template v-if="activeTab === 'installed'">
       <div v-if="!activeProfile" class="empty-state">
@@ -228,14 +130,7 @@
       </div>
     </template>
 
-    <!-- ── MODPACKS – coming soon ───────────────────────────────────────── -->
-    <div v-else-if="activeTab === 'modpacks'" class="coming-soon">
-      <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="1.5"/><path d="M16 9v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="16" cy="22" r="1.5" fill="currentColor"/></svg>
-      <span class="cs-title">Coming Soon</span>
-      <span class="cs-text">Modpack browsing will be available in a future update.</span>
-    </div>
-
-    <!-- ── BROWSE (mods / resourcepacks / shaders) ───────────────────── -->
+    <!-- ── BROWSE (mods / modpacks / resourcepacks / shaders / datapacks) ── -->
     <template v-else>
       <div class="browse-bar">
         <input
@@ -328,261 +223,14 @@ const launcherStore = useLauncherStore()
 const activeProfile = computed(() => launcherStore.activeProfile)
 
 const tabs = [
-  { id: 'modules',      label: 'Modules'        },
   { id: 'installed',    label: 'Installed'      },
   { id: 'mods',         label: 'Browse Mods'    },
   { id: 'modpacks',     label: 'Modpacks'       },
   { id: 'resourcepacks',label: 'Resource Packs' },
   { id: 'shaders',      label: 'Shaders'        },
+  { id: 'datapacks',    label: 'Datapacks'      },
 ]
-const activeTab = ref('modules')
-
-// ── client modules ────────────────────────────────────────────────────────────
-interface ModuleSetting {
-  id: string
-  label: string
-  type: 'number' | 'toggle' | 'select'
-  value: any
-  min?: number
-  max?: number
-  step?: number
-  options?: string[]
-}
-
-interface ClientModule {
-  id: string
-  name: string
-  description: string
-  enabled: boolean
-  bind: string
-  hasColor: boolean
-  color: string
-  settings: ModuleSetting[]
-}
-
-interface ModuleGroup {
-  category: string
-  modules: ClientModule[]
-}
-
-const MODULES_DEFAULT: ClientModule[] = [
-  {
-    id: 'last-hit-reach',
-    name: 'Last Hit Reach',
-    description: 'Extends your reach for the finishing hit',
-    enabled: false, bind: 'None', hasColor: false, color: '#ffffff',
-    settings: [
-      { id: 'reach', label: 'Reach Distance', type: 'number', value: 3.5, min: 3.0, max: 6.0, step: 0.1 },
-    ],
-  },
-  {
-    id: 'reply-mod',
-    name: 'Reply Mod',
-    description: 'Quickly reply to the last private message',
-    enabled: false, bind: 'None', hasColor: false, color: '#ffffff',
-    settings: [],
-  },
-  {
-    id: 'zoom',
-    name: 'Zoom',
-    description: 'Optifine-style zoom key',
-    enabled: false, bind: 'None', hasColor: false, color: '#ffffff',
-    settings: [
-      { id: 'level', label: 'Zoom Level', type: 'number', value: 4, min: 1, max: 10, step: 0.5 },
-      { id: 'smooth', label: 'Smooth Zoom', type: 'toggle', value: true },
-    ],
-  },
-  {
-    id: 'crosshair',
-    name: 'Crosshair Indicator',
-    description: 'Custom crosshair with hit indicator',
-    enabled: false, bind: 'None', hasColor: true, color: '#ffffff',
-    settings: [
-      { id: 'style', label: 'Style', type: 'select', value: 'Cross', options: ['Cross', 'Dot', 'Circle', 'Plus'] },
-      { id: 'size', label: 'Size', type: 'number', value: 5, min: 1, max: 20, step: 1 },
-      { id: 'thickness', label: 'Thickness', type: 'number', value: 2, min: 1, max: 6, step: 1 },
-    ],
-  },
-  {
-    id: 'hit-color',
-    name: 'Hit Color',
-    description: 'Tints entities when you hit them',
-    enabled: false, bind: 'None', hasColor: true, color: '#ff4444',
-    settings: [
-      { id: 'duration', label: 'Duration (ms)', type: 'number', value: 150, min: 50, max: 500, step: 10 },
-    ],
-  },
-  {
-    id: 'combat-hitboxes',
-    name: 'Combat Hitboxes',
-    description: 'Shows entity hitboxes during combat',
-    enabled: false, bind: 'None', hasColor: true, color: '#ff0000',
-    settings: [
-      { id: 'opacity', label: 'Opacity', type: 'number', value: 0.4, min: 0.1, max: 1.0, step: 0.05 },
-      { id: 'only-targets', label: 'Only Targeted', type: 'toggle', value: true },
-    ],
-  },
-  {
-    id: 'chat-custom',
-    name: 'Chat Custom',
-    description: 'Customize the chat appearance',
-    enabled: false, bind: 'None', hasColor: true, color: '#27ade0',
-    settings: [
-      { id: 'opacity', label: 'Background Opacity', type: 'number', value: 0.6, min: 0.0, max: 1.0, step: 0.05 },
-      { id: 'width', label: 'Width', type: 'number', value: 320, min: 160, max: 600, step: 10 },
-      { id: 'shadow', label: 'Text Shadow', type: 'toggle', value: true },
-    ],
-  },
-  {
-    id: 'saturation',
-    name: 'Saturation',
-    description: 'Shows your saturation level on the HUD',
-    enabled: false, bind: 'None', hasColor: true, color: '#ffaa00',
-    settings: [
-      { id: 'position', label: 'Position', type: 'select', value: 'Above hunger', options: ['Above hunger', 'Below hunger', 'Next to hunger'] },
-    ],
-  },
-  {
-    id: 'momentum',
-    name: 'Momentum',
-    description: 'Displays your current movement speed',
-    enabled: false, bind: 'None', hasColor: true, color: '#aaffaa',
-    settings: [
-      { id: 'unit', label: 'Unit', type: 'select', value: 'BPS', options: ['BPS', 'KM/H', 'M/S'] },
-      { id: 'show-vertical', label: 'Show Vertical', type: 'toggle', value: false },
-    ],
-  },
-  {
-    id: 'block-outline',
-    name: 'Block Outline',
-    description: 'Custom outline around targeted blocks',
-    enabled: false, bind: 'None', hasColor: true, color: '#ffffff',
-    settings: [
-      { id: 'width', label: 'Line Width', type: 'number', value: 2.0, min: 0.5, max: 5.0, step: 0.5 },
-      { id: 'fill', label: 'Fill', type: 'toggle', value: false },
-      { id: 'fill-opacity', label: 'Fill Opacity', type: 'number', value: 0.15, min: 0.0, max: 0.5, step: 0.05 },
-    ],
-  },
-  {
-    id: 'toggle-sprint',
-    name: 'Toggle Sprint',
-    description: 'Hold or toggle sprint with one key',
-    enabled: false, bind: 'None', hasColor: false, color: '#ffffff',
-    settings: [
-      { id: 'mode', label: 'Mode', type: 'select', value: 'Toggle', options: ['Toggle', 'Hold'] },
-    ],
-  },
-  {
-    id: 'toggle-sneak',
-    name: 'Toggle Sneak',
-    description: 'Hold or toggle sneak with one key',
-    enabled: false, bind: 'None', hasColor: false, color: '#ffffff',
-    settings: [
-      { id: 'mode', label: 'Mode', type: 'select', value: 'Toggle', options: ['Toggle', 'Hold'] },
-    ],
-  },
-]
-
-const MODULE_GROUPS: { category: string; ids: string[] }[] = [
-  { category: 'Combat',    ids: ['last-hit-reach', 'hit-color', 'combat-hitboxes'] },
-  { category: 'Visual',    ids: ['crosshair', 'block-outline', 'saturation', 'momentum'] },
-  { category: 'Movement',  ids: ['toggle-sprint', 'toggle-sneak', 'zoom'] },
-  { category: 'Utility',   ids: ['reply-mod', 'chat-custom'] },
-]
-
-function loadModules(): ClientModule[] {
-  try {
-    const raw = localStorage.getItem('bc_modules')
-    if (!raw) return MODULES_DEFAULT.map(m => ({ ...m, settings: m.settings.map(s => ({ ...s })) }))
-    const saved = JSON.parse(raw) as Record<string, Partial<ClientModule>>
-    return MODULES_DEFAULT.map(def => {
-      const s = saved[def.id]
-      if (!s) return { ...def, settings: def.settings.map(x => ({ ...x })) }
-      return {
-        ...def,
-        enabled: s.enabled ?? def.enabled,
-        bind:    s.bind    ?? def.bind,
-        color:   s.color   ?? def.color,
-        settings: def.settings.map(ds => {
-          const sv = s.settings?.find(x => x.id === ds.id)
-          return { ...ds, value: sv?.value ?? ds.value }
-        }),
-      }
-    })
-  } catch { return MODULES_DEFAULT.map(m => ({ ...m, settings: m.settings.map(s => ({ ...s })) })) }
-}
-
-function saveModules() {
-  const data: Record<string, any> = {}
-  for (const m of clientModules.value) {
-    data[m.id] = { enabled: m.enabled, bind: m.bind, color: m.color, settings: m.settings.map(s => ({ id: s.id, value: s.value })) }
-  }
-  localStorage.setItem('bc_modules', JSON.stringify(data))
-}
-
-const clientModules = ref<ClientModule[]>(loadModules())
-
-const moduleGroups = computed<ModuleGroup[]>(() =>
-  MODULE_GROUPS.map(g => ({
-    category: g.category,
-    modules: g.ids.map(id => clientModules.value.find(m => m.id === id)!).filter(Boolean),
-  }))
-)
-
-const editingModuleId = ref<string | null>(null)
-const listeningKeyFor = ref<string | null>(null)
-let keyCaptureCleanup: (() => void) | null = null
-
-function toggleModuleEdit(id: string) {
-  if (editingModuleId.value === id) {
-    editingModuleId.value = null
-    stopKeyCapture()
-  } else {
-    editingModuleId.value = id
-    stopKeyCapture()
-  }
-}
-
-function toggleModule(id: string, val: boolean) {
-  const m = clientModules.value.find(x => x.id === id)
-  if (m) { m.enabled = val; saveModules() }
-}
-
-function setModuleColor(id: string, color: string) {
-  const m = clientModules.value.find(x => x.id === id)
-  if (m) { m.color = color; saveModules() }
-}
-
-function setModuleSetting(moduleId: string, settingId: string, value: any) {
-  const m = clientModules.value.find(x => x.id === moduleId)
-  if (!m) return
-  const s = m.settings.find(x => x.id === settingId)
-  if (s) { s.value = value; saveModules() }
-}
-
-function startKeyCapture(id: string) {
-  stopKeyCapture()
-  listeningKeyFor.value = id
-  const handler = (e: KeyboardEvent) => {
-    e.preventDefault()
-    const key = e.key === ' ' ? 'Space' : e.key.length === 1 ? e.key.toUpperCase() : e.key
-    const m = clientModules.value.find(x => x.id === id)
-    if (m) { m.bind = key; saveModules() }
-    stopKeyCapture()
-  }
-  window.addEventListener('keydown', handler, { once: true })
-  keyCaptureCleanup = () => window.removeEventListener('keydown', handler)
-}
-
-function stopKeyCapture() {
-  listeningKeyFor.value = null
-  if (keyCaptureCleanup) { keyCaptureCleanup(); keyCaptureCleanup = null }
-}
-
-function clearBind(id: string) {
-  const m = clientModules.value.find(x => x.id === id)
-  if (m) { m.bind = 'None'; saveModules() }
-}
+const activeTab = ref('installed')
 
 // ── installed ─────────────────────────────────────────────────────────────────
 const mods = ref<ModInfo[]>([])
@@ -715,6 +363,7 @@ const modrinthType = computed((): ModrinthProjectType => {
   if (activeTab.value === 'modpacks')      return 'modpack'
   if (activeTab.value === 'resourcepacks') return 'resourcepack'
   if (activeTab.value === 'shaders')       return 'shader'
+  if (activeTab.value === 'datapacks')     return 'datapack'
   return 'mod'
 })
 
@@ -722,6 +371,7 @@ const searchPlaceholder = computed(() => {
   if (activeTab.value === 'modpacks')      return 'Search modpacks…'
   if (activeTab.value === 'resourcepacks') return 'Search resource packs…'
   if (activeTab.value === 'shaders')       return 'Search shaders…'
+  if (activeTab.value === 'datapacks')     return 'Search datapacks…'
   return 'Search mods…'
 })
 
@@ -753,9 +403,9 @@ async function doSearch(reset: boolean) {
   }
 }
 
-// Reset + auto-load when switching browse tabs (not modpacks — Coming Soon)
+// Reset + auto-load when switching browse tabs
 watch(activeTab, tab => {
-  if (tab === 'installed' || tab === 'modpacks') return
+  if (tab === 'installed') return
   query.value = ''
   results.value = []
   total.value = 0
@@ -795,6 +445,9 @@ async function installHit(hit: ModrinthHit) {
     } else if (activeTab.value === 'shaders') {
       await window.api.modrinth.installShader(hit.project_id, activeProfile.value.id)
       showToast(`${hit.title} installed to shaderpacks`, 'success')
+    } else if (activeTab.value === 'datapacks') {
+      await window.api.modrinth.installDatapack(hit.project_id, activeProfile.value.id)
+      showToast(`${hit.title} downloaded — copy it to your world's datapacks folder`, 'success')
     }
   } catch (e) {
     showToast(String(e), 'error')
@@ -955,13 +608,6 @@ function formatDownloads(n: number) {
   &::placeholder { color: $muted; }
 }
 
-.coming-soon {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: $sp-8; gap: $sp-3; text-align: center; color: $muted;
-}
-.cs-title { font-size: 16px; font-weight: 700; color: $text-secondary; }
-.cs-text  { font-size: 12px; color: $muted; max-width: 280px; line-height: 1.5; }
-
 .browse-loading {
   display: flex; align-items: center; justify-content: center; gap: $sp-3;
   padding: $sp-8; color: $muted; font-size: 13px;
@@ -1047,236 +693,5 @@ function formatDownloads(n: number) {
 .slide-up-enter-active { transition: all 0.2s ease; }
 .slide-up-enter-from { opacity: 0; transform: translateY(6px); }
 
-// ── Modules tab ───────────────────────────────────────────────────────────────
-.module-groups {
-  display: flex;
-  flex-direction: column;
-  gap: $sp-5;
-}
 
-.module-group-label {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: $muted;
-  padding: 0 2px $sp-1;
-  border-bottom: 1px solid $border;
-  margin-bottom: $sp-1;
-}
-
-.module-items {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.module-wrap {
-  display: flex;
-  flex-direction: column;
-}
-
-.module-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px $sp-4;
-  background: $surface;
-  border-radius: $radius;
-  transition: background $transition, border-radius $transition;
-
-  &:hover { background: $surface-elevated; }
-
-  &.active .module-dot {
-    background: var(--accent, #{$accent});
-  }
-
-  &.editing {
-    border-radius: $radius $radius 0 0;
-    background: $surface-elevated;
-  }
-}
-
-.module-left {
-  display: flex;
-  align-items: center;
-  gap: $sp-3;
-  min-width: 0;
-}
-
-.module-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: $border;
-  flex-shrink: 0;
-  transition: background $transition;
-}
-
-.module-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.module-name {
-  font-size: 13px;
-  font-weight: 700;
-  color: $text-primary;
-}
-
-.module-desc {
-  font-size: 11px;
-  color: $muted;
-}
-
-.module-right {
-  display: flex;
-  align-items: center;
-  gap: $sp-2;
-  flex-shrink: 0;
-}
-
-.module-bind-badge {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  padding: 2px 7px;
-  border-radius: $radius-sm;
-  background: $surface-elevated;
-  border: 1px solid $border;
-  color: $text-secondary;
-}
-
-.module-gear-btn {
-  width: 26px;
-  height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: $radius;
-  color: $muted;
-  cursor: pointer;
-  transition: background $transition, color $transition;
-
-  &:hover { background: $border; color: $text-primary; }
-  &.active { background: $border; color: var(--accent, #{$accent}); }
-}
-
-.module-edit-panel {
-  background: $surface-elevated;
-  border: 1px solid $border;
-  border-top: none;
-  border-radius: 0 0 $radius $radius;
-  padding: $sp-3 $sp-4;
-  display: flex;
-  flex-direction: column;
-  gap: $sp-3;
-}
-
-.msetting-row {
-  display: flex;
-  align-items: center;
-  gap: $sp-3;
-}
-
-.msetting-label {
-  font-size: 11px;
-  color: $muted;
-  min-width: 120px;
-  flex-shrink: 0;
-}
-
-.keybind-btn {
-  padding: 4px 12px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  background: $surface;
-  border: 1px solid $border;
-  border-radius: $radius;
-  color: $text-primary;
-  cursor: pointer;
-  transition: border-color $transition, background $transition;
-  font-family: inherit;
-
-  &:hover { border-color: $border-strong; }
-
-  &.listening {
-    border-color: var(--accent, #{$accent});
-    color: var(--accent, #{$accent});
-    animation: pulse-border 0.8s ease infinite alternate;
-  }
-}
-
-@keyframes pulse-border {
-  from { box-shadow: 0 0 0 0 rgba(39, 173, 224, 0); }
-  to   { box-shadow: 0 0 0 3px rgba(39, 173, 224, 0.2); }
-}
-
-.keybind-clear {
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: $radius-sm;
-  color: $muted;
-  cursor: pointer;
-  font-size: 11px;
-  transition: color $transition;
-  &:hover { color: $text-primary; }
-}
-
-.color-wrap {
-  display: flex;
-  align-items: center;
-  gap: $sp-2;
-}
-
-.color-input {
-  width: 32px;
-  height: 24px;
-  border: 1px solid $border;
-  border-radius: $radius;
-  background: transparent;
-  cursor: pointer;
-  padding: 1px;
-}
-
-.color-hex {
-  font-size: 11px;
-  color: $text-secondary;
-  font-family: monospace;
-}
-
-.slider-wrap {
-  display: flex;
-  align-items: center;
-  gap: $sp-2;
-  flex: 1;
-}
-
-.msetting-slider {
-  flex: 1;
-  accent-color: var(--accent, #{$accent});
-  cursor: pointer;
-}
-
-.slider-val {
-  font-size: 11px;
-  font-weight: 700;
-  color: $text-secondary;
-  min-width: 30px;
-  text-align: right;
-}
-
-.msetting-select {
-  flex: 1;
-}
 </style>

@@ -104,6 +104,8 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke('modrinth:install-resourcepack', projectId, profileId),
     installShader: (projectId: string, profileId: string) =>
       ipcRenderer.invoke('modrinth:install-shader', projectId, profileId),
+    installDatapack: (projectId: string, profileId: string) =>
+      ipcRenderer.invoke('modrinth:install-datapack', projectId, profileId),
     onProgress: (cb: (msg: string) => void) => {
       ipcRenderer.on('modrinth:progress', (_e, msg) => cb(msg))
     },
