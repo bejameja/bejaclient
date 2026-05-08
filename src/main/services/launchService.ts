@@ -1,11 +1,11 @@
 import { ChildProcess } from 'child_process'
-import { existsSync, readdirSync, unlinkSync } from 'fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, unlinkSync } from 'fs'
 import { join } from 'path'
 import { app } from 'electron'
 import { getSettings } from './settingsService'
 import { getProfile, type LaunchProfile } from './profileService'
 import { getSelectedAccount, refreshAccount } from './authService'
-import { checkAndUpdateClientJar, resolveBootstrapJar } from './clientUpdateService'
+import { checkAndUpdateClientJar, resolveAdapterJar, resolveBootstrapJar } from './clientUpdateService'
 
 function removeBejaModJars(gameDir: string, onLog: (line: string) => void): void {
   const modsDir = join(gameDir, 'mods')
@@ -99,6 +99,26 @@ export async function launchGame(
   // Always purge any leftover bejaclient mod JARs — BejaClient runs as a Java agent, not a mod
   removeBejaModJars(gameDir, onLog)
 
+  // Stage adapter JAR into mods/ so Fabric Loader always picks it up on its classpath.
+  // fabric.addMods is unreliable in Fabric Loader 0.18.6+; mods/ is always scanned.
+  const modsDir = join(gameDir, 'mods')
+  const adapterTempPath = join(modsDir, 'beja-adapter-loader.jar')
+  if (existsSync(adapterTempPath)) {
+    try { unlinkSync(adapterTempPath) } catch { /* ignore */ }
+  }
+  let adapterWasStaged = false
+  if (profile.useBejaClient) {
+    const adapterJar = resolveAdapterJar()
+    if (adapterJar) {
+      if (!existsSync(modsDir)) mkdirSync(modsDir, { recursive: true })
+      copyFileSync(adapterJar, adapterTempPath)
+      adapterWasStaged = true
+      onLog(`[BejaClient] Staged adapter JAR → mods/beja-adapter-loader.jar`)
+    } else {
+      onLog('[BejaClient] Adapter JAR not found — BejaHooks calls may fail.')
+    }
+  }
+
   const proc = await launch({
     gamePath: gameDir,
     resourcePath: gameDir,
@@ -138,6 +158,9 @@ export async function launchGame(
   })
 
   proc.on('exit', code => {
+    if (adapterWasStaged && existsSync(adapterTempPath)) {
+      try { unlinkSync(adapterTempPath) } catch { /* ignore */ }
+    }
     activeProcess = null
     onStatus(`stopped:${code ?? 0}`)
   })

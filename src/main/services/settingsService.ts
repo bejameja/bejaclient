@@ -54,6 +54,24 @@ const defaultSettings: AppSettings = {
   activeProfileId: null,
 }
 
+function deepMerge<T extends object>(base: T, patch: Partial<T>): T {
+  const out = { ...base }
+  for (const key of Object.keys(patch) as (keyof T)[]) {
+    const bv = base[key]
+    const pv = patch[key]
+    if (
+      bv !== null && pv !== null &&
+      typeof bv === 'object' && typeof pv === 'object' &&
+      !Array.isArray(bv)
+    ) {
+      out[key] = deepMerge(bv as object, pv as Partial<object>) as T[keyof T]
+    } else if (pv !== undefined) {
+      out[key] = pv as T[keyof T]
+    }
+  }
+  return out
+}
+
 function getSettingsPath() {
   const dir = app.getPath('userData')
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
@@ -65,7 +83,7 @@ export function getSettings(): AppSettings {
   if (!existsSync(path)) return { ...defaultSettings }
   try {
     const raw = readFileSync(path, 'utf-8')
-    return { ...defaultSettings, ...JSON.parse(raw) }
+    return deepMerge(defaultSettings, JSON.parse(raw) as Partial<AppSettings>)
   } catch {
     return { ...defaultSettings }
   }

@@ -1,7 +1,8 @@
 import https from 'https'
 import http from 'http'
-import { createWriteStream, existsSync, mkdirSync, readdirSync, unlinkSync } from 'fs'
+import { createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, unlinkSync } from 'fs'
 import { join } from 'path'
+import { createHash } from 'crypto'
 import { app } from 'electron'
 
 const VERSION_JSON_URL =
@@ -11,7 +12,18 @@ export interface ClientVersionInfo {
   version: string
   url: string
   filename: string
+  sha256?: string
   releaseDate?: string
+}
+
+function computeSha256(filePath: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const hash = createHash('sha256')
+    const stream = createReadStream(filePath)
+    stream.on('data', (chunk: Buffer) => hash.update(chunk))
+    stream.on('end', () => resolve(hash.digest('hex')))
+    stream.on('error', reject)
+  })
 }
 
 // ── Path resolution ───────────────────────────────────────────────────────────
@@ -43,6 +55,30 @@ export function resolveBootstrapJar(): string | null {
   for (const dir of candidates) {
     if (!existsSync(dir)) continue
     const jars = readdirSync(dir).filter(isBootstrap)
+    if (jars.length > 0) return join(dir, jars[0])
+  }
+
+  return null
+}
+
+/**
+ * Finds the adapter JAR (beja-v*-*.jar). Same search order as the bootstrap.
+ * Excludes sources and dev JARs.
+ */
+export function resolveAdapterJar(): string | null {
+  const isAdapter = (f: string) =>
+    f.startsWith('beja-v') && f.endsWith('.jar') &&
+    !f.includes('-sources') && !f.includes('-dev')
+
+  const candidates = [
+    getDownloadedLibsDir(),
+    join(process.resourcesPath ?? '', 'beja-libs'),
+    join(app.getAppPath(), '..', 'BejaClient-MC', 'dist'),
+  ]
+
+  for (const dir of candidates) {
+    if (!existsSync(dir)) continue
+    const jars = readdirSync(dir).filter(isAdapter)
     if (jars.length > 0) return join(dir, jars[0])
   }
 
@@ -172,6 +208,16 @@ export async function checkAndUpdateClientJar(
     await downloadFile(remote.url, dest, pct => {
       onStatus(`Downloading BejaClient ${remote.version}… ${pct}%`)
     })
+
+    if (remote.sha256) {
+      onLog('[BejaClient] Verifying checksum…')
+      const actual = await computeSha256(dest)
+      if (actual !== remote.sha256.toLowerCase()) {
+        try { unlinkSync(dest) } catch { /* ignore */ }
+        throw new Error(`Checksum mismatch — expected ${remote.sha256} got ${actual}`)
+      }
+      onLog('[BejaClient] Checksum OK.')
+    }
 
     onLog(`[BejaClient] Update complete → ${dest}`)
   } catch (err) {

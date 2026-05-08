@@ -1,5 +1,6 @@
 import { autoUpdater, UpdateInfo, ProgressInfo } from 'electron-updater'
 import { BrowserWindow, app } from 'electron'
+import { getSettings } from './settingsService'
 
 type LogFn = (level: 'INFO' | 'WARN' | 'ERROR', msg: string) => void
 
@@ -52,12 +53,17 @@ export function initAutoUpdater(getWindow: () => BrowserWindow | null, log: LogF
     getWindow()?.webContents.send('updater:downloaded', { version: info.version })
   })
 
-  // Check automatically after startup (give window time to load).
-  setTimeout(() => {
-    autoUpdater.checkForUpdatesAndNotify().catch((err: Error) => {
-      log('WARN', `updater: auto-check failed — ${err?.message ?? err}`)
-    })
-  }, 5000)
+  // Only auto-check on startup when the user has auto-update enabled (default: true).
+  const { launcher } = getSettings()
+  if (launcher.autoUpdate) {
+    setTimeout(() => {
+      autoUpdater.checkForUpdatesAndNotify().catch((err: Error) => {
+        log('WARN', `updater: auto-check failed — ${err?.message ?? err}`)
+      })
+    }, 5000)
+  } else {
+    log('INFO', 'updater: auto-check skipped (disabled in settings)')
+  }
 
   return {
     checkForUpdates: () => autoUpdater.checkForUpdates(),
