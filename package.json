@@ -1,11 +1,11 @@
 {
   "name": "bejaclient",
   "productName": "BejaClient",
-  "version": "1.1.4",
+  "version": "1.2.1",
   "description": "A Better Minecraft Launcher",
   "author": {
     "name": "BejaClient",
-    "email": "contact@bejaclient.pages.dev"
+    "email": "contact@bejaclient.xyz"
   },
   "main": "dist-electron/main/index.js",
   "scripts": {

@@ -6,6 +6,7 @@ export const useLauncherStore = defineStore('launcher', () => {
   const profiles = ref<LaunchProfile[]>([])
   const activeProfile = ref<LaunchProfile | null>(null)
   const status = ref<LaunchStatus>('idle')
+  const statusMsg = ref<string>('')
   const logs = ref<string[]>([])
   const lastError = ref<string | null>(null)
   const installProgress = ref<VersionProgress | null>(null)
@@ -81,8 +82,10 @@ export const useLauncherStore = defineStore('launcher', () => {
     window.api.launch.onStatus(s => {
       if (s === 'running') {
         status.value = 'running'
+        statusMsg.value = ''
       } else if (s.startsWith('stopped:')) {
         const code = parseInt(s.split(':')[1] ?? '0', 10)
+        statusMsg.value = ''
         if (code === 0) {
           status.value = 'idle'
         } else {
@@ -94,6 +97,9 @@ export const useLauncherStore = defineStore('launcher', () => {
         }
       } else if (s === 'starting') {
         status.value = 'starting'
+        statusMsg.value = ''
+      } else {
+        statusMsg.value = s
       }
     })
     window.api.versions.onProgress(p => {
@@ -113,6 +119,7 @@ export const useLauncherStore = defineStore('launcher', () => {
     profiles,
     activeProfile,
     status,
+    statusMsg,
     logs,
     lastError,
     installProgress,

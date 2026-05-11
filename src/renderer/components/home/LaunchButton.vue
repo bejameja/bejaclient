@@ -25,7 +25,7 @@
         <svg class="launch-icon spin" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
         </svg>
-        <span class="launch-label">Starting…</span>
+        <span class="launch-label" :class="{ 'launch-label--status': store.statusMsg }">{{ store.statusMsg || 'Starting…' }}</span>
       </template>
 
       <!-- Running -->
@@ -212,6 +212,16 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside, true
   font-weight: 700;
   letter-spacing: -0.3px;
   line-height: 1;
+
+  &--status {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
+  }
 }
 
 .launch-divider {

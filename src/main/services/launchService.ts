@@ -82,6 +82,9 @@ export async function launchGame(
   const javaPath = profile.javaPath || settings.game.defaultJavaPath || 'java'
   const gameDir = profile.gameDir || settings.game.defaultGameDir
 
+  onLog(`[Launcher] Profile: ${profile.name} | ${profile.version} | ${profile.loader} | BejaClient: ${profile.useBejaClient}`)
+  onLog(`[Launcher] Java: ${javaPath} | Game dir: ${gameDir}`)
+
   // Auto-update the BejaClient JAR before launch (non-fatal if offline)
   if (profile.useBejaClient) {
     await checkAndUpdateClientJar(onLog, onStatus)
@@ -110,10 +113,14 @@ export async function launchGame(
   if (profile.useBejaClient) {
     const adapterJar = resolveAdapterJar()
     if (adapterJar) {
-      if (!existsSync(modsDir)) mkdirSync(modsDir, { recursive: true })
-      copyFileSync(adapterJar, adapterTempPath)
-      adapterWasStaged = true
-      onLog(`[BejaClient] Staged adapter JAR → mods/beja-adapter-loader.jar`)
+      try {
+        if (!existsSync(modsDir)) mkdirSync(modsDir, { recursive: true })
+        copyFileSync(adapterJar, adapterTempPath)
+        adapterWasStaged = true
+        onLog(`[BejaClient] Staged adapter JAR → mods/beja-adapter-loader.jar`)
+      } catch (err) {
+        throw new Error(`Failed to stage adapter JAR: ${String(err)}`)
+      }
     } else {
       onLog('[BejaClient] Adapter JAR not found — BejaHooks calls may fail.')
     }
@@ -157,12 +164,14 @@ export async function launchGame(
       .forEach(line => onLog(`[ERR] ${line}`))
   })
 
-  proc.on('exit', code => {
+  let exitCode: number | null = null
+  proc.on('exit', code => { exitCode = code ?? 0 })
+  proc.on('close', () => {
     if (adapterWasStaged && existsSync(adapterTempPath)) {
       try { unlinkSync(adapterTempPath) } catch { /* ignore */ }
     }
     activeProcess = null
-    onStatus(`stopped:${code ?? 0}`)
+    onStatus(`stopped:${exitCode ?? 0}`)
   })
 }
 

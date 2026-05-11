@@ -66,6 +66,7 @@
 
         <!-- Progress / launch hint -->
         <p v-if="installProgress" class="play-sub">{{ installProgress.task }}</p>
+        <p v-else-if="launcherStore.status === 'error' && launcherStore.lastError" class="play-error">{{ launcherStore.lastError.split('\n')[0] }}</p>
         <p v-else-if="!account" class="play-hint" @click="goSettings">
           Sign in to play →
         </p>
@@ -404,6 +405,17 @@ async function handlePlay() {
   transition: color $transition;
 
   &:hover { color: var(--accent, #{$accent}); }
+}
+
+.play-error {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: #e05050;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 380px;
 }
 
 // ── News zone ─────────────────────────────────────────────────────────────────

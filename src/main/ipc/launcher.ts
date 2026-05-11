@@ -13,6 +13,7 @@ import { setIdlePresence, setPlayingPresence } from '../services/discordRPC'
 
 export function setupLaunchHandlers(ipcMain: IpcMain, mainWindow: BrowserWindow | null): void {
   ipcMain.handle('launch:start', async (event, profileId: string) => {
+    event.sender.send('launch:log', '[IPC] launch:start handler invoked')
     await launchGame(
       profileId,
       line => event.sender.send('launch:log', line),
