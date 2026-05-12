@@ -13,6 +13,9 @@ export interface ClientVersionInfo {
   url: string
   filename: string
   sha256?: string
+  adapterUrl?: string
+  adapterFilename?: string
+  adapterSha256?: string
   releaseDate?: string
 }
 
@@ -54,7 +57,7 @@ export function resolveBootstrapJar(): string | null {
 
   for (const dir of candidates) {
     if (!existsSync(dir)) continue
-    const jars = readdirSync(dir).filter(isBootstrap)
+    const jars = readdirSync(dir).filter(isBootstrap).sort().reverse()
     if (jars.length > 0) return join(dir, jars[0])
   }
 
@@ -78,7 +81,7 @@ export function resolveAdapterJar(): string | null {
 
   for (const dir of candidates) {
     if (!existsSync(dir)) continue
-    const jars = readdirSync(dir).filter(isAdapter)
+    const jars = readdirSync(dir).filter(isAdapter).sort().reverse()
     if (jars.length > 0) return join(dir, jars[0])
   }
 
@@ -87,9 +90,9 @@ export function resolveAdapterJar(): string | null {
 
 function getLocalVersion(dir: string): string | null {
   if (!existsSync(dir)) return null
-  const jars = readdirSync(dir).filter(
-    f => f.startsWith('beja-bootstrap-') && f.endsWith('.jar'),
-  )
+  const jars = readdirSync(dir)
+    .filter(f => f.startsWith('beja-bootstrap-') && f.endsWith('.jar'))
+    .sort().reverse()
   if (!jars.length) return null
   const m = jars[0].match(/beja-bootstrap-(.+)\.jar$/)
   return m ? m[1] : null
@@ -194,12 +197,12 @@ export async function checkAndUpdateClientJar(
       return
     }
 
+    if (!existsSync(dlDir)) mkdirSync(dlDir, { recursive: true })
+
+    // Bootstrap JAR
     onStatus(`Downloading BejaClient ${remote.version}…`)
     onLog(`[BejaClient] Downloading ${remote.filename}…`)
 
-    if (!existsSync(dlDir)) mkdirSync(dlDir, { recursive: true })
-
-    // Remove stale JARs before writing the new one
     readdirSync(dlDir)
       .filter(f => f.startsWith('beja-bootstrap-') && f.endsWith('.jar'))
       .forEach(f => { try { unlinkSync(join(dlDir, f)) } catch { /* ignore */ } })
@@ -210,13 +213,41 @@ export async function checkAndUpdateClientJar(
     })
 
     if (remote.sha256) {
-      onLog('[BejaClient] Verifying checksum…')
+      onLog('[BejaClient] Verifying bootstrap checksum…')
       const actual = await computeSha256(dest)
       if (actual !== remote.sha256.toLowerCase()) {
         try { unlinkSync(dest) } catch { /* ignore */ }
-        throw new Error(`Checksum mismatch — expected ${remote.sha256} got ${actual}`)
+        throw new Error(`Bootstrap checksum mismatch — expected ${remote.sha256} got ${actual}`)
       }
-      onLog('[BejaClient] Checksum OK.')
+      onLog('[BejaClient] Bootstrap checksum OK.')
+    }
+
+    // Adapter JAR — must live next to bootstrap so AdapterLocator finds it
+    if (remote.adapterUrl && remote.adapterFilename) {
+      onLog(`[BejaClient] Downloading ${remote.adapterFilename}…`)
+
+      readdirSync(dlDir)
+        .filter(f => f.startsWith('beja-v') && f.endsWith('.jar') && !f.includes('-sources') && !f.includes('-dev'))
+        .forEach(f => { try { unlinkSync(join(dlDir, f)) } catch { /* ignore */ } })
+
+      const adapterDest = join(dlDir, remote.adapterFilename)
+      await downloadFile(remote.adapterUrl, adapterDest, pct => {
+        onStatus(`Downloading adapter ${remote.version}… ${pct}%`)
+      })
+
+      if (remote.adapterSha256) {
+        onLog('[BejaClient] Verifying adapter checksum…')
+        const actual = await computeSha256(adapterDest)
+        if (actual !== remote.adapterSha256.toLowerCase()) {
+          try { unlinkSync(adapterDest) } catch { /* ignore */ }
+          throw new Error(`Adapter checksum mismatch — expected ${remote.adapterSha256} got ${actual}`)
+        }
+        onLog('[BejaClient] Adapter checksum OK.')
+      }
+
+      onLog(`[BejaClient] Adapter downloaded → ${adapterDest}`)
+    } else {
+      onLog('[BejaClient] No adapter URL in version manifest — adapter not updated.')
     }
 
     onLog(`[BejaClient] Update complete → ${dest}`)
