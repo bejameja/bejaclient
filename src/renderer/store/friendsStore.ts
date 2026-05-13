@@ -2,19 +2,16 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
 export interface Friend {
-  id: string
-  gamertag: string
-  addedAt: number
+  uuid: string
+  username: string
+  online: boolean
 }
 
 export interface FriendRequest {
-  id: string
-  gamertag: string
+  uuid: string
+  username: string
   direction: 'incoming' | 'outgoing'
-  sentAt: number
 }
-
-const KEY = 'beja-friends'
 
 export const useFriendsStore = defineStore('friends', () => {
   const friends     = ref<Friend[]>([])
@@ -25,64 +22,78 @@ export const useFriendsStore = defineStore('friends', () => {
   const outgoingRequests = computed(() => requests.value.filter(r => r.direction === 'outgoing'))
   const pendingCount     = computed(() => incomingRequests.value.length)
 
-  function persist() {
-    localStorage.setItem(KEY, JSON.stringify({ friends: friends.value, requests: requests.value, panelHidden: panelHidden.value }))
-  }
-
-  function load() {
+  async function refresh() {
     try {
-      const raw = localStorage.getItem(KEY)
-      if (raw) {
-        const data = JSON.parse(raw)
-        friends.value     = data.friends     ?? []
-        requests.value    = data.requests    ?? []
-        panelHidden.value = data.panelHidden ?? false
-      }
-    } catch {}
+      const rows = await window.api.friends.list()
+      friends.value  = rows.filter(r => r.status === 'accepted').map(r => ({ uuid: r.uuid, username: r.username, online: r.online }))
+      requests.value = rows.filter(r => r.status === 'pending').map(r => ({ uuid: r.uuid, username: r.username, direction: r.direction as 'incoming' | 'outgoing' }))
+    } catch { /* non-fatal */ }
   }
 
-  function sendRequest(gamertag: string): 'sent' | 'already_friends' | 'already_pending' {
-    const lower = gamertag.trim().toLowerCase()
-    if (!lower) return 'already_pending'
-    if (friends.value.some(f => f.gamertag.toLowerCase() === lower))  return 'already_friends'
-    if (requests.value.some(r => r.gamertag.toLowerCase() === lower)) return 'already_pending'
-    requests.value.push({ id: crypto.randomUUID(), gamertag: gamertag.trim(), direction: 'outgoing', sentAt: Date.now() })
-    persist()
-    return 'sent'
+  async function connect() {
+    await window.api.friends.connect()
+    await refresh()
   }
 
-  function acceptRequest(id: string) {
-    const req = requests.value.find(r => r.id === id)
-    if (!req) return
-    friends.value.push({ id: crypto.randomUUID(), gamertag: req.gamertag, addedAt: Date.now() })
-    requests.value = requests.value.filter(r => r.id !== id)
-    persist()
+  async function sendRequest(username: string): Promise<'sent' | 'already_friends' | 'already_pending' | 'not_found' | 'error'> {
+    const lower = username.trim().toLowerCase()
+    if (friends.value.some(f => f.username.toLowerCase() === lower))  return 'already_friends'
+    if (requests.value.some(r => r.username.toLowerCase() === lower)) return 'already_pending'
+    try {
+      const result = await window.api.friends.sendRequest(username.trim())
+      if (result.error === 'not_found')    return 'not_found'
+      if (result.error)                    return 'error'
+      await refresh()
+      return 'sent'
+    } catch { return 'error' }
   }
 
-  function declineRequest(id: string) {
-    requests.value = requests.value.filter(r => r.id !== id)
-    persist()
+  async function acceptRequest(uuid: string) {
+    await window.api.friends.acceptRequest(uuid)
+    await refresh()
   }
 
-  function cancelRequest(id: string) {
-    requests.value = requests.value.filter(r => r.id !== id)
-    persist()
+  async function declineRequest(uuid: string) {
+    await window.api.friends.removeOrDecline(uuid)
+    await refresh()
   }
 
-  function removeFriend(id: string) {
-    friends.value = friends.value.filter(f => f.id !== id)
-    persist()
+  async function cancelRequest(uuid: string) {
+    await window.api.friends.removeOrDecline(uuid)
+    await refresh()
+  }
+
+  async function removeFriend(uuid: string) {
+    await window.api.friends.removeOrDecline(uuid)
+    await refresh()
   }
 
   function togglePanel() {
     panelHidden.value = !panelHidden.value
-    persist()
   }
 
-  load()
+  // Socket event handlers — called from root component after connect()
+  function handleOnline(data: { uuid: string; username: string }) {
+    const f = friends.value.find(f => f.uuid === data.uuid)
+    if (f) f.online = true
+  }
+
+  function handleOffline(data: { uuid: string }) {
+    const f = friends.value.find(f => f.uuid === data.uuid)
+    if (f) f.online = false
+  }
+
+  function handleRequest(data: { uuid: string; username: string }) {
+    if (!requests.value.some(r => r.uuid === data.uuid)) {
+      requests.value.push({ uuid: data.uuid, username: data.username, direction: 'incoming' })
+    }
+  }
 
   return {
-    friends, requests, panelHidden, incomingRequests, outgoingRequests, pendingCount,
+    friends, requests, panelHidden,
+    incomingRequests, outgoingRequests, pendingCount,
+    connect, refresh,
     sendRequest, acceptRequest, declineRequest, cancelRequest, removeFriend, togglePanel,
+    handleOnline, handleOffline, handleRequest,
   }
 })

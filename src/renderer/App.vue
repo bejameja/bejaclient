@@ -24,6 +24,7 @@ import { useScrollState } from './composables/useScrollState'
 import { useAccountStore } from './store/accountStore'
 import { useLauncherStore } from './store/launcherStore'
 import { useSettingsStore } from './store/settingsStore'
+import { useFriendsStore } from './store/friendsStore'
 import { playLaunch, playMouseClick, warmAudio } from './composables/useSounds'
 
 const route = useRoute()
@@ -39,6 +40,7 @@ function onScroll() {
 const accountStore  = useAccountStore()
 const launcherStore = useLauncherStore()
 const settingsStore = useSettingsStore()
+const friendsStore  = useFriendsStore()
 
 function applyAccent(color: string) {
   document.documentElement.style.setProperty('--accent', color)
@@ -54,6 +56,9 @@ onMounted(async () => {
   ])
   applyAccent(settingsStore.settings.appearance.accentColor)
   launcherStore.setupLaunchListeners()
+  window.api.friends.onOnline(d  => friendsStore.handleOnline(d))
+  window.api.friends.onOffline(d => friendsStore.handleOffline(d))
+  window.api.friends.onRequest(d => friendsStore.handleRequest(d))
   warmAudio()
   document.addEventListener('mousedown', (e) => { if (e.button === 0) playMouseClick() })
 })

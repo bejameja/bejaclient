@@ -9,6 +9,8 @@ const LIVE_CLIENT_ID = '00000000402b5328'
 const LIVE_SCOPE = 'service::user.auth.xboxlive.com::MBI_SSL'
 const LIVE_REDIRECT = 'https://login.live.com/oauth20_desktop.srf'
 
+const BEJA_API = 'http://206.217.141.184:3093'
+
 export interface StoredAccount {
   id: string
   username: string
@@ -20,6 +22,7 @@ export interface StoredAccount {
   capeUrl: string | null
   skinModel: 'default' | 'slim'
   selected: boolean
+  bejaToken?: string
 }
 
 function getAccountsPath() {
@@ -184,6 +187,13 @@ async function finalizeLogin(liveAccessToken: string, liveRefreshToken: string, 
   const activeSkin = profile.skins.find(s => s.state === 'ACTIVE')
   const activeCape = profile.capes.find(c => c.state === 'ACTIVE')
 
+  let bejaToken: string | undefined
+  try {
+    const raw = await postJson(`${BEJA_API}/api/auth/login`, { uuid: profile.id, username: profile.name })
+    const parsed = JSON.parse(raw) as { token?: string }
+    bejaToken = parsed.token
+  } catch { /* non-fatal */ }
+
   const account: StoredAccount = {
     id: profile.id,
     username: profile.name,
@@ -195,6 +205,7 @@ async function finalizeLogin(liveAccessToken: string, liveRefreshToken: string, 
     capeUrl: activeCape?.url?.replace('http://', 'https://') ?? null,
     skinModel: activeSkin?.variant === 'SLIM' ? 'slim' : 'default',
     selected: false,
+    bejaToken,
   }
 
   const accounts = loadAccounts()

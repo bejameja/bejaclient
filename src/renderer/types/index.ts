@@ -9,6 +9,7 @@ export interface Account {
   capeUrl: string | null
   skinModel: 'default' | 'slim'
   selected: boolean
+  bejaToken?: string
 }
 
 export type LoaderType = 'vanilla' | 'fabric' | 'forge' | 'quilt' | 'neoforge'
@@ -220,6 +221,17 @@ declare global {
         getJavaVersions(): Promise<string[]>
         platform: string
         openExternal(url: string): Promise<void>
+      }
+      friends: {
+        connect(): Promise<boolean>
+        disconnect(): Promise<void>
+        list(): Promise<{ uuid: string; username: string; status: string; direction: string; online: boolean }[]>
+        sendRequest(username: string): Promise<{ ok?: boolean; error?: string }>
+        acceptRequest(uuid: string): Promise<{ ok?: boolean; error?: string }>
+        removeOrDecline(uuid: string): Promise<{ ok?: boolean; error?: string }>
+        onOnline(cb: (d: { uuid: string; username: string }) => void): void
+        onOffline(cb: (d: { uuid: string }) => void): void
+        onRequest(cb: (d: { uuid: string; username: string }) => void): void
       }
       updater: {
         check(): Promise<void>

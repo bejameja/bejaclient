@@ -129,6 +129,19 @@ contextBridge.exposeInMainWorld('api', {
     onClear:  (cb: ()             => void) => ipcRenderer.on('console:clear',  ()      => cb()),
   },
 
+  // BejaClient friends & presence
+  friends: {
+    connect:        ()                   => ipcRenderer.invoke('friends:connect'),
+    disconnect:     ()                   => ipcRenderer.invoke('friends:disconnect'),
+    list:           ()                   => ipcRenderer.invoke('friends:list'),
+    sendRequest:    (username: string)   => ipcRenderer.invoke('friends:request', username),
+    acceptRequest:  (uuid: string)       => ipcRenderer.invoke('friends:accept', uuid),
+    removeOrDecline:(uuid: string)       => ipcRenderer.invoke('friends:remove', uuid),
+    onOnline:  (cb: (d: { uuid: string; username: string }) => void) => ipcRenderer.on('friend:online',  (_e, d) => cb(d)),
+    onOffline: (cb: (d: { uuid: string })                  => void) => ipcRenderer.on('friend:offline', (_e, d) => cb(d)),
+    onRequest: (cb: (d: { uuid: string; username: string }) => void) => ipcRenderer.on('friend:request', (_e, d) => cb(d)),
+  },
+
   // Auto-updater
   updater: {
     check: () => ipcRenderer.invoke('updater:check'),

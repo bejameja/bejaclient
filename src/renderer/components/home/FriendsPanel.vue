@@ -73,10 +73,10 @@
           </div>
         </template>
 
-        <div v-for="friend in friends" :key="friend.id" class="friend-row">
-          <div class="avatar">{{ friend.gamertag[0].toUpperCase() }}</div>
-          <span class="friend-name">{{ friend.gamertag }}</span>
-          <span class="status offline" title="Offline" />
+        <div v-for="friend in friends" :key="friend.uuid" class="friend-row">
+          <div class="avatar">{{ friend.username[0].toUpperCase() }}</div>
+          <span class="friend-name">{{ friend.username }}</span>
+          <span class="status" :class="friend.online ? 'online' : 'offline'" :title="friend.online ? 'Online' : 'Offline'" />
         </div>
       </div>
 
@@ -112,10 +112,10 @@ function close() {
   feedback.value = ''
 }
 
-function send() {
+async function send() {
   const tag = gamertag.value.trim()
   if (!tag) return
-  const result = store.sendRequest(tag)
+  const result = await store.sendRequest(tag)
   clearTimeout(feedbackTimer)
   if (result === 'sent') {
     feedbackType.value = 'ok'
@@ -124,6 +124,9 @@ function send() {
   } else if (result === 'already_friends') {
     feedbackType.value = 'err'
     feedback.value = 'Already friends.'
+  } else if (result === 'not_found') {
+    feedbackType.value = 'err'
+    feedback.value = `Player "${tag}" not found.`
   } else {
     feedbackType.value = 'err'
     feedback.value = 'Request already pending.'

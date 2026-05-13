@@ -40,15 +40,15 @@
         <span class="badge">{{ store.incomingRequests.length }}</span>
       </h2>
       <div class="card-list">
-        <div v-for="req in store.incomingRequests" :key="req.id" class="friend-card">
-          <div class="avatar">{{ req.gamertag[0].toUpperCase() }}</div>
+        <div v-for="req in store.incomingRequests" :key="req.uuid" class="friend-card">
+          <div class="avatar">{{ req.username[0].toUpperCase() }}</div>
           <div class="info">
-            <span class="name">{{ req.gamertag }}</span>
+            <span class="name">{{ req.username }}</span>
             <span class="sub">Wants to be your friend</span>
           </div>
           <div class="actions">
-            <button class="action-btn accept" @click="store.acceptRequest(req.id)">Accept</button>
-            <button class="action-btn decline" @click="store.declineRequest(req.id)">Decline</button>
+            <button class="action-btn accept" @click="store.acceptRequest(req.uuid)">Accept</button>
+            <button class="action-btn decline" @click="store.declineRequest(req.uuid)">Decline</button>
           </div>
         </div>
       </div>
@@ -58,13 +58,13 @@
     <template v-if="store.outgoingRequests.length > 0">
       <h2 class="section-title">Sent Requests</h2>
       <div class="card-list">
-        <div v-for="req in store.outgoingRequests" :key="req.id" class="friend-card">
-          <div class="avatar">{{ req.gamertag[0].toUpperCase() }}</div>
+        <div v-for="req in store.outgoingRequests" :key="req.uuid" class="friend-card">
+          <div class="avatar">{{ req.username[0].toUpperCase() }}</div>
           <div class="info">
-            <span class="name">{{ req.gamertag }}</span>
+            <span class="name">{{ req.username }}</span>
             <span class="sub">Pending…</span>
           </div>
-          <button class="action-btn decline" @click="store.cancelRequest(req.id)">Cancel</button>
+          <button class="action-btn decline" @click="store.cancelRequest(req.uuid)">Cancel</button>
         </div>
       </div>
     </template>
@@ -87,13 +87,13 @@
     </div>
 
     <div v-else class="card-list">
-      <div v-for="friend in store.friends" :key="friend.id" class="friend-card">
-        <div class="avatar">{{ friend.gamertag[0].toUpperCase() }}</div>
+      <div v-for="friend in store.friends" :key="friend.uuid" class="friend-card">
+        <div class="avatar">{{ friend.username[0].toUpperCase() }}</div>
         <div class="info">
-          <span class="name">{{ friend.gamertag }}</span>
-          <span class="sub offline">Offline</span>
+          <span class="name">{{ friend.username }}</span>
+          <span class="sub" :class="friend.online ? 'online' : 'offline'">{{ friend.online ? 'Online' : 'Offline' }}</span>
         </div>
-        <button class="action-btn decline" @click="store.removeFriend(friend.id)">Remove</button>
+        <button class="action-btn decline" @click="store.removeFriend(friend.uuid)">Remove</button>
       </div>
     </div>
 
@@ -115,10 +115,10 @@ let feedbackTimer: ReturnType<typeof setTimeout>
 
 watch(showAdd, (v) => { if (v) nextTick(() => inputEl.value?.focus()) })
 
-function send() {
+async function send() {
   const tag = gamertag.value.trim()
   if (!tag) return
-  const result = store.sendRequest(tag)
+  const result = await store.sendRequest(tag)
   clearTimeout(feedbackTimer)
   if (result === 'sent') {
     feedbackType.value = 'ok'
@@ -127,9 +127,15 @@ function send() {
   } else if (result === 'already_friends') {
     feedbackType.value = 'err'
     feedback.value = `You're already friends with ${tag}.`
-  } else {
+  } else if (result === 'not_found') {
+    feedbackType.value = 'err'
+    feedback.value = `Player "${tag}" not found.`
+  } else if (result === 'already_pending') {
     feedbackType.value = 'err'
     feedback.value = 'A request to this player is already pending.'
+  } else {
+    feedbackType.value = 'err'
+    feedback.value = 'Something went wrong. Try again.'
   }
   feedbackTimer = setTimeout(() => { feedback.value = '' }, 4000)
 }
@@ -326,6 +332,7 @@ function send() {
   font-size: 11px;
   color: $muted;
   &.offline { color: $muted; }
+  &.online  { color: $success; }
 }
 
 .actions {

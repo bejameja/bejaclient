@@ -9,6 +9,7 @@ import { setupSettingsHandlers } from './ipc/settings'
 import { initDiscordRPC, destroyDiscordRPC } from './services/discordRPC'
 import { setupModrinthHandlers } from './ipc/modrinth'
 import { setupUpdaterHandlers } from './ipc/updater'
+import { setupFriendsHandlers } from './ipc/friends'
 
 // ── Crash logging ─────────────────────────────────────────────────────────────
 // Runs before anything else so even early failures are captured.
@@ -147,6 +148,7 @@ app.whenReady().then(() => {
   setupSettingsHandlers(ipcMain)
   setupModrinthHandlers(ipcMain, () => mainWindow)
   setupUpdaterHandlers(ipcMain, () => mainWindow, log)
+  setupFriendsHandlers(ipcMain, () => mainWindow)
   initDiscordRPC()
 
   app.on('activate', () => {

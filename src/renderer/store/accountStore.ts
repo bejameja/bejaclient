@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Account } from '../types'
+import { useFriendsStore } from './friendsStore'
 
 export const useAccountStore = defineStore('account', () => {
   const accounts = ref<Account[]>([])
@@ -16,6 +17,9 @@ export const useAccountStore = defineStore('account', () => {
     error.value = null
     try {
       accounts.value = await window.api.auth.listAccounts()
+      if (accounts.value.some(a => a.selected && a.bejaToken)) {
+        useFriendsStore().connect()
+      }
     } catch (e) {
       error.value = String(e)
     } finally {
@@ -48,6 +52,7 @@ export const useAccountStore = defineStore('account', () => {
 
   async function selectAccount(id: string) {
     accounts.value = await window.api.auth.selectAccount(id)
+    useFriendsStore().connect()
   }
 
   async function refreshAccount(id: string) {
