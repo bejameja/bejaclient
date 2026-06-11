@@ -105,27 +105,24 @@ function createWindow() {
     log('ERROR', `Render process gone: reason=${details.reason} exitCode=${details.exitCode}`)
   })
 
-  if (!isDev) {
-    mainWindow.webContents.on('before-input-event', (event, input) => {
-      if (
-        input.key === 'F12' ||
-        (input.control && input.shift && input.key === 'I') ||
-        (input.control && input.shift && input.key === 'J') ||
-        (input.control && input.key === 'U')
-      ) {
-        event.preventDefault()
-      }
-    })
-    mainWindow.webContents.on('devtools-opened', () => {
-      mainWindow?.webContents.closeDevTools()
-    })
-  }
+  // Mirror renderer warnings/errors into the main log — DevTools are blocked in
+  // production, so this is the only way to see renderer failures in the field.
+  mainWindow.webContents.on('console-message', (_e, level, message, line, sourceId) => {
+    if (level >= 2) log('WARN', `renderer: ${message} (${sourceId}:${line})`)
+  })
 
   if (isDev) {
     log('INFO', 'Loading dev URL http://localhost:5173')
     mainWindow.loadURL('http://localhost:5173')
     mainWindow.webContents.openDevTools({ mode: 'detach' })
   } else {
+    mainWindow.webContents.on('before-input-event', (_e, input) => {
+      if (input.type !== 'keyDown') return
+      if (input.key === 'F12' || (input.control && input.shift && input.key === 'I') || (input.control && input.shift && input.key === 'J')) {
+        _e.preventDefault()
+      }
+    })
+    mainWindow.webContents.on('devtools-opened', () => mainWindow?.webContents.closeDevTools())
     const rendererPath = join(__dirname, '../../dist/index.html')
     log('INFO', `Loading production renderer: ${rendererPath}`)
     mainWindow.loadFile(rendererPath).catch((err) => {

@@ -1,6 +1,8 @@
 import { useSettingsStore } from '../store/settingsStore'
+import hoverWavUrl from '../assets/sounds/hover.wav'
 
 let ctx: AudioContext | null = null
+let _hoverBuffer: AudioBuffer | null = null
 // Cached store reference — resolved once after Pinia is ready, avoids per-click lookup
 let _store: ReturnType<typeof useSettingsStore> | null = null
 
@@ -15,6 +17,51 @@ function audio(): AudioContext {
   return ctx
 }
 
+// Manual 16-bit PCM WAV parser. decodeAudioData() on this file crashes the
+// renderer process natively (0xC0000005) on Electron 28/Win11, so the native
+// decoder must not be used here.
+function parseWav(c: AudioContext, buf: ArrayBuffer): AudioBuffer | null {
+  const dv = new DataView(buf)
+  if (dv.byteLength < 44) return null
+  if (dv.getUint32(0, false) !== 0x52494646 || dv.getUint32(8, false) !== 0x57415645) return null // 'RIFF'/'WAVE'
+  let pos = 12
+  let channels = 0, rate = 0, bits = 0
+  while (pos + 8 <= dv.byteLength) {
+    const id   = dv.getUint32(pos, false)
+    const size = dv.getUint32(pos + 4, true)
+    if (pos + 8 + size > dv.byteLength) return null
+    if (id === 0x666d7420) { // 'fmt '
+      if (dv.getUint16(pos + 8, true) !== 1) return null // PCM only
+      channels = dv.getUint16(pos + 10, true)
+      rate     = dv.getUint32(pos + 12, true)
+      bits     = dv.getUint16(pos + 22, true)
+    } else if (id === 0x64617461) { // 'data'
+      if (bits !== 16 || channels < 1 || rate < 3000) return null
+      const samples = Math.floor(size / 2 / channels)
+      if (samples < 1) return null
+      const out = c.createBuffer(channels, samples, rate)
+      for (let ch = 0; ch < channels; ch++) {
+        const chan = out.getChannelData(ch)
+        for (let i = 0; i < samples; i++) {
+          chan[i] = dv.getInt16(pos + 8 + (i * channels + ch) * 2, true) / 32768
+        }
+      }
+      return out
+    }
+    pos += 8 + size + (size & 1)
+  }
+  return null
+}
+
+async function loadHoverBuffer(c: AudioContext): Promise<void> {
+  if (_hoverBuffer) return
+  try {
+    const res = await fetch(hoverWavUrl)
+    const arr = await res.arrayBuffer()
+    _hoverBuffer = parseWav(c, arr)
+  } catch { /* falls back to synth */ }
+}
+
 // Call this once on app mount to pay the AudioContext init cost upfront
 export function warmAudio(): void {
   const c = audio()
@@ -24,6 +71,7 @@ export function warmAudio(): void {
   src.buffer = buf
   src.connect(c.destination)
   src.start()
+  loadHoverBuffer(c)
 }
 
 function isEnabled(): boolean {
@@ -89,21 +137,33 @@ export function playHover(): void {
   const t = c.currentTime
 
   if (style() === 'clicky') {
-    // Tight high-freq noise tick
     clickyNoise(c, t, 3500, 3.5, v(0.09), 0.012)
-  } else {
-    const osc = c.createOscillator()
-    const gain = c.createGain()
-    osc.type = 'sine'
-    osc.frequency.setValueAtTime(820, t)
-    osc.frequency.exponentialRampToValueAtTime(600, t + 0.03)
-    gain.gain.setValueAtTime(v(0.07), t)
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.03)
-    osc.connect(gain)
-    gain.connect(c.destination)
-    osc.start(t)
-    osc.stop(t + 0.035)
+    return
   }
+
+  if (_hoverBuffer) {
+    const src = c.createBufferSource()
+    src.buffer = _hoverBuffer
+    const gain = c.createGain()
+    gain.gain.setValueAtTime(v(0.6), t)
+    src.connect(gain)
+    gain.connect(c.destination)
+    src.start(t)
+    return
+  }
+
+  // Fallback synth if WAV not yet loaded
+  const osc = c.createOscillator()
+  const gain = c.createGain()
+  osc.type = 'sine'
+  osc.frequency.setValueAtTime(820, t)
+  osc.frequency.exponentialRampToValueAtTime(600, t + 0.03)
+  gain.gain.setValueAtTime(v(0.07), t)
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.03)
+  osc.connect(gain)
+  gain.connect(c.destination)
+  osc.start(t)
+  osc.stop(t + 0.035)
 }
 
 // ── Button click ───────────────────────────────────────────────────────────────
