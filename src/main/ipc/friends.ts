@@ -94,6 +94,7 @@ async function getOrFetchBejaToken(): Promise<string | null> {
         })
       })
       req.on('error', () => resolve(null))
+      req.setTimeout(5000, () => { req.destroy(); resolve(null) })
       req.write(body)
       req.end()
     })
@@ -185,6 +186,95 @@ export function setupFriendsHandlers(ipcMain: IpcMain, getWindow: () => BrowserW
     const uuid     = addUuidDashes(mojang.id)
     const textures = await fetchPlayerTextures(mojang.id)
     return { uuid, username: mojang.name, ...textures }
+  })
+
+  ipcMain.handle('players:beja-profile', async (_e, uuid: string) => {
+    const token = await getOrFetchBejaToken()
+    if (!token) return null
+    const res = await apiRequest('GET', `/api/users/profile/${encodeURIComponent(uuid)}`, token)
+      .catch(() => null) as { error?: string } | null
+    if (!res || res.error) return null
+    return res
+  })
+
+  ipcMain.handle('players:mc-created', (_e, uuid: string): Promise<string | null> => {
+    // Mojang has no official account-creation-date API; Ashcon is best-effort
+    return new Promise(resolve => {
+      const req = https.get({
+        hostname: 'api.ashcon.app',
+        path:     `/mojang/v2/user/${encodeURIComponent(uuid)}`,
+        headers:  { 'User-Agent': 'BejaClient' },
+      }, res => {
+        if (res.statusCode !== 200) { res.resume(); return resolve(null) }
+        let data = ''
+        res.on('data', c => (data += c))
+        res.on('end', () => {
+          try { resolve((JSON.parse(data) as { created_at?: string }).created_at ?? null) }
+          catch { resolve(null) }
+        })
+      })
+      req.on('error', () => resolve(null))
+      req.setTimeout(6000, () => { req.destroy(); resolve(null) })
+    })
+  })
+
+  ipcMain.handle('players:search', async (_e, query: string) => {
+    const q = String(query ?? '').trim()
+    if (q.length < 2) return []
+    const token = await getOrFetchBejaToken()
+    // BejaClient users by prefix + exact Mojang account match, in parallel
+    const [bejaRows, mojang] = await Promise.all([
+      token
+        ? apiRequest('GET', `/api/users/search?q=${encodeURIComponent(q)}`, token).catch(() => [])
+        : Promise.resolve([]),
+      mojangLookup(q),
+    ])
+    const results: { uuid: string; username: string; source: 'beja' | 'mojang' }[] = []
+    for (const r of (Array.isArray(bejaRows) ? bejaRows : []) as { uuid: string; username: string }[]) {
+      results.push({ uuid: r.uuid, username: r.username, source: 'beja' })
+    }
+    if (mojang && !results.some(r => r.uuid.replace(/-/g, '') === mojang.id)) {
+      results.push({ uuid: addUuidDashes(mojang.id), username: mojang.name, source: 'mojang' })
+    }
+    return results
+  })
+
+  ipcMain.handle('players:capes', (_e, uuid: string): Promise<{ service: string; capeUrl: string }[]> => {
+    // capes.dev aggregates current capes across services; unequipped Mojang capes are not public
+    const SERVICE_LABELS: Record<string, string> = {
+      minecraft:      'Vanilla',
+      optifine:       'OptiFine',
+      minecraftcapes: 'MinecraftCapes',
+      labymod:        'LabyMod',
+      '5zig':         '5zig',
+      tlauncher:      'TLauncher',
+      skinmc:         'SkinMC',
+    }
+    return new Promise(resolve => {
+      const req = https.get({
+        hostname: 'api.capes.dev',
+        path:     `/load/${encodeURIComponent(uuid)}`,
+        headers:  { 'User-Agent': 'BejaClient' },
+      }, res => {
+        if (res.statusCode !== 200) { res.resume(); return resolve([]) }
+        let data = ''
+        res.on('data', c => (data += c))
+        res.on('end', () => {
+          try {
+            const json = JSON.parse(data) as Record<string, { exists?: boolean; imageUrl?: string }>
+            const capes: { service: string; capeUrl: string }[] = []
+            for (const [service, cape] of Object.entries(json)) {
+              if (cape?.exists && cape.imageUrl) {
+                capes.push({ service: SERVICE_LABELS[service] ?? service, capeUrl: cape.imageUrl })
+              }
+            }
+            resolve(capes)
+          } catch { resolve([]) }
+        })
+      })
+      req.on('error', () => resolve([]))
+      req.setTimeout(8000, () => { req.destroy(); resolve([]) })
+    })
   })
 
   ipcMain.handle('players:save-skin', async (_e, skinUrl: string, username: string) => {

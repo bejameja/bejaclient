@@ -13,6 +13,7 @@ import { setupFriendsHandlers } from './ipc/friends'
 import { setupLobbyHandlers } from './ipc/lobby'
 import { setupCosmeticsHandlers } from './ipc/cosmetics'
 import { setupPassHandlers } from './ipc/pass'
+import { setupQuestsHandlers } from './ipc/quests'
 import { setupCapesHandlers } from './ipc/capes'
 import { setupServerHandlers } from './ipc/servers'
 
@@ -41,10 +42,11 @@ process.on('unhandledRejection', (reason) => {
 
 log('INFO', `BejaClient starting — packaged=${app.isPackaged} version=${app.getVersion()}`)
 
-// ── Windows taskbar branding ──────────────────────────────────────────────────
 // Must be called before app.whenReady() and must match build.appId in package.json.
 // Without this, pinned taskbar entries show "Electron App" with the default icon.
-app.setAppUserModelId('com.bejaclient.launcher')
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.bejaclient.launcher')
+}
 
 // ── Dev / prod detection ──────────────────────────────────────────────────────
 // Do NOT use process.env.NODE_ENV — it is not reliably set in packaged builds.
@@ -54,9 +56,10 @@ const isDev = !app.isPackaged
 // In packaged mode the icon is copied to process.resourcesPath via extraResources.
 // In dev mode it lives at ../../resources/icon.ico relative to this file.
 function getIconPath(): string {
+  const ext = process.platform === 'linux' ? 'png' : 'ico'
   return app.isPackaged
-    ? join(process.resourcesPath, 'icon.ico')
-    : join(__dirname, '../../resources/icon.ico')
+    ? join(process.resourcesPath, `icon.${ext}`)
+    : join(__dirname, `../../resources/icon.${ext}`)
 }
 
 let mainWindow: BrowserWindow | null = null
@@ -171,6 +174,7 @@ app.whenReady().then(() => {
   setupLobbyHandlers(ipcMain, () => mainWindow)
   setupCosmeticsHandlers(ipcMain)
   setupPassHandlers(ipcMain)
+  setupQuestsHandlers(ipcMain)
   setupCapesHandlers(ipcMain)
   setupServerHandlers(ipcMain, () => mainWindow)
   initDiscordRPC()

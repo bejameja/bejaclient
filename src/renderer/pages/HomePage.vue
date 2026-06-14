@@ -25,7 +25,7 @@
       </div>
 
       <div class="news-section">
-        <h2 class="news-heading">NEWS:</h2>
+        <h2 class="news-heading">{{ $t('home.news') }}</h2>
         <div class="news-grid">
           <div v-for="n in 6" :key="n" class="news-card" />
         </div>
@@ -35,7 +35,7 @@
 
     <!-- Friends panel -->
     <div class="friends-panel">
-      <h2 class="friends-heading">FRIENDS</h2>
+      <h2 class="friends-heading">{{ $t('home.friends') }}</h2>
       <div class="friends-card">
         <template v-if="friends.length">
           <div v-for="friend in friends" :key="friend.uuid" class="friend-row">
@@ -43,7 +43,7 @@
             <span class="friend-name">{{ friend.username }}</span>
           </div>
         </template>
-        <p v-else class="friends-empty">no friends found...</p>
+        <p v-else class="friends-empty">{{ $t('home.noFriends') }}</p>
       </div>
     </div>
 

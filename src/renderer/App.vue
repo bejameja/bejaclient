@@ -43,7 +43,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, watch, ref, computed } from 'vue'
+import { onMounted, watch, ref, computed, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import NavBar    from './components/layout/NavBar.vue'
 import AppTopBar from './components/layout/AppTopBar.vue'
@@ -65,11 +66,14 @@ import { useFriendsStore } from './store/friendsStore'
 import { useLobbyStore } from './store/lobbyStore'
 import { useNotificationsStore } from './store/notificationsStore'
 import { useLockerStore } from './store/lockerStore'
+import { useQuestsStore } from './store/questsStore'
 import { playLaunch, playMouseClick, warmAudio } from './composables/useSounds'
 
 const route     = useRoute()
 const isConsole = computed(() => route.path === '/console')
 const isLobby   = computed(() => route.path === '/lobby')
+
+const { locale } = useI18n()
 
 const splashVisible = ref(true)
 const loadProgress  = ref(0)
@@ -98,34 +102,55 @@ onMounted(async () => {
 
   await settingsStore.load()
   loadProgress.value = 25
+
   await accountStore.loadAccounts()
   loadProgress.value = 50
 
-  // Seed locker store from BejaClient cosmetics + account data
+  // Seed locker store from BejaClient cosmetics + account data (non-blocking)
   const acct = accountStore.selectedAccount
   if (acct) {
     const skinUrl = acct.skinUrl
     const model   = acct.skinModel ?? 'default'
     let capeUrl   = acct.capeUrl ?? null
-    try {
-      const cosmetics = await window.api.cosmetics.get(acct.uuid) as { cape_url?: string | null } | null
-      if (cosmetics?.cape_url) capeUrl = cosmetics.cape_url
-    } catch { /* non-fatal */ }
-    if (skinUrl) lockerStore.selectSkin({ skinUrl, capeUrl, model })
+    window.api.cosmetics.get(acct.uuid)
+      .then((cosmetics: { cape_url?: string | null } | null) => {
+        if (cosmetics?.cape_url) capeUrl = cosmetics.cape_url
+        if (skinUrl) lockerStore.selectSkin({ skinUrl, capeUrl, model })
+      })
+      .catch(() => {
+        if (skinUrl) lockerStore.selectSkin({ skinUrl, capeUrl, model })
+      })
   }
 
   await launcherStore.loadProfiles()
   loadProgress.value = 75
-  await launcherStore.fetchNews()
-  loadProgress.value = 100
 
-  setTimeout(() => { splashVisible.value = false }, 350)
+  loadProgress.value = 100
+  await nextTick()
+
+  // Wait until the route component is actually painted in the DOM before closing splash
+  await new Promise<void>(resolve => {
+    let ticks = 0
+    function check() {
+      ticks++
+      if (document.querySelector('.home-page') || ticks > 120) resolve()
+      else requestAnimationFrame(check)
+    }
+    requestAnimationFrame(check)
+  })
+
+  setTimeout(() => { splashVisible.value = false }, 150)
+
+  // fetchNews is slow (external network) — fire after splash, don't block it
+  launcherStore.fetchNews()
 
   for (const req of friendsStore.incomingRequests) {
     notifStore.addFriendRequest(req.uuid, req.username)
   }
   applyAccent(settingsStore.settings.appearance.accentColor)
+  locale.value = settingsStore.settings.appearance.language
   launcherStore.setupLaunchListeners()
+  useQuestsStore().setupTracking()
   window.api.friends.onOnline(d  => friendsStore.handleOnline(d))
   window.api.friends.onOffline(d => friendsStore.handleOffline(d))
   window.api.friends.onRequest(d => {
@@ -153,6 +178,7 @@ onMounted(async () => {
 })
 
 watch(() => settingsStore.settings.appearance.accentColor, applyAccent)
+watch(() => settingsStore.settings.appearance.language, (lang) => { locale.value = lang })
 
 watch(() => launcherStore.status, (val, prev) => {
   if (val === 'running' && prev !== 'running') playLaunch()

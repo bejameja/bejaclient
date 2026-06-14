@@ -18,7 +18,7 @@ export const useAccountStore = defineStore('account', () => {
     try {
       accounts.value = await window.api.auth.listAccounts()
       if (accounts.value.some(a => a.selected && a.bejaToken)) {
-        await useFriendsStore().connect()
+        useFriendsStore().connect()
       }
     } catch (e) {
       error.value = String(e)

@@ -20,21 +20,21 @@
           <svg class="launch-icon spin" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
           </svg>
-          <span class="launch-label launch-label--status">{{ store.statusMsg || 'Starting…' }}</span>
+          <span class="launch-label launch-label--status">{{ store.statusMsg || $t('launch.starting') }}</span>
         </div>
       </template>
 
       <!-- Running -->
       <template v-else-if="status === 'running'">
         <div class="launch-state-overlay">
-          <span class="launch-label">Running</span>
+          <span class="launch-label">{{ $t('launch.running') }}</span>
         </div>
       </template>
 
       <!-- Error -->
       <template v-else-if="status === 'error'">
         <div class="launch-state-overlay">
-          <span class="launch-label launch-label--error">Retry</span>
+          <span class="launch-label launch-label--error">{{ $t('launch.retry') }}</span>
         </div>
       </template>
     </button>
@@ -52,7 +52,7 @@
     <!-- Profile dropdown -->
     <Transition name="dropdown-fade">
       <div v-if="dropdownOpen" class="profile-dropdown">
-        <div class="dropdown-label">Profile</div>
+        <div class="dropdown-label">{{ $t('launch.profile') }}</div>
         <button
           v-for="profile in profiles"
           :key="profile.id"
@@ -63,7 +63,7 @@
           <span class="dropdown-item-name">{{ profile.name }}</span>
           <span class="dropdown-item-version">{{ profile.version }}</span>
         </button>
-        <div v-if="profiles.length === 0" class="dropdown-empty">No profiles</div>
+        <div v-if="profiles.length === 0" class="dropdown-empty">{{ $t('launch.noProfiles') }}</div>
       </div>
     </Transition>
   </div>

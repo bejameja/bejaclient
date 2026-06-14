@@ -19,6 +19,7 @@ function fetchBejaToken(uuid: string, username: string): Promise<string | null> 
       })
     })
     req.on('error', () => resolve(null))
+    req.setTimeout(5000, () => { req.destroy(); resolve(null) })
     req.write(body)
     req.end()
   })

@@ -145,6 +145,10 @@ contextBridge.exposeInMainWorld('api', {
     saveSkin:   (skinUrl: string, username: string) => ipcRenderer.invoke('players:save-skin', skinUrl, username),
     fetchImage: (url: string)                       => ipcRenderer.invoke('players:fetchImage', url),
     mcProfile:  (accessToken: string)               => ipcRenderer.invoke('players:mc-profile', accessToken),
+    bejaProfile: (uuid: string)                     => ipcRenderer.invoke('players:beja-profile', uuid),
+    mcCreated:   (uuid: string)                     => ipcRenderer.invoke('players:mc-created', uuid),
+    capes:       (uuid: string)                     => ipcRenderer.invoke('players:capes', uuid),
+    search:      (query: string)                    => ipcRenderer.invoke('players:search', query),
   },
 
   // BejaClient friends & presence
@@ -180,8 +184,22 @@ contextBridge.exposeInMainWorld('api', {
 
   // Cosmetics / Locker
   cosmetics: {
-    get:    (uuid: string)                                                               => ipcRenderer.invoke('cosmetics:get', uuid),
-    update: (data: { cape_url?: string | null; cape_type?: string; equipped?: string[] }) => ipcRenderer.invoke('cosmetics:update', data),
+    get:       (uuid: string)                                                               => ipcRenderer.invoke('cosmetics:get', uuid),
+    update:    (data: { cape_url?: string | null; cape_type?: string; equipped?: string[] }) => ipcRenderer.invoke('cosmetics:update', data),
+    inventory: (uuid: string)                                                               => ipcRenderer.invoke('cosmetics:inventory', uuid),
+  },
+
+  // Crates
+  crates: {
+    list: ()                    => ipcRenderer.invoke('crates:list'),
+    open: (crateId: string)     => ipcRenderer.invoke('crates:open', crateId),
+    keys: ()                    => ipcRenderer.invoke('crates:keys'),
+  },
+
+  // Forge / crafting
+  crafting: {
+    inventory: ()               => ipcRenderer.invoke('crafting:inventory'),
+    combine:   (rarity: string) => ipcRenderer.invoke('crafting:combine', rarity),
   },
 
   // Community Capes
@@ -196,6 +214,14 @@ contextBridge.exposeInMainWorld('api', {
     get:      () => ipcRenderer.invoke('pass:get'),
     progress: () => ipcRenderer.invoke('pass:progress'),
     daily:    () => ipcRenderer.invoke('pass:daily'),
+  },
+
+  // Quests & XP leaderboard
+  quests: {
+    list:        ()                                  => ipcRenderer.invoke('quests:list'),
+    progress:    (questId: string, amount: number)   => ipcRenderer.invoke('quests:progress', questId, amount),
+    claim:       (questId: string)                   => ipcRenderer.invoke('quests:claim', questId),
+    leaderboard: ()                                  => ipcRenderer.invoke('quests:leaderboard'),
   },
 
   // Install tracking

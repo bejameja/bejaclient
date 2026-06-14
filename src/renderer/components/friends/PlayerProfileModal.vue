@@ -12,17 +12,22 @@
 
           <div class="modal-body">
 
-            <!-- Skin render -->
+            <!-- 3D skin render -->
             <div class="skin-column">
-              <div class="skin-wrap">
-                <img v-if="bodyRenderUrl" :src="bodyRenderUrl" :alt="player.username" class="skin-render" />
-                <div v-else-if="skinLoading" class="skin-placeholder">
-                  <div class="skin-spinner" />
-                </div>
-                <div v-else class="skin-placeholder skin-placeholder--letter">
-                  {{ player.username[0].toUpperCase() }}
-                </div>
+              <HeroSkinViewer
+                v-if="skinData"
+                :skin-url="skinData"
+                :cape-url="modelCapeData || null"
+                :model="player.skinModel"
+                animation="custom-idle"
+                :zoom="0.78"
+                :initial-rotation-y="0.4"
+                class="skin-viewer"
+              />
+              <div v-else class="skin-placeholder">
+                <div class="skin-spinner" />
               </div>
+              <span class="drag-hint">Drag to rotate</span>
             </div>
 
             <!-- Info column -->
@@ -37,14 +42,35 @@
                 </div>
               </div>
 
-              <div class="field">
-                <span class="field-label">Skin model</span>
-                <span class="field-val">{{ player.skinModel === 'slim' ? 'Slim (Alex)' : 'Classic (Steve)' }}</span>
+              <div class="field-grid">
+                <div class="field">
+                  <span class="field-label">BejaClient since</span>
+                  <span class="field-val">{{ beja?.joinedAt ? fmtDate(beja.joinedAt) : (extraLoading ? '…' : 'Not registered') }}</span>
+                </div>
+                <div class="field">
+                  <span class="field-label">Minecraft since</span>
+                  <span class="field-val">{{ mcCreated ? fmtDate(mcCreated) : (extraLoading ? '…' : 'Unknown') }}</span>
+                </div>
+                <div class="field">
+                  <span class="field-label">Skin model</span>
+                  <span class="field-val">{{ player.skinModel === 'slim' ? 'Slim (Alex)' : 'Classic (Steve)' }}</span>
+                </div>
+                <div class="field">
+                  <span class="field-label">XP</span>
+                  <span v-if="beja" class="xp-val">{{ beja.xp.toLocaleString() }} <span class="xp-unit">XP</span></span>
+                  <span v-else class="field-val">{{ extraLoading ? '…' : '—' }}</span>
+                </div>
               </div>
 
               <div class="field">
-                <span class="field-label">Cape</span>
-                <span class="field-val">{{ player.capeUrl ? 'Yes' : 'None' }}</span>
+                <span class="field-label">Equipped cape</span>
+                <div v-if="capeThumbs.length" class="cape-row">
+                  <div v-for="c in capeThumbs" :key="c.label" class="cape-item">
+                    <img :src="c.thumb" :alt="c.label" class="cape-thumb" />
+                    <span class="cape-label">{{ c.label }}</span>
+                  </div>
+                </div>
+                <span v-else class="field-val">{{ extraLoading ? '…' : 'None' }}</span>
               </div>
 
               <div class="modal-actions">
@@ -72,8 +98,9 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import type { PlayerProfile } from '../../types'
+import type { PlayerProfile, BejaPlayerProfile } from '../../types'
 import { useFriendsStore } from '../../store/friendsStore'
+import HeroSkinViewer from '../skin/HeroSkinViewer.vue'
 
 const props = defineProps<{
   modelValue: boolean
@@ -84,13 +111,18 @@ const emit = defineEmits<{ (e: 'update:modelValue', v: boolean): void }>()
 
 const friendsStore = useFriendsStore()
 
-const copiedUuid    = ref(false)
-const requestSent   = ref(false)
-const saving        = ref(false)
-const saveLabel     = ref('Save Skin')
-const saveResult    = ref('')
-const bodyRenderUrl = ref('')
-const skinLoading   = ref(false)
+const copiedUuid   = ref(false)
+const requestSent  = ref(false)
+const saving       = ref(false)
+const saveLabel    = ref('Save Skin')
+const saveResult   = ref('')
+
+const skinData      = ref('')
+const modelCapeData = ref('')
+const beja          = ref<BejaPlayerProfile | null>(null)
+const mcCreated     = ref<string | null>(null)
+const extraLoading  = ref(false)
+const capeThumbs    = ref<{ label: string; thumb: string }[]>([])
 
 watch(() => props.player, async player => {
   copiedUuid.value    = false
@@ -98,14 +130,85 @@ watch(() => props.player, async player => {
   saving.value        = false
   saveLabel.value     = 'Save Skin'
   saveResult.value    = ''
-  bodyRenderUrl.value = ''
+  skinData.value      = ''
+  modelCapeData.value = ''
+  beja.value          = null
+  mcCreated.value     = null
+  capeThumbs.value    = []
   if (!player) return
-  skinLoading.value   = true
-  bodyRenderUrl.value = await window.api.players.fetchImage(
-    `https://mc-heads.net/body/${player.uuid}/200`
-  )
-  skinLoading.value = false
+
+  extraLoading.value = true
+  // mc-heads serves the raw skin texture even for players without a Mojang profile
+  const skinSrc = player.skinUrl ?? `https://mc-heads.net/skin/${player.uuid}`
+  const [skin, vanillaCape, bejaProfile, created, serviceCapes] = await Promise.all([
+    window.api.players.fetchImage(skinSrc),
+    player.capeUrl ? window.api.players.fetchImage(player.capeUrl) : Promise.resolve(''),
+    window.api.players.bejaProfile(player.uuid),
+    window.api.players.mcCreated(player.uuid),
+    window.api.players.capes(player.uuid),
+  ])
+  if (props.player !== player) return // modal switched player while loading
+
+  skinData.value  = skin
+  beja.value      = bejaProfile
+  mcCreated.value = created
+
+  let bejaCape = ''
+  if (bejaProfile?.bejaCapeUrl) {
+    bejaCape = await window.api.players.fetchImage(bejaProfile.bejaCapeUrl)
+    if (props.player !== player) return
+  }
+  // BejaClient cape wins on the 3D model, vanilla as fallback
+  modelCapeData.value = bejaCape || vanillaCape
+
+  // Capes across services (capes.dev) + BejaClient. Vanilla comes from
+  // capes.dev too; fall back to the session-server cape if it's missing.
+  const thumbs: { label: string; thumb: string }[] = []
+  for (const cape of serviceCapes) {
+    const data = await window.api.players.fetchImage(cape.capeUrl)
+    const t = data && await cropCapeFront(data)
+    if (t) thumbs.push({ label: cape.service, thumb: t })
+  }
+  if (vanillaCape && !serviceCapes.some(c => c.service === 'Vanilla')) {
+    const t = await cropCapeFront(vanillaCape)
+    if (t) thumbs.unshift({ label: 'Vanilla', thumb: t })
+  }
+  if (bejaCape) {
+    const t = await cropCapeFront(bejaCape)
+    if (t) thumbs.push({ label: 'BejaClient', thumb: t })
+  }
+  if (props.player !== player) return
+  capeThumbs.value   = thumbs
+  extraLoading.value = false
 }, { immediate: true })
+
+// Front face of a cape texture lives at (1,1)-(11,17) at scale 1. Vanilla
+// textures are 64x32 (2:1), OptiFine uses a 46x22 sheet — same pixel layout,
+// different canvas size, so derive the scale from the matching base width.
+function cropCapeFront(dataUrl: string): Promise<string> {
+  return new Promise(resolve => {
+    const img = new Image()
+    img.onload = () => {
+      const base = img.width / img.height === 2 ? 64 : 46
+      const s = img.width / base
+      const canvas = document.createElement('canvas')
+      canvas.width  = 40
+      canvas.height = 64
+      const ctx = canvas.getContext('2d')!
+      ctx.imageSmoothingEnabled = false
+      ctx.drawImage(img, 1 * s, 1 * s, 10 * s, 16 * s, 0, 0, 40, 64)
+      resolve(canvas.toDataURL())
+    }
+    img.onerror = () => resolve('')
+    img.src = dataUrl
+  })
+}
+
+function fmtDate(s: string): string {
+  const d = new Date(s)
+  if (isNaN(d.getTime())) return 'Unknown'
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
 
 function close() { emit('update:modelValue', false) }
 
@@ -155,8 +258,8 @@ async function addFriend() {
   background: $surface;
   border: 1px solid $border;
   border-radius: $radius-lg;
-  width: 520px;
-  max-width: 90vw;
+  width: 640px;
+  max-width: 92vw;
   overflow: hidden;
 }
 
@@ -186,37 +289,37 @@ async function addFriend() {
 
 // ── Skin column ───────────────────────────────────────────────────────────────
 .skin-column {
-  width: 160px;
+  width: 220px;
   flex-shrink: 0;
   background: #0d0d0d;
   border-right: 1px solid $border;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 32px 20px;
-  min-height: 280px;
-}
-
-.skin-wrap {
+  padding: 16px 8px 10px;
+  min-height: 380px;
   position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
-.skin-render {
-  image-rendering: pixelated;
-  max-height: 200px;
-  width: auto;
+.skin-viewer {
+  width: 100%;
+  height: 340px;
+}
+
+.drag-hint {
+  font-size: 10px;
+  color: $muted;
+  letter-spacing: 0.05em;
+  padding-bottom: 2px;
 }
 
 .skin-placeholder {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 80px;
-  height: 160px;
-  &--letter { font-size: 48px; color: $muted; font-weight: 700; }
+  width: 100%;
 }
 
 .skin-spinner {
@@ -232,7 +335,8 @@ async function addFriend() {
 // ── Info column ───────────────────────────────────────────────────────────────
 .info-column {
   flex: 1;
-  padding: 28px 24px 24px;
+  min-width: 0;
+  padding: 26px 24px 22px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -242,13 +346,36 @@ async function addFriend() {
   font-size: 22px;
   font-weight: 700;
   color: $text-primary;
-  margin: 0 0 4px;
+  margin: 0 0 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Same treatment as quest cards / leaderboard rows
+.xp-val {
+  font-size: 13px;
+  font-weight: 800;
+  color: $accent;
+}
+
+.xp-unit {
+  font-family: 'Mojangles', monospace;
+  font-size: 8px;
+  letter-spacing: 0.1em;
 }
 
 .field {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 16px;
 }
 
 .field-label {
@@ -291,6 +418,33 @@ async function addFriend() {
   transition: background $transition, color $transition;
   white-space: nowrap;
   &:hover { background: $border; color: $text-primary; }
+}
+
+// ── Capes ─────────────────────────────────────────────────────────────────────
+.cape-row {
+  display: flex;
+  gap: 12px;
+}
+
+.cape-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.cape-thumb {
+  width: 40px;
+  height: 64px;
+  image-rendering: pixelated;
+  border-radius: 4px;
+  border: 1px solid $border;
+  background: #0d0d0d;
+}
+
+.cape-label {
+  font-size: 10px;
+  color: $muted;
 }
 
 .modal-actions {

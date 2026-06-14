@@ -35,9 +35,14 @@ export interface AppSettings {
   activeProfileId: string | null
 }
 
+function getDefaultGameDir(): string {
+  if (process.platform === 'linux') return join(app.getPath('home'), '.minecraft')
+  return join(app.getPath('appData'), '.minecraft')
+}
+
 const defaultSettings: AppSettings = {
   game: {
-    defaultGameDir: join(app.getPath('appData'), '.minecraft'),
+    defaultGameDir: getDefaultGameDir(),
     defaultJavaPath: '',
     minRam: 512,
     maxRam: 2048,

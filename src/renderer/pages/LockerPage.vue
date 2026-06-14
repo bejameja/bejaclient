@@ -129,8 +129,36 @@
     </div>
 
     <!-- ── Cosmetics tab ──────────────────────────────────────────────── -->
-    <div v-else-if="activeTab === 'Cosmetics'" class="empty-tab">
-      <span class="empty-tab-text">No cosmetics equipped</span>
+    <div v-else-if="activeTab === 'Cosmetics'" class="cosmetics-grid">
+      <div v-if="cosmeticsLoading" class="empty-tab">
+        <span class="btn-spinner" style="width:18px;height:18px;border-width:2px" />
+      </div>
+
+      <div v-else-if="!ownedCosmetics.length" class="empty-tab" style="width:100%">
+        <span class="empty-tab-text">No cosmetics in your collection</span>
+      </div>
+
+      <div
+        v-for="cos in filteredCosmetics"
+        :key="cos.id"
+        class="cosmetic-card"
+        :class="{ 'cosmetic-card--equipped': cos.equipped }"
+        :style="cosmeticCardStyle(cos.rarity)"
+        @click="toggleEquip(cos)"
+      >
+        <div class="cosmetic-viewer">
+          <CosmeticModelViewer
+            :model-url="cos.model_url"
+            :rarity="cos.rarity"
+          />
+        </div>
+        <div class="cosmetic-label-row">
+          <span class="cosmetic-name">{{ cos.name || '???' }}</span>
+          <span class="cosmetic-rarity" :style="{ color: RARITIES[cos.rarity]?.color }">
+            {{ RARITIES[cos.rarity]?.label }}
+          </span>
+        </div>
+      </div>
     </div>
 
     <!-- ── Add skin modal ─────────────────────────────────────────────── -->
@@ -176,12 +204,56 @@ import addIcon    from '../assets/icons8-add-64.png'
 import removeIcon from '../assets/icons8-remove-24.png'
 import searchIcon from '../assets/icons8-search-50.png'
 import StaticSkinViewer from '../components/skin/StaticSkinViewer.vue'
+import CosmeticModelViewer from '../components/cosmetics/CosmeticModelViewer.vue'
 import { useLockerStore } from '../store/lockerStore'
+import type { Rarity, PlayerCosmetic } from '../types/cosmetics'
+import { RARITIES } from '../types/cosmetics'
 
 const lockerStore = useLockerStore()
 
 const accountStore = useAccountStore()
 const account = computed(() => accountStore.selectedAccount)
+
+// ── Cosmetics ─────────────────────────────────────────────────────────────────
+const ownedCosmetics  = ref<PlayerCosmetic[]>([])
+const cosmeticsLoading = ref(false)
+
+const filteredCosmetics = computed(() => {
+  const q = search.value.trim().toLowerCase()
+  if (!q) return ownedCosmetics.value
+  return ownedCosmetics.value.filter(c =>
+    c.name.toLowerCase().includes(q) || c.rarity.toLowerCase().includes(q)
+  )
+})
+
+function cosmeticCardStyle(rarity: Rarity) {
+  const r = RARITIES[rarity]
+  if (!r) return {}
+  return {
+    background:   r.bg,
+    borderColor:  r.color + '50',
+    boxShadow:    `0 0 12px ${r.glow}`,
+  }
+}
+
+async function toggleEquip(cos: PlayerCosmetic) {
+  cos.equipped = !cos.equipped
+  const equipped = ownedCosmetics.value.filter(c => c.equipped).map(c => c.id)
+  try { await window.api.cosmetics.update({ equipped }) } catch { /* non-fatal */ }
+}
+
+async function loadCosmetics() {
+  if (!account.value?.uuid) return
+  cosmeticsLoading.value = true
+  try {
+    const inv = await (window as any).api.cosmetics.inventory(account.value.uuid) as PlayerCosmetic[] | null
+    ownedCosmetics.value = inv ?? []
+  } catch {
+    ownedCosmetics.value = []
+  } finally {
+    cosmeticsLoading.value = false
+  }
+}
 
 const tabs        = ['Skins', 'Capes', 'Cosmetics'] as const
 type Tab          = typeof tabs[number]
@@ -420,6 +492,9 @@ import { watch } from 'vue'
 watch(activeTab, async (tab) => {
   if (tab === 'Capes' && ownedCapes.value.length === 0 && !capesLoading.value) {
     await loadOwnedCapes()
+  }
+  if (tab === 'Cosmetics' && !cosmeticsLoading.value) {
+    await loadCosmetics()
   }
 })
 watch(addModalOpen, async (v) => {
@@ -794,6 +869,85 @@ onMounted(() => {
 
 .skin-card--active .cape-front {
   transform: rotateY(-10deg) rotateX(3deg);
+}
+
+// ── Cosmetics grid ────────────────────────────────────────────────────────────
+.cosmetics-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  align-content: flex-start;
+  scrollbar-width: thin;
+  scrollbar-color: #333 transparent;
+  &::-webkit-scrollbar { width: 4px; }
+  &::-webkit-scrollbar-thumb { background: #333; }
+}
+
+.cosmetic-card {
+  width: 160px;
+  height: 200px;
+  border: 1px solid transparent;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+  transition: transform 250ms cubic-bezier(.2,0,0,1), box-shadow 250ms;
+
+  &:hover { transform: translateY(-3px); }
+
+  &--equipped {
+    &::after {
+      content: 'EQUIPPED';
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      font-family: 'Mojangles', monospace;
+      font-size: 7px;
+      color: #fff;
+      background: rgba(74,255,224,0.25);
+      border: 1px solid rgba(74,255,224,0.6);
+      padding: 2px 5px;
+      letter-spacing: 0.08em;
+      pointer-events: none;
+    }
+  }
+}
+
+.cosmetic-viewer {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+}
+
+.cosmetic-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 7px;
+  background: rgba(0,0,0,0.55);
+  flex-shrink: 0;
+}
+
+.cosmetic-name {
+  font-family: 'Mojangles', monospace;
+  font-size: 9px;
+  color: #ccc;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.cosmetic-rarity {
+  font-family: 'Mojangles', monospace;
+  font-size: 7px;
+  flex-shrink: 0;
+  margin-left: 4px;
+  letter-spacing: 0.05em;
 }
 
 // ── Empty tabs ────────────────────────────────────────────────────────────────

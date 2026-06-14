@@ -29,24 +29,24 @@
         <div class="setting-group">
           <div class="setting-row">
             <div class="setting-info">
-              <span class="setting-label">Game Directory</span>
-              <span class="setting-desc">Where Minecraft data lives (.minecraft)</span>
+              <span class="setting-label">{{ $t('settings.game.dir') }}</span>
+              <span class="setting-desc">{{ $t('settings.game.dirDesc') }}</span>
             </div>
             <div class="setting-control path-control">
-              <span class="path-text">{{ s.game.defaultGameDir || 'Default' }}</span>
-              <button class="browse-btn" @click="pickGameDir">BROWSE</button>
+              <span class="path-text">{{ s.game.defaultGameDir || $t('settings.game.dirDefault') }}</span>
+              <button class="browse-btn" @click="pickGameDir">{{ $t('settings.browse') }}</button>
               <button v-if="s.game.defaultGameDir" class="clear-btn" @click="clearGameDir">✕</button>
             </div>
           </div>
 
           <div class="setting-row">
             <div class="setting-info">
-              <span class="setting-label">Java Executable</span>
-              <span class="setting-desc">Leave blank to use auto-detected Java</span>
+              <span class="setting-label">{{ $t('settings.game.java') }}</span>
+              <span class="setting-desc">{{ $t('settings.game.javaDesc') }}</span>
             </div>
             <div class="setting-control path-control">
-              <span class="path-text">{{ s.game.defaultJavaPath || 'Auto' }}</span>
-              <button class="browse-btn" @click="pickJava">BROWSE</button>
+              <span class="path-text">{{ s.game.defaultJavaPath || $t('settings.game.javaAuto') }}</span>
+              <button class="browse-btn" @click="pickJava">{{ $t('settings.browse') }}</button>
               <button v-if="s.game.defaultJavaPath" class="clear-btn" @click="clearJava">✕</button>
             </div>
           </div>
@@ -55,7 +55,7 @@
         <div class="setting-group">
           <div class="setting-row">
             <div class="setting-info">
-              <span class="setting-label">Minimum RAM</span>
+              <span class="setting-label">{{ $t('settings.game.minRam') }}</span>
               <span class="setting-desc">{{ s.game.minRam }} MB</span>
             </div>
             <div class="setting-control slider-control">
@@ -70,7 +70,7 @@
 
           <div class="setting-row">
             <div class="setting-info">
-              <span class="setting-label">Maximum RAM</span>
+              <span class="setting-label">{{ $t('settings.game.maxRam') }}</span>
               <span class="setting-desc">{{ s.game.maxRam }} MB</span>
             </div>
             <div class="setting-control slider-control">
@@ -87,8 +87,8 @@
         <div class="setting-group">
           <div class="setting-row">
             <div class="setting-info">
-              <span class="setting-label">Resolution</span>
-              <span class="setting-desc">Window size on launch</span>
+              <span class="setting-label">{{ $t('settings.game.resolution') }}</span>
+              <span class="setting-desc">{{ $t('settings.game.resolutionDesc') }}</span>
             </div>
             <div class="setting-control res-control">
               <input
@@ -107,8 +107,8 @@
 
           <div class="setting-row">
             <div class="setting-info">
-              <span class="setting-label">Fullscreen</span>
-              <span class="setting-desc">Launch in fullscreen mode</span>
+              <span class="setting-label">{{ $t('settings.game.fullscreen') }}</span>
+              <span class="setting-desc">{{ $t('settings.game.fullscreenDesc') }}</span>
             </div>
             <div class="setting-control">
               <div class="toggle" :class="{ 'toggle--on': s.game.fullscreen }" @click="s.game.fullscreen = !s.game.fullscreen; save()" />
@@ -117,8 +117,8 @@
 
           <div class="setting-row setting-row--tall">
             <div class="setting-info">
-              <span class="setting-label">JVM Arguments</span>
-              <span class="setting-desc">Extra flags passed to Java</span>
+              <span class="setting-label">{{ $t('settings.game.jvmArgs') }}</span>
+              <span class="setting-desc">{{ $t('settings.game.jvmArgsDesc') }}</span>
             </div>
             <div class="setting-control">
               <input
@@ -139,8 +139,8 @@
         <div class="setting-group">
           <div class="setting-row">
             <div class="setting-info">
-              <span class="setting-label">Close on Launch</span>
-              <span class="setting-desc">Hide launcher when Minecraft starts</span>
+              <span class="setting-label">{{ $t('settings.launcher.closeOnLaunch') }}</span>
+              <span class="setting-desc">{{ $t('settings.launcher.closeOnLaunchDesc') }}</span>
             </div>
             <div class="setting-control">
               <div class="toggle" :class="{ 'toggle--on': s.launcher.closeOnLaunch }" @click="s.launcher.closeOnLaunch = !s.launcher.closeOnLaunch; save()" />
@@ -149,8 +149,8 @@
 
           <div class="setting-row">
             <div class="setting-info">
-              <span class="setting-label">Keep Launcher Open</span>
-              <span class="setting-desc">Don't exit after game closes</span>
+              <span class="setting-label">{{ $t('settings.launcher.keepOpen') }}</span>
+              <span class="setting-desc">{{ $t('settings.launcher.keepOpenDesc') }}</span>
             </div>
             <div class="setting-control">
               <div class="toggle" :class="{ 'toggle--on': s.launcher.keepLauncherOpen }" @click="s.launcher.keepLauncherOpen = !s.launcher.keepLauncherOpen; save()" />
@@ -159,8 +159,8 @@
 
           <div class="setting-row">
             <div class="setting-info">
-              <span class="setting-label">Auto-Update Launcher</span>
-              <span class="setting-desc">Download launcher updates automatically</span>
+              <span class="setting-label">{{ $t('settings.launcher.autoUpdate') }}</span>
+              <span class="setting-desc">{{ $t('settings.launcher.autoUpdateDesc') }}</span>
             </div>
             <div class="setting-control">
               <div class="toggle" :class="{ 'toggle--on': s.launcher.autoUpdate }" @click="s.launcher.autoUpdate = !s.launcher.autoUpdate; save()" />
@@ -171,8 +171,8 @@
         <div class="setting-group">
           <div class="setting-row">
             <div class="setting-info">
-              <span class="setting-label">Concurrent Downloads</span>
-              <span class="setting-desc">Parallel file downloads</span>
+              <span class="setting-label">{{ $t('settings.launcher.concurrentDownloads') }}</span>
+              <span class="setting-desc">{{ $t('settings.launcher.concurrentDownloadsDesc') }}</span>
             </div>
             <div class="setting-control slider-control">
               <span class="slider-val">{{ s.launcher.concurrentDownloads }}</span>
@@ -188,8 +188,8 @@
         <div class="setting-group">
           <div class="setting-row">
             <div class="setting-info">
-              <span class="setting-label">UI Sounds</span>
-              <span class="setting-desc">Click and hover sound effects</span>
+              <span class="setting-label">{{ $t('settings.launcher.uiSounds') }}</span>
+              <span class="setting-desc">{{ $t('settings.launcher.uiSoundsDesc') }}</span>
             </div>
             <div class="setting-control">
               <div class="toggle" :class="{ 'toggle--on': s.launcher.soundEnabled }" @click="s.launcher.soundEnabled = !s.launcher.soundEnabled; save()" />
@@ -198,7 +198,7 @@
 
           <div class="setting-row" :class="{ 'setting-row--muted': !s.launcher.soundEnabled }">
             <div class="setting-info">
-              <span class="setting-label">Volume</span>
+              <span class="setting-label">{{ $t('settings.launcher.volume') }}</span>
               <span class="setting-desc">{{ s.launcher.soundVolume }}%</span>
             </div>
             <div class="setting-control slider-control">
@@ -214,8 +214,8 @@
 
           <div class="setting-row" :class="{ 'setting-row--muted': !s.launcher.soundEnabled }">
             <div class="setting-info">
-              <span class="setting-label">Sound Style</span>
-              <span class="setting-desc">Choose click feel</span>
+              <span class="setting-label">{{ $t('settings.launcher.soundStyle') }}</span>
+              <span class="setting-desc">{{ $t('settings.launcher.soundStyleDesc') }}</span>
             </div>
             <div class="setting-control">
               <div class="seg-control">
@@ -224,13 +224,13 @@
                   :class="{ active: s.launcher.soundStyle === 'soft' }"
                   :disabled="!s.launcher.soundEnabled"
                   @click="s.launcher.soundStyle = 'soft'; save()"
-                >SOFT</button>
+                >{{ $t('settings.launcher.soft') }}</button>
                 <button
                   class="seg-btn"
                   :class="{ active: s.launcher.soundStyle === 'clicky' }"
                   :disabled="!s.launcher.soundEnabled"
                   @click="s.launcher.soundStyle = 'clicky'; save()"
-                >CLICKY</button>
+                >{{ $t('settings.launcher.clicky') }}</button>
               </div>
             </div>
           </div>
@@ -239,8 +239,8 @@
         <div class="setting-group">
           <div class="setting-row setting-row--tall">
             <div class="setting-info">
-              <span class="setting-label">CurseForge API Key</span>
-              <span class="setting-desc">Required for CurseForge mod downloads</span>
+              <span class="setting-label">{{ $t('settings.launcher.curseforgeKey') }}</span>
+              <span class="setting-desc">{{ $t('settings.launcher.curseforgeKeyDesc') }}</span>
             </div>
             <div class="setting-control">
               <input
@@ -261,8 +261,8 @@
         <div class="setting-group">
           <div class="setting-row">
             <div class="setting-info">
-              <span class="setting-label">Accent Color</span>
-              <span class="setting-desc">Primary highlight color across the UI</span>
+              <span class="setting-label">{{ $t('settings.appearance.accentColor') }}</span>
+              <span class="setting-desc">{{ $t('settings.appearance.accentColorDesc') }}</span>
             </div>
             <div class="setting-control accent-control">
               <div class="color-swatches">
@@ -291,8 +291,8 @@
         <div class="setting-group">
           <div class="setting-row">
             <div class="setting-info">
-              <span class="setting-label">Language</span>
-              <span class="setting-desc">UI display language</span>
+              <span class="setting-label">{{ $t('settings.appearance.language') }}</span>
+              <span class="setting-desc">{{ $t('settings.appearance.languageDesc') }}</span>
             </div>
             <div class="setting-control">
               <select
@@ -321,10 +321,12 @@
 
 <script setup lang="ts">
 import { ref, computed, h } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '../store/settingsStore'
 
 const settingsStore = useSettingsStore()
 const s = computed(() => settingsStore.settings)
+const { t } = useI18n()
 
 async function save() { await settingsStore.save() }
 async function pickGameDir() { await settingsStore.chooseGameDir() }
@@ -358,14 +360,14 @@ const IconAppearance = {
   ])
 }
 
-const sections = [
-  { key: 'game',       label: 'Game',       icon: IconGame       },
-  { key: 'launcher',   label: 'Launcher',   icon: IconLauncher   },
-  { key: 'appearance', label: 'Appearance', icon: IconAppearance },
-]
+const sections = computed(() => [
+  { key: 'game',       label: t('settings.sections.game'),       icon: IconGame       },
+  { key: 'launcher',   label: t('settings.sections.launcher'),   icon: IconLauncher   },
+  { key: 'appearance', label: t('settings.sections.appearance'), icon: IconAppearance },
+])
 
 const activeSection = ref('game')
-const currentSection = computed(() => sections.find(s => s.key === activeSection.value))
+const currentSection = computed(() => sections.value.find(s => s.key === activeSection.value))
 </script>
 
 <style lang="scss" scoped>

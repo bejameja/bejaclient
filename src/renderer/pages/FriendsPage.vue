@@ -26,22 +26,43 @@
           <input
             v-model="addInput"
             class="add-input"
-            placeholder="Add friend by username..."
+            :placeholder="$t('friends.addPlaceholder')"
             spellcheck="false"
             @focus="addFocused = true"
             @blur="addFocused = false"
+            @input="onAddInput"
             @keyup.enter="sendRequest"
           />
+
+          <!-- Username suggestions -->
+          <div v-if="addFocused && suggestions.length" class="suggest-drop" @mousedown.prevent>
+            <div v-for="s in suggestions" :key="s.uuid" class="suggest-row">
+              <img
+                class="suggest-head"
+                :src="`https://mc-heads.net/head/${s.uuid}/64`"
+                :alt="s.username"
+                @error="(e: Event) => ((e.target as HTMLImageElement).src = 'https://mc-heads.net/head/MHF_Steve/64')"
+              />
+              <div class="suggest-info">
+                <span class="suggest-name">{{ s.username }}</span>
+                <span class="suggest-tag" :class="`suggest-tag--${s.source}`">
+                  {{ s.source === 'beja' ? 'BEJACLIENT' : 'MINECRAFT' }}
+                </span>
+              </div>
+              <button class="suggest-btn suggest-btn--primary" @click="addSuggestion(s)">Add Friend</button>
+              <button class="suggest-btn" @click="viewSuggestionProfile(s)">View Profile</button>
+            </div>
+          </div>
         </div>
         <button class="add-btn" :disabled="!addInput.trim() || adding" @click="sendRequest">
           <span v-if="adding" class="spinner sm" />
-          <template v-else>ADD</template>
+          <template v-else>{{ $t('friends.add') }}</template>
         </button>
       </div>
 
       <!-- Search -->
       <div class="search-bar">
-        <input v-model="search" class="search-input" placeholder="Search friends..." spellcheck="false" />
+        <input v-model="search" class="search-input" :placeholder="$t('friends.searchPlaceholder')" spellcheck="false" />
         <img :src="searchIcon" class="search-icon" alt="" />
       </div>
 
@@ -54,14 +75,14 @@
 
         <div v-else-if="!filteredFriends.length" class="state-area">
           <span class="state-text">
-            {{ search ? 'No results' : 'No friends yet' }}
+            {{ search ? $t('friends.noResults') : $t('friends.noFriends') }}
           </span>
         </div>
 
         <template v-else>
           <!-- Online section -->
           <template v-if="onlineFriends.length">
-            <div class="section-label">ONLINE — {{ onlineFriends.length }}</div>
+            <div class="section-label">{{ $t('friends.sections.online', { count: onlineFriends.length }) }}</div>
             <div class="friends-grid">
               <div
                 v-for="f in onlineFriends"
@@ -81,7 +102,7 @@
                 </div>
                 <div class="friend-card-label">
                   <span class="friend-card-name">{{ f.username }}</span>
-                  <span class="friend-card-status online-text">online</span>
+                  <span class="friend-card-status online-text">{{ $t('friends.status.online') }}</span>
                 </div>
               </div>
             </div>
@@ -89,7 +110,7 @@
 
           <!-- Offline section -->
           <template v-if="offlineFriends.length">
-            <div class="section-label">OFFLINE — {{ offlineFriends.length }}</div>
+            <div class="section-label">{{ $t('friends.sections.offline', { count: offlineFriends.length }) }}</div>
             <div class="friends-grid">
               <div
                 v-for="f in offlineFriends"
@@ -109,7 +130,7 @@
                 </div>
                 <div class="friend-card-label">
                   <span class="friend-card-name">{{ f.username }}</span>
-                  <span class="friend-card-status offline-text">offline</span>
+                  <span class="friend-card-status offline-text">{{ $t('friends.status.offline') }}</span>
                 </div>
               </div>
             </div>
@@ -125,7 +146,7 @@
 
         <!-- Incoming -->
         <template v-if="friendsStore.incomingRequests.length">
-          <div class="section-label">INCOMING — {{ friendsStore.incomingRequests.length }}</div>
+          <div class="section-label">{{ $t('friends.sections.incoming', { count: friendsStore.incomingRequests.length }) }}</div>
           <div class="friends-grid">
             <div
               v-for="r in friendsStore.incomingRequests"
@@ -143,7 +164,7 @@
               </div>
               <div class="friend-card-label">
                 <span class="friend-card-name">{{ r.username }}</span>
-                <span class="friend-card-status pending-text">incoming</span>
+                <span class="friend-card-status pending-text">{{ $t('friends.status.incoming') }}</span>
               </div>
               <div class="card-request-actions">
                 <button class="action-btn action-btn--accept" @click="acceptRequest(r.uuid)">✓</button>
@@ -155,7 +176,7 @@
 
         <!-- Outgoing -->
         <template v-if="friendsStore.outgoingRequests.length">
-          <div class="section-label">SENT — {{ friendsStore.outgoingRequests.length }}</div>
+          <div class="section-label">{{ $t('friends.sections.sent', { count: friendsStore.outgoingRequests.length }) }}</div>
           <div class="friends-grid">
             <div
               v-for="r in friendsStore.outgoingRequests"
@@ -173,10 +194,10 @@
               </div>
               <div class="friend-card-label">
                 <span class="friend-card-name">{{ r.username }}</span>
-                <span class="friend-card-status pending-text">pending</span>
+                <span class="friend-card-status pending-text">{{ $t('friends.status.pending') }}</span>
               </div>
               <div class="card-request-actions">
-                <button class="action-btn action-btn--decline" @click="cancelRequest(r.uuid)">CANCEL</button>
+                <button class="action-btn action-btn--decline" @click="cancelRequest(r.uuid)">{{ $t('friends.cancel') }}</button>
               </div>
             </div>
           </div>
@@ -187,7 +208,7 @@
           v-if="!friendsStore.incomingRequests.length && !friendsStore.outgoingRequests.length"
           class="state-area"
         >
-          <span class="state-text">No pending requests</span>
+          <span class="state-text">{{ $t('friends.noPendingRequests') }}</span>
         </div>
 
       </div>
@@ -207,7 +228,7 @@
           <div class="chat-header-info">
             <span class="chat-header-name">{{ chatFriend.username }}</span>
             <span class="chat-header-status" :class="chatFriend.online ? 'online-text' : 'offline-text'">
-              {{ chatFriend.online ? 'online' : 'offline' }}
+              {{ chatFriend.online ? $t('friends.status.online') : $t('friends.status.offline') }}
             </span>
           </div>
           <button class="chat-close-btn" @click="closeChat">✕</button>
@@ -219,7 +240,7 @@
             <span class="spinner sm" />
           </div>
           <div v-else-if="!chatMessages.length" class="chat-empty">
-            <span class="chat-empty-text">No messages yet</span>
+            <span class="chat-empty-text">{{ $t('friends.chat.noMessages') }}</span>
           </div>
           <template v-else>
             <div
@@ -239,7 +260,7 @@
           <input
             v-model="chatInput"
             class="chat-input"
-            :placeholder="`Message ${chatFriend.username}...`"
+            :placeholder="$t('friends.chat.messagePlaceholder', { name: chatFriend.username })"
             spellcheck="false"
             maxlength="2000"
             @keyup.enter="sendChat"
@@ -255,19 +276,24 @@
       <div v-if="toast" class="toast" :class="`toast--${toast.type}`">{{ toast.msg }}</div>
     </Transition>
 
+    <PlayerProfileModal v-model="profileOpen" :player="profilePlayer" />
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useFriendsStore } from '../store/friendsStore'
 import { useAccountStore } from '../store/accountStore'
-import type { ChatMessage } from '../types'
+import type { ChatMessage, PlayerProfile } from '../types'
 import searchIcon from '../assets/icons8-search-50.png'
+import PlayerProfileModal from '../components/friends/PlayerProfileModal.vue'
 
 const friendsStore  = useFriendsStore()
 const accountStore  = useAccountStore()
 const myUuid        = computed(() => accountStore.selectedAccount?.uuid ?? '')
+const { t } = useI18n()
 
 const activeTab = ref('friends')
 const search    = ref('')
@@ -276,10 +302,10 @@ const addFocused = ref(false)
 const adding    = ref(false)
 const loading   = ref(false)
 
-const tabs = [
-  { key: 'friends',  label: 'Friends'  },
-  { key: 'requests', label: 'Requests' },
-]
+const tabs = computed(() => [
+  { key: 'friends',  label: t('friends.tabs.friends')  },
+  { key: 'requests', label: t('friends.tabs.requests') },
+])
 
 const filteredFriends = computed(() => {
   const q = search.value.trim().toLowerCase()
@@ -301,23 +327,70 @@ function showToast(msg: string, type: Toast['type'] = 'info') {
   toastTimer = setTimeout(() => { toast.value = null }, 3000)
 }
 
+// ── Username suggestions ───────────────────────────────────────────────────────
+interface Suggestion { uuid: string; username: string; source: 'beja' | 'mojang' }
+
+const suggestions = ref<Suggestion[]>([])
+let suggestTimer: ReturnType<typeof setTimeout> | null = null
+let suggestSeq = 0
+
+const profileOpen   = ref(false)
+const profilePlayer = ref<PlayerProfile | null>(null)
+
+function onAddInput() {
+  if (suggestTimer) clearTimeout(suggestTimer)
+  const q = addInput.value.trim()
+  if (q.length < 2) { suggestions.value = []; return }
+  suggestTimer = setTimeout(async () => {
+    const seq = ++suggestSeq
+    const results = await window.api.players.search(q)
+    if (seq !== suggestSeq) return // newer query in flight
+    const bare = (u: string) => u.replace(/-/g, '').toLowerCase()
+    suggestions.value = results.filter(s =>
+      bare(s.uuid) !== bare(myUuid.value) &&
+      !friendsStore.friends.some(f => bare(f.uuid) === bare(s.uuid))
+    )
+  }, 300)
+}
+
+function addSuggestion(s: Suggestion) {
+  addInput.value     = s.username
+  suggestions.value  = []
+  sendRequest()
+}
+
+async function viewSuggestionProfile(s: Suggestion) {
+  suggestions.value = []
+  // Mojang lookup fills skin/cape for the modal; cracked accounts fall back to basics
+  const profile = await window.api.players.lookup(s.username)
+  profilePlayer.value = profile ?? {
+    uuid:      s.uuid,
+    username:  s.username,
+    skinUrl:   null,
+    capeUrl:   null,
+    skinModel: 'default',
+  }
+  profileOpen.value = true
+}
+
 // ── Actions ────────────────────────────────────────────────────────────────────
 async function sendRequest() {
   const name = addInput.value.trim()
   if (!name || adding.value) return
+  suggestions.value = []
   adding.value = true
   const result = await friendsStore.sendRequest(name)
   adding.value = false
-  if (result === 'sent')            { showToast(`Request sent to ${name}`, 'ok');  addInput.value = '' }
-  else if (result === 'not_found')    showToast(`Player "${name}" not found`, 'err')
-  else if (result === 'already_friends') showToast(`Already friends with ${name}`, 'info')
-  else if (result === 'already_pending') showToast('Request already pending', 'info')
-  else                                showToast('Something went wrong', 'err')
+  if (result === 'sent')            { showToast(t('friends.toast.sent', { name }), 'ok');  addInput.value = '' }
+  else if (result === 'not_found')    showToast(t('friends.toast.notFound', { name }), 'err')
+  else if (result === 'already_friends') showToast(t('friends.toast.alreadyFriends', { name }), 'info')
+  else if (result === 'already_pending') showToast(t('friends.toast.alreadyPending'), 'info')
+  else                                showToast(t('friends.toast.error'), 'err')
 }
 
 async function acceptRequest(uuid: string) {
   await friendsStore.acceptRequest(uuid)
-  showToast('Friend request accepted', 'ok')
+  showToast(t('friends.toast.accepted'), 'ok')
 }
 
 async function declineRequest(uuid: string) {
@@ -482,6 +555,7 @@ onMounted(async () => {
 }
 
 .add-input-wrap {
+  position: relative;
   flex: 1;
   max-width: 400px;
   display: flex;
@@ -505,6 +579,89 @@ onMounted(async () => {
   color: #cbcbcb;
   letter-spacing: 0.03em;
   &::placeholder { color: #555; }
+}
+
+.suggest-drop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: -1px;
+  right: -1px;
+  background: #0a0a0b;
+  border: 1px solid rgba(118,119,120,0.61);
+  border-radius: 6px;
+  overflow: hidden;
+  z-index: 30;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+
+.suggest-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  transition: background $transition;
+
+  &:hover { background: rgba(255,255,255,0.04); }
+  & + & { border-top: 1px solid rgba(255,255,255,0.04); }
+}
+
+.suggest-head {
+  width: 26px;
+  height: 26px;
+  border-radius: 3px;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+}
+
+.suggest-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.suggest-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: $text-primary;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.suggest-tag {
+  font-family: 'Mojangles', monospace;
+  font-size: 7px;
+  letter-spacing: 0.12em;
+  color: #555;
+
+  &--beja { color: $accent; }
+}
+
+.suggest-btn {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border-radius: 5px;
+  border: 1px solid $border;
+  background: $surface-elevated;
+  color: $text-secondary;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background $transition, color $transition;
+
+  &:hover { background: $border; color: $text-primary; }
+
+  &--primary {
+    background: $text-primary;
+    border-color: transparent;
+    color: $bg;
+
+    &:hover { background: $text-secondary; color: $bg; }
+  }
 }
 
 .add-btn {

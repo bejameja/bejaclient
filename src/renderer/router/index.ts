@@ -12,6 +12,7 @@ export const router = createRouter({
     { path: '/',          component: HomePage,                                                    name: 'home'      },
     { path: '/cosmetics', component: LockerPage,                                                  name: 'cosmetics' },
     { path: '/pass',      component: () => import('../pages/PassPage.vue'),                       name: 'pass'      },
+    { path: '/crates',    component: () => import('../pages/CratesPage.vue'),                     name: 'crates'    },
     { path: '/quests',    component: QuestsPage,                                                  name: 'quests'    },
     { path: '/capes',     component: () => import('../pages/CapesPage.vue'),                       name: 'capes'     },
     { path: '/profiles',  component: () => import('../pages/settings/ProfilesSettings.vue'),      name: 'profiles'  },

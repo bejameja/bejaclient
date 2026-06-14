@@ -118,6 +118,15 @@ export interface PlayerProfile {
   skinModel: 'default' | 'slim'
 }
 
+export interface BejaPlayerProfile {
+  uuid: string
+  username: string
+  joinedAt: string | null
+  xp: number
+  bejaCapeUrl: string | null
+  bejaCapeType: string | null
+}
+
 export type LaunchStatus = 'idle' | 'starting' | 'running' | 'stopping' | 'error'
 
 export interface ChatMessage {
@@ -300,6 +309,10 @@ declare global {
         saveSkin(skinUrl: string, username: string): Promise<string>
         fetchImage(url: string): Promise<string>
         mcProfile(accessToken: string): Promise<{ id: string; name: string; capes: { id: string; state: string; url: string; alias: string }[] } | null>
+        bejaProfile(uuid: string): Promise<BejaPlayerProfile | null>
+        mcCreated(uuid: string): Promise<string | null>
+        capes(uuid: string): Promise<{ service: string; capeUrl: string }[]>
+        search(query: string): Promise<{ uuid: string; username: string; source: 'beja' | 'mojang' }[]>
       }
       friends: {
         connect(): Promise<boolean>
@@ -368,6 +381,28 @@ declare global {
         progress(): Promise<unknown>
         daily(): Promise<unknown>
       }
+      quests: {
+        list(): Promise<{ week: string; quests: Quest[] }>
+        progress(questId: string, amount: number): Promise<{ questId: string; progress: number; claimed: boolean } | null>
+        claim(questId: string): Promise<{ awarded: boolean; xp_gained?: number; xp?: number }>
+        leaderboard(): Promise<{ entries: LeaderboardEntry[]; myRank: number | null }>
+      }
     }
   }
+}
+
+export interface Quest {
+  id: string
+  name: string
+  goal: number
+  xp: number
+  progress: number
+  claimed: boolean
+}
+
+export interface LeaderboardEntry {
+  rank: number
+  uuid: string
+  username: string
+  xp: number
 }

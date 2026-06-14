@@ -4,28 +4,28 @@
     <!-- Tabs -->
     <div class="tab-row">
       <button
-        v-for="t in tabs"
-        :key="t.label"
+        v-for="tab in tabs"
+        :key="tab.key"
         class="tab-btn"
-        :class="{ active: activeTab === t.label }"
-        @click="switchTab(t.label)"
-      >{{ t.label }}</button>
+        :class="{ active: activeTab === tab.key }"
+        @click="switchTab(tab.key)"
+      >{{ tab.label }}</button>
     </div>
 
     <!-- Search + filters (hidden on Servers tab) -->
-    <div v-if="activeTab !== 'Servers'" class="controls-row">
+    <div v-if="activeTab !== 'servers'" class="controls-row">
       <div class="search-bar">
         <input
           v-model="searchInput"
           class="search-input"
-          :placeholder="`Search ${activeTab.toLowerCase()}...`"
+          :placeholder="$t('mods.searchPlaceholder', { tab: tabs.find(tab => tab.key === activeTab)?.label?.toLowerCase() ?? activeTab })"
           @keyup.enter="triggerSearch"
         />
         <img :src="searchIcon" class="search-icon" alt="" />
       </div>
 
       <select v-model="filterVersion" class="filter-select" @change="doSearch">
-        <option value="">All versions</option>
+        <option value="">{{ $t('mods.filters.allVersions') }}</option>
         <option v-for="v in releaseVersions" :key="v" :value="v">{{ v }}</option>
       </select>
 
@@ -35,11 +35,11 @@
         class="filter-select"
         @change="doSearch"
       >
-        <option value="">All loaders</option>
-        <option value="fabric">Fabric</option>
-        <option value="forge">Forge</option>
-        <option value="neoforge">NeoForge</option>
-        <option value="quilt">Quilt</option>
+        <option value="">{{ $t('mods.filters.allLoaders') }}</option>
+        <option value="fabric">{{ $t('mods.loaders.fabric') }}</option>
+        <option value="forge">{{ $t('mods.loaders.forge') }}</option>
+        <option value="neoforge">{{ $t('mods.loaders.neoforge') }}</option>
+        <option value="quilt">{{ $t('mods.loaders.quilt') }}</option>
       </select>
 
       <button
@@ -47,27 +47,27 @@
         :class="{ active: filterCategories.length > 0 }"
         @click="catPanelOpen = !catPanelOpen"
       >
-        Categories{{ filterCategories.length ? ` (${filterCategories.length})` : '' }}
+        {{ $t('mods.categories') }}{{ filterCategories.length ? ` (${filterCategories.length})` : '' }}
       </button>
     </div>
 
     <!-- Active category chips -->
     <div v-if="filterCategories.length && activeTab !== 'Servers'" class="chip-row">
       <button v-for="c in filterCategories" :key="c" class="chip" @click="removeCategory(c)">{{ c }} ×</button>
-      <button class="chip chip--clear" @click="clearCategories">clear all</button>
+      <button class="chip chip--clear" @click="clearCategories">{{ $t('mods.clearAll') }}</button>
     </div>
 
     <!-- ── Servers tab ──────────────────────────────────────────────────────── -->
-    <div v-if="activeTab === 'Servers'" class="servers-area">
+    <div v-if="activeTab === 'servers'" class="servers-area">
 
       <!-- Top bar -->
       <div class="servers-topbar">
         <button class="server-action-btn" @click="showAddForm = !showAddForm">
-          {{ showAddForm ? '− Cancel' : '+ Add Server' }}
+          {{ showAddForm ? $t('mods.server.cancelServer') : $t('mods.server.addServer') }}
         </button>
         <button class="server-action-btn" :disabled="serversLoading" @click="refreshServers">
           <span v-if="serversLoading" class="spinner sm" />
-          <template v-else>↺ Refresh</template>
+          <template v-else>{{ $t('mods.server.refresh') }}</template>
         </button>
       </div>
 
@@ -77,7 +77,7 @@
           <input
             v-model="newHost"
             class="server-input"
-            placeholder="Server IP (e.g. play.example.com)"
+            :placeholder="$t('mods.server.ipPlaceholder')"
             @keyup.enter="submitAddServer"
           />
           <input
@@ -91,12 +91,12 @@
           <input
             v-model="newName"
             class="server-input"
-            placeholder="Display name (optional)"
+            :placeholder="$t('mods.server.namePlaceholder')"
             @keyup.enter="submitAddServer"
           />
           <button class="server-add-confirm" :disabled="!newHost || addingServer" @click="submitAddServer">
             <span v-if="addingServer" class="spinner sm" />
-            <template v-else>Add</template>
+            <template v-else>{{ $t('mods.server.add') }}</template>
           </button>
         </div>
       </Transition>
@@ -127,9 +127,9 @@
           <div class="server-info">
             <div class="server-name-row">
               <span class="server-name">{{ s.name }}</span>
-              <span v-if="s.featured" class="server-badge">FEATURED</span>
-              <span v-if="!s.online && serversLoading" class="server-pinging-badge">PINGING…</span>
-            <span v-else-if="!s.online" class="server-offline-badge">OFFLINE</span>
+              <span v-if="s.featured" class="server-badge">{{ $t('mods.server.featured') }}</span>
+              <span v-if="!s.online && serversLoading" class="server-pinging-badge">{{ $t('mods.server.pinging') }}</span>
+            <span v-else-if="!s.online" class="server-offline-badge">{{ $t('mods.server.offline') }}</span>
             </div>
             <p v-if="s.motd" class="server-motd">{{ s.motd }}</p>
             <span class="server-ip">{{ s.host }}{{ s.port !== 25565 ? `:${s.port}` : '' }}</span>
@@ -138,15 +138,15 @@
           <!-- Stats -->
           <div class="server-stats">
             <div v-if="s.online" class="stat-row">
-              <span class="stat-label">PING</span>
+              <span class="stat-label">{{ $t('mods.server.ping') }}</span>
               <span class="stat-value" :class="pingClass(s.ping)">{{ s.ping }}ms</span>
             </div>
             <div v-if="s.online" class="stat-row">
-              <span class="stat-label">PLAYERS</span>
+              <span class="stat-label">{{ $t('mods.server.players') }}</span>
               <span class="stat-value">{{ s.playersOnline }}/{{ s.playersMax }}</span>
             </div>
             <div v-if="s.online && s.version" class="stat-row">
-              <span class="stat-label">VERSION</span>
+              <span class="stat-label">{{ $t('mods.server.version') }}</span>
               <span class="stat-value version-val">{{ s.version }}</span>
             </div>
           </div>
@@ -163,7 +163,7 @@
               v-if="s.online"
               class="install-btn"
               @click="openServerPicker(s, $event)"
-            >ADD TO PROFILE</button>
+            >{{ $t('mods.server.addToProfile') }}</button>
           </div>
         </div>
       </div>
@@ -182,7 +182,7 @@
       </div>
 
       <div v-else-if="!loading && !results.length" class="state-area">
-        <span class="state-text">No results</span>
+        <span class="state-text">{{ $t('mods.noResults') }}</span>
       </div>
 
       <template v-else>
@@ -214,7 +214,7 @@
               @click="openModPicker(hit, $event)"
             >
               <span v-if="installingSet.has(`${hit.source}-${hit.id}`)" class="spinner sm" />
-              <template v-else>INSTALL</template>
+              <template v-else>{{ $t('mods.install') }}</template>
             </button>
           </div>
 
@@ -223,7 +223,7 @@
         <div v-if="hasMore" class="load-more-row">
           <button class="load-more-btn" :disabled="loading" @click="loadMore">
             <span v-if="loading" class="spinner sm" />
-            <template v-else>LOAD MORE</template>
+            <template v-else>{{ $t('mods.loadMore') }}</template>
           </button>
         </div>
       </template>
@@ -244,7 +244,7 @@
           >{{ cat.name }}</button>
         </div>
         <div class="cat-panel-footer">
-          <button class="cat-close-btn" @click="catPanelOpen = false; doSearch()">Apply</button>
+          <button class="cat-close-btn" @click="catPanelOpen = false; doSearch()">{{ $t('mods.apply') }}</button>
         </div>
       </div>
     </Transition>
@@ -262,10 +262,10 @@
       <div v-if="pickerHit" class="picker-overlay" @click.self="closePicker">
         <div class="picker-panel" :style="pickerPos">
 
-          <p class="picker-title">Install to profiles</p>
+          <p class="picker-title">{{ $t('mods.picker.installTitle') }}</p>
           <p class="picker-sub">{{ pickerHit.title }}</p>
 
-          <div v-if="!profiles.length" class="picker-empty">No profiles found</div>
+          <div v-if="!profiles.length" class="picker-empty">{{ $t('mods.picker.noProfiles') }}</div>
 
           <label
             v-for="p in profiles"
@@ -286,18 +286,18 @@
               <span class="picker-profile-name">{{ p.name }}</span>
               <span class="picker-profile-meta">{{ p.version }} · {{ p.loader }}</span>
             </div>
-            <span v-if="pickerHit && installedMap.get(`${pickerHit.source}-${pickerHit.id}`)?.has(p.id)" class="picker-installed-label">Installed</span>
+            <span v-if="pickerHit && installedMap.get(`${pickerHit.source}-${pickerHit.id}`)?.has(p.id)" class="picker-installed-label">{{ $t('mods.picker.installed') }}</span>
           </label>
 
           <div class="picker-footer">
-            <button class="picker-btn picker-btn--cancel" @click="closePicker">Cancel</button>
+            <button class="picker-btn picker-btn--cancel" @click="closePicker">{{ $t('mods.picker.cancel') }}</button>
             <button
               class="picker-btn picker-btn--confirm"
               :disabled="!pickerSelected.length || pickerInstalling"
               @click="confirmModInstall"
             >
               <span v-if="pickerInstalling" class="spinner sm" />
-              <template v-else>Install ({{ pickerSelected.length }})</template>
+              <template v-else>{{ $t('mods.picker.installBtn', { count: pickerSelected.length }) }}</template>
             </button>
           </div>
 
@@ -312,10 +312,10 @@
       <div v-if="serverPickerServer" class="picker-overlay" @click.self="closeServerPicker">
         <div class="picker-panel" :style="pickerPos">
 
-          <p class="picker-title">Add to profile</p>
+          <p class="picker-title">{{ $t('mods.picker.addTitle') }}</p>
           <p class="picker-sub">{{ serverPickerServer.name }}</p>
 
-          <div v-if="!profiles.length" class="picker-empty">No profiles found</div>
+          <div v-if="!profiles.length" class="picker-empty">{{ $t('mods.picker.noProfiles') }}</div>
 
           <label
             v-for="p in profiles"
@@ -336,18 +336,18 @@
               <span class="picker-profile-name">{{ p.name }}</span>
               <span class="picker-profile-meta">{{ p.version }} · {{ p.loader }}</span>
             </div>
-            <span v-if="serverPickerServer && serverAddedMap.get(serverKey(serverPickerServer))?.has(p.id)" class="picker-installed-label">Added</span>
+            <span v-if="serverPickerServer && serverAddedMap.get(serverKey(serverPickerServer))?.has(p.id)" class="picker-installed-label">{{ $t('mods.picker.added') }}</span>
           </label>
 
           <div class="picker-footer">
-            <button class="picker-btn picker-btn--cancel" @click="closeServerPicker">Cancel</button>
+            <button class="picker-btn picker-btn--cancel" @click="closeServerPicker">{{ $t('mods.picker.cancel') }}</button>
             <button
               class="picker-btn picker-btn--confirm"
               :disabled="!serverPickerSelected.length || serverPickerInstalling"
               @click="confirmServerAdd"
             >
               <span v-if="serverPickerInstalling" class="spinner sm" />
-              <template v-else>Add ({{ serverPickerSelected.length }})</template>
+              <template v-else>{{ $t('mods.picker.addBtn', { count: serverPickerSelected.length }) }}</template>
             </button>
           </div>
 
@@ -359,25 +359,28 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { ExploreHit, ModrinthProjectType, LaunchProfile, ServerStatus } from '../types/index'
 import searchIcon from '../assets/icons8-search-50.png'
 
 // ── Tab config ────────────────────────────────────────────────────────────────
 
-const tabs = [
-  { label: 'Mods',          type: 'mod'         as ModrinthProjectType },
-  { label: 'Modpacks',      type: 'modpack'      as ModrinthProjectType },
-  { label: 'Shaders',       type: 'shader'       as ModrinthProjectType },
-  { label: 'Resourcepacks', type: 'resourcepack' as ModrinthProjectType },
-  { label: 'Servers',       type: null },
-  { label: 'Data-packs',    type: 'datapack'     as ModrinthProjectType },
-]
+const { t } = useI18n()
 
-const activeTab  = ref<string>('Mods')
-const activeType = computed(() => tabs.find(t => t.label === activeTab.value)?.type ?? null)
+const tabs = computed(() => [
+  { key: 'mods',          label: t('mods.tabs.mods'),          type: 'mod'         as ModrinthProjectType },
+  { key: 'modpacks',      label: t('mods.tabs.modpacks'),      type: 'modpack'      as ModrinthProjectType },
+  { key: 'shaders',       label: t('mods.tabs.shaders'),       type: 'shader'       as ModrinthProjectType },
+  { key: 'resourcepacks', label: t('mods.tabs.resourcepacks'), type: 'resourcepack' as ModrinthProjectType },
+  { key: 'servers',       label: t('mods.tabs.servers'),       type: null },
+  { key: 'datapacks',     label: t('mods.tabs.datapacks'),     type: 'datapack'     as ModrinthProjectType },
+])
+
+const activeTab  = ref<string>('mods')
+const activeType = computed(() => tabs.value.find(t => t.key === activeTab.value)?.type ?? null)
 
 const showLoaderFilter = computed(() =>
-  ['Mods', 'Modpacks', 'Data-packs'].includes(activeTab.value)
+  ['mods', 'modpacks', 'datapacks'].includes(activeTab.value)
 )
 
 // ── Filters ───────────────────────────────────────────────────────────────────
@@ -504,16 +507,16 @@ async function loadMore() {
   }
 }
 
-function switchTab(label: string) {
-  if (activeTab.value === label) return
-  activeTab.value        = label
+function switchTab(key: string) {
+  if (activeTab.value === key) return
+  activeTab.value        = key
   searchInput.value      = ''
   filterLoader.value     = ''
   filterCategories.value = []
   results.value          = []
   error.value            = null
   catPanelOpen.value     = false
-  if (label === 'Servers') {
+  if (key === 'servers') {
     refreshServers()
   } else {
     doSearch()
@@ -599,7 +602,7 @@ async function confirmModInstall() {
     try {
       await runModInstall(hit, profileId)
     } catch (e) {
-      showProgress(`Error: ${String(e)}`)
+      showProgress(t('mods.toast.error', { msg: String(e) }))
       anyError = true
     }
   }
@@ -612,7 +615,7 @@ async function confirmModInstall() {
     pickerSelected.value.forEach(pid => existing.add(pid))
     installedMap.value = new Map(installedMap.value).set(key, existing)
     const n = pickerSelected.value.length
-    showProgress(`Installed to ${n} profile${n > 1 ? 's' : ''}`)
+    showProgress(t('mods.toast.installed', { count: n }, n))
   }
 
   pickerInstalling.value = false
@@ -687,7 +690,7 @@ async function submitAddServer() {
       ping:          status?.ping ?? null,
     })
   } catch (e) {
-    showProgress(`Error: ${String(e)}`)
+    showProgress(t('mods.toast.error', { msg: String(e) }))
   } finally {
     addingServer.value = false
   }
@@ -746,14 +749,14 @@ async function confirmServerAdd() {
       existing.add(profileId)
       serverAddedMap.value = new Map(serverAddedMap.value).set(key, existing)
     } catch (e) {
-      showProgress(`Error: ${String(e)}`)
+      showProgress(t('mods.toast.error', { msg: String(e) }))
       anyError = true
     }
   }
   serverPickerInstalling.value = false
   if (!anyError) {
     const n = serverPickerSelected.value.length
-    showProgress(`Server added to ${n} profile${n > 1 ? 's' : ''}`)
+    showProgress(t('mods.toast.serverAdded', { count: n }, n))
   }
   closeServerPicker()
 }

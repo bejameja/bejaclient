@@ -13,6 +13,7 @@
     "build": "vue-tsc --noEmit && vite build",
     "electron": "electron .",
     "dist": "npm run build && node scripts/protect.js && electron-builder --win --x64",
+    "dist:linux": "npm run build && node scripts/protect.js && electron-builder --linux --x64",
     "dist:dir": "npm run build && node scripts/protect.js && electron-builder --win --x64 --dir"
   },
   "build": {
@@ -81,6 +82,23 @@
       "language": "1033",
       "uninstallDisplayName": "BejaClient"
     },
+    "linux": {
+      "icon": "resources/icon.png",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        }
+      ],
+      "artifactName": "${productName}-${version}.${ext}",
+      "category": "Game",
+      "extraResources": [
+        {
+          "from": "resources/icon.png",
+          "to": "icon.png"
+        }
+      ]
+    },
     "publish": {
       "provider": "github",
       "owner": "bejameja",
@@ -99,7 +117,9 @@
     "pinia": "^2.1.7",
     "skinview3d": "^2.1.0",
     "socket.io-client": "^4.8.3",
+    "three": "^0.184.0",
     "vue": "^3.4.0",
+    "vue-i18n": "^11.4.5",
     "vue-router": "^4.2.5"
   },
   "devDependencies": {

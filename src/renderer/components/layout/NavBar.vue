@@ -31,9 +31,9 @@
 
     <!-- Footer links -->
     <div class="sidebar-footer">
-      <button class="footer-link" @click="openExternal('https://bejaclient.com/terms')">Terms</button>
-      <button class="footer-link" @click="openExternal('https://bejaclient.com/privacy')">Privacy</button>
-      <button class="footer-link" @click="openExternal('https://bejaclient.com/support')">Support</button>
+      <button class="footer-link" @click="openExternal('https://bejaclient.com/terms')">{{ $t('nav.footer.terms') }}</button>
+      <button class="footer-link" @click="openExternal('https://bejaclient.com/privacy')">{{ $t('nav.footer.privacy') }}</button>
+      <button class="footer-link" @click="openExternal('https://bejaclient.com/support')">{{ $t('nav.footer.support') }}</button>
     </div>
 
   </aside>
@@ -42,6 +42,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useLauncherStore } from '../../store/launcherStore'
 import { useFriendsStore }  from '../../store/friendsStore'
 import { playHover }        from '../../composables/useSounds'
@@ -54,21 +55,24 @@ import iconProfiles  from '../../assets/icons8-name-50.png'
 import iconFriends   from '../../assets/icons8-freunde-64.png'
 import iconQuests    from '../../assets/icons8-aufgabe-50.png'
 import iconPass      from '../../assets/icons8-passieren-50.png'
+import iconCrates    from '../../assets/icons8-package-50.png'
 import iconSettings  from '../../assets/icons8-settings-50.png'
 
 const route         = useRoute()
 const launcherStore = useLauncherStore()
 const friendsStore  = useFriendsStore()
+const { t } = useI18n()
 
 const navItems = computed(() => [
-  { label: 'Hub',         path: '/',          exact: true,  icon: iconPlay,     badge: null },
-  { label: 'Locker',      path: '/cosmetics', exact: false, icon: iconLocker,   badge: null },
-  { label: 'Explore',     path: '/mods',      exact: false, icon: iconExplore,  badge: null },
-  { label: 'Profiles',    path: '/profiles',  exact: false, icon: iconProfiles, badge: null },
-  { label: 'Friends',     path: '/friends',   exact: false, icon: iconFriends,  badge: friendsStore.pendingCount || null },
-  { label: 'Client Pass', path: '/pass',      exact: false, icon: iconPass,     badge: null },
-  { label: 'Quests',      path: '/quests',    exact: false, icon: iconQuests,   badge: null },
-  { label: 'Settings',    path: '/settings',  exact: false, icon: iconSettings, badge: null },
+  { label: t('nav.hub'),        path: '/',          exact: true,  icon: iconPlay,     badge: null },
+  { label: t('nav.locker'),     path: '/cosmetics', exact: false, icon: iconLocker,   badge: null },
+  { label: t('nav.explore'),    path: '/mods',      exact: false, icon: iconExplore,  badge: null },
+  { label: t('nav.profiles'),   path: '/profiles',  exact: false, icon: iconProfiles, badge: null },
+  { label: t('nav.friends'),    path: '/friends',   exact: false, icon: iconFriends,  badge: friendsStore.pendingCount || null },
+  { label: t('nav.clientPass'), path: '/pass',      exact: false, icon: iconPass,     badge: null },
+  { label: 'Crates',           path: '/crates',    exact: false, icon: iconCrates,   badge: null },
+  { label: t('nav.quests'),     path: '/quests',    exact: false, icon: iconQuests,   badge: null },
+  { label: t('nav.settings'),   path: '/settings',  exact: false, icon: iconSettings, badge: null },
 ])
 
 function isActive(path: string, exact: boolean) {
@@ -168,7 +172,7 @@ function openExternal(url: string) {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 30px 0;
+  padding: 18px 0;
   text-decoration: none;
   cursor: pointer;
   user-select: none;
