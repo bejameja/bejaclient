@@ -57,7 +57,8 @@ import { useAccountStore }  from '../store/accountStore'
 import { useLockerStore }   from '../store/lockerStore'
 import HeroSkinViewer from '../components/skin/HeroSkinViewer.vue'
 import LaunchButton   from '../components/home/LaunchButton.vue'
-import sceneVideo from '../assets/mc-scene.mp4'
+const _videoModules = import.meta.glob('../assets/mc-scene.mp4', { eager: true, query: '?url', import: 'default' })
+const sceneVideo = (_videoModules['../assets/mc-scene.mp4'] as string) ?? ''
 
 const friendsStore = useFriendsStore()
 const accountStore = useAccountStore()
