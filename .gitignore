@@ -6,3 +6,4 @@ release
 .DS_Store
 Thumbs.db
 *.log
+src/renderer/assets/mc-scene.mp4
