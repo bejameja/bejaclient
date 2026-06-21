@@ -1,1 +1,2 @@
-https://img.shields.io/github/issues-pr-raw/bejaclient/code?color=c78aff&label=PRs&style=for-the-badge
+[![Discord Online](https://img.shields.io/discord/1460938723310174453?color=orange&label=online)](https://discord.gg/bejaclient)
+
