@@ -1,3 +1,6 @@
+<p align="center">
+  <img width="100%" alt="BejaClient Banner" src="https://github.com/user-attachments/assets/e9569dc0-8dff-4887-856d-57776889354b" />
+</p>
 
 
 
