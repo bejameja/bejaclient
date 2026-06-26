@@ -1,7 +1,9 @@
 import * as https from 'https'
 import { getSettings } from './settingsService'
 import { existsSync, readdirSync } from 'fs'
+import { rm } from 'fs/promises'
 import { join } from 'path'
+import { installVersion as xmclInstall, installFabric, getFabricLoaderArtifact, installDependencies } from '@xmcl/installer'
 
 export interface RemoteVersion {
   id: string
@@ -86,7 +88,6 @@ export async function installVersion(
   loaderVersion: string | undefined,
   onProgress: (task: string, progress: number, total: number) => void,
 ): Promise<void> {
-  const { installVersion: xmclInstall, installFabric, getFabricLoaderArtifact, installDependencies } = await import('@xmcl/installer')
   const settings = getSettings()
   const gameDir = settings.game.defaultGameDir
 
@@ -111,7 +112,6 @@ export async function installVersion(
 }
 
 export async function deleteVersion(versionId: string): Promise<void> {
-  const { rm } = await import('fs/promises')
   const settings = getSettings()
   const versionDir = join(settings.game.defaultGameDir, 'versions', versionId)
   if (existsSync(versionDir)) {

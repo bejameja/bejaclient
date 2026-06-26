@@ -17,7 +17,7 @@ export const useAccountStore = defineStore('account', () => {
     error.value = null
     try {
       accounts.value = await window.api.auth.listAccounts()
-      if (accounts.value.some(a => a.selected && a.bejaToken)) {
+      if (accounts.value.some(a => a.selected)) {
         useFriendsStore().connect()
       }
     } catch (e) {
@@ -27,21 +27,28 @@ export const useAccountStore = defineStore('account', () => {
     }
   }
 
+  const loginStatus = ref<string | null>(null)
+
   async function login(): Promise<Account | null> {
     loading.value = true
+    loginStatus.value = null
     error.value = null
+    const cleanup = () => { loginStatus.value = null }
+    window.api.auth.onBrowserOpened(() => {
+      loginStatus.value = 'Complete sign-in in your browser...'
+    })
     try {
       const account = await window.api.auth.login()
       await loadAccounts()
-      if (!selectedAccount.value) {
-        await selectAccount(account.id)
-      }
+      await selectAccount(account.id)
       return account
     } catch (e) {
       error.value = String(e)
+      console.error('[Auth] login failed:', e)
       return null
     } finally {
       loading.value = false
+      cleanup()
     }
   }
 
@@ -55,6 +62,19 @@ export const useAccountStore = defineStore('account', () => {
     useFriendsStore().connect()
   }
 
+  async function importFromLauncher() {
+    loading.value = true
+    error.value = null
+    try {
+      await window.api.auth.importFromLauncher()
+      await loadAccounts()
+    } catch (e) {
+      error.value = String(e)
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function refreshAccount(id: string) {
     const refreshed = await window.api.auth.refreshAccount(id)
     if (refreshed) {
@@ -66,6 +86,7 @@ export const useAccountStore = defineStore('account', () => {
   return {
     accounts,
     loading,
+    loginStatus,
     error,
     selectedAccount,
     hasAccounts,
@@ -74,5 +95,6 @@ export const useAccountStore = defineStore('account', () => {
     logout,
     selectAccount,
     refreshAccount,
+    importFromLauncher,
   }
 })

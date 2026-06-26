@@ -178,11 +178,17 @@
       </div>
 
       <div v-else-if="error" class="state-area">
-        <span class="state-text error-text">{{ error }}</span>
+        <div class="state-stack">
+          <span class="state-text error-text">{{ error }}</span>
+          <button class="retry-btn" @click="doSearch">{{ $t('mods.retry') }}</button>
+        </div>
       </div>
 
       <div v-else-if="!loading && !results.length" class="state-area">
-        <span class="state-text">{{ $t('mods.noResults') }}</span>
+        <div class="state-stack">
+          <span class="state-text">{{ $t('mods.noResults') }}</span>
+          <button class="retry-btn" @click="doSearch">{{ $t('mods.retry') }}</button>
+        </div>
       </div>
 
       <template v-else>
@@ -1240,6 +1246,27 @@ onUnmounted(() => {
 }
 
 .error-text { color: #8b3333; }
+
+.state-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.retry-btn {
+  padding: 6px 20px;
+  font-family: 'Mojangles', monospace;
+  font-size: 10px;
+  color: #888;
+  background: #0d0d0d;
+  border: 1px solid rgba(137,137,137,0.4);
+  cursor: pointer;
+  letter-spacing: 0.08em;
+  transition: background 80ms, border-color 80ms, color 80ms;
+
+  &:hover { background: #1a1a1a; border-color: rgba(200,200,200,0.4); color: #ccc; }
+}
 
 // ── Mod row ───────────────────────────────────────────────────────────────────
 .mod-row {

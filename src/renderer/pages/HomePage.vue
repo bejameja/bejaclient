@@ -6,8 +6,24 @@
 
       <div class="hero-wrap">
         <div class="video-card">
-          <video ref="videoRef" class="scene-video" :src="sceneVideo" autoplay loop muted playsinline />
-          <div v-if="activeSkinUrl" class="skin-wrap">
+          <video v-if="sceneVideo" ref="videoRef" class="scene-video" :src="sceneVideo" autoplay loop muted playsinline @error="onVideoError" />
+          <div v-else class="download-overlay">
+            <div class="download-spinner" />
+            <span class="download-label">Downloading assets…</span>
+          </div>
+
+          <!-- Left flanking member -->
+          <div class="flank-slot flank-slot--left">
+            <LobbySkinSlot :member="lobbySlots[1]" size="2xl" :initial-rotation-y="0.524" @invite="openInvite" />
+          </div>
+
+          <!-- Center: local player — preserves original HeroSkinViewer positioning/animation -->
+          <div class="skin-wrap">
+            <div v-if="lobbySlots[0]?.isLeader" class="slot-crown">
+              <svg width="22" height="17" viewBox="0 0 22 17" fill="none">
+                <path d="M1 15L4.5 5.5L11 10L17.5 2L21 9.5V15H1Z" fill="#FFD700" stroke="#E8A800" stroke-width="1"/>
+              </svg>
+            </div>
             <HeroSkinViewer
               :skin-url="activeSkinUrl"
               :cape-url="activeCapeUrl"
@@ -17,10 +33,65 @@
               :initial-rotation-y="0.524"
               :auto-rotate-speed="0"
             />
+            <div v-if="lobbySlots[0]" class="skin-namebar">
+              <span class="skin-you-tag">You</span>
+              <span class="skin-username">{{ lobbySlots[0].username }}</span>
+            </div>
+          </div>
+
+          <!-- Right flanking member -->
+          <div class="flank-slot flank-slot--right">
+            <LobbySkinSlot :member="lobbySlots[2]" size="2xl" :initial-rotation-y="-0.524" @invite="openInvite" />
+          </div>
+
+          <!-- Voice controls (shown when party has ≥2 members or voice is active) -->
+          <div class="voice-controls">
+            <button
+              class="voice-btn"
+              :class="{ active: !voice.isMuted.value, muted: voice.isMuted.value }"
+              :title="voice.isMuted.value ? 'Unmute' : 'Mute'"
+              @click="voice.toggleMic()"
+            >
+              <svg v-if="!voice.isMuted.value" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
+              </svg>
+              <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
+              </svg>
+            </button>
+            <button
+              class="voice-btn"
+              :class="{ active: !voice.isDeafened.value, muted: voice.isDeafened.value }"
+              :title="voice.isDeafened.value ? 'Undeafen' : 'Deafen'"
+              @click="voice.toggleDeafen()"
+            >
+              <svg v-if="!voice.isDeafened.value" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
+              </svg>
+              <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/>
+              </svg>
+            </button>
+            <div v-if="lobbyStore.party" class="party-id">
+              {{ lobbyStore.party.id }}
+            </div>
+            <button class="voice-btn join-party-btn" title="Join a party by code" @click="openJoin">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
+              </svg>
+            </button>
           </div>
         </div>
+
+        <!-- Launch / Ready row -->
         <div class="hero-launch">
-          <LaunchButton />
+          <LaunchButton v-if="lobbyStore.isLeader || !lobbyStore.party" />
+          <button v-else class="ready-btn" :class="{ 'ready-btn--ready': lobbyStore.isReady }" @click="lobbyStore.toggleReady()">
+            <svg v-if="lobbyStore.isReady" width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M2 7l3.5 3.5 6.5-6.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            {{ lobbyStore.isReady ? 'Ready' : 'Not Ready' }}
+          </button>
         </div>
       </div>
 
@@ -47,31 +118,93 @@
       </div>
     </div>
 
+    <!-- Invite overlay -->
+    <InviteOverlay :visible="inviteOpen" :initial-tab="inviteInitTab" @close="inviteOpen = false" />
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onActivated } from 'vue'
+import { computed, ref, onActivated, onMounted, watch } from 'vue'
 import { useFriendsStore }  from '../store/friendsStore'
 import { useAccountStore }  from '../store/accountStore'
 import { useLockerStore }   from '../store/lockerStore'
+import { useLobbyStore }    from '../store/lobbyStore'
+import { useLobbyVoice }    from '../composables/useLobbyVoice'
+import LobbySkinSlot  from '../components/lobby/LobbySkinSlot.vue'
+import InviteOverlay  from '../components/lobby/InviteOverlay.vue'
 import HeroSkinViewer from '../components/skin/HeroSkinViewer.vue'
 import LaunchButton   from '../components/home/LaunchButton.vue'
-const _videoModules = import.meta.glob('../assets/mc-scene.mp4', { eager: true, query: '?url', import: 'default' })
-const sceneVideo = (_videoModules['../assets/mc-scene.mp4'] as string) ?? ''
+
+// ── Video ─────────────────────────────────────────────────────────────────────
+
+const sceneVideo = ref('')
+const videoRef   = ref<HTMLVideoElement | null>(null)
+
+// ── Stores / composables ──────────────────────────────────────────────────────
 
 const friendsStore = useFriendsStore()
 const accountStore = useAccountStore()
-const lockerStore  = useLockerStore()
-const friends  = computed(() => friendsStore.friends)
-const account  = computed(() => accountStore.selectedAccount)
-const videoRef = ref<HTMLVideoElement | null>(null)
+const lobbyStore   = useLobbyStore()
+const voice        = useLobbyVoice()
 
-const activeSkinUrl  = computed(() => lockerStore.skinUrl  ?? account.value?.skinUrl  ?? null)
-const activeCapeUrl  = computed(() => lockerStore.capeUrl  ?? account.value?.capeUrl  ?? null)
-const activeSkinModel = computed(() => lockerStore.model   ?? account.value?.skinModel ?? 'default')
+const lockerStore = useLockerStore()
+const account     = computed(() => accountStore.selectedAccount)
+
+const activeSkinUrl   = computed(() => lockerStore.skinUrl  ?? account.value?.skinUrl  ?? null)
+const activeCapeUrl   = computed(() => lockerStore.capeUrl  ?? account.value?.capeUrl  ?? null)
+const activeSkinModel = computed(() => lockerStore.model    ?? account.value?.skinModel ?? 'default')
+
+const friends    = computed(() => friendsStore.friends)
+const lobbySlots = computed(() => lobbyStore.slots)
+
+// ── Invite overlay ────────────────────────────────────────────────────────────
+
+const inviteOpen    = ref(false)
+const inviteInitTab = ref<'invite' | 'join'>('invite')
+
+function openInvite() { inviteInitTab.value = 'invite'; inviteOpen.value = true }
+function openJoin()   { inviteInitTab.value = 'join';   inviteOpen.value = true }
+
+// ── Voice: wire IPC events → composable ──────────────────────────────────────
+
+function initVoiceIpc(): void {
+  window.api.lobby.onVoiceOffer(d  => voice.handleOffer(d  as any))
+  window.api.lobby.onVoiceAnswer(d => voice.handleAnswer(d as any))
+  window.api.lobby.onVoiceIce(d   => voice.handleIce(d    as any))
+}
+
+// When a new member joins, initiate a call to them (leader side)
+watch(() => lobbyStore.party?.members.length, (next, prev) => {
+  if (!next || !prev || next <= prev) return
+  const newMember = lobbyStore.party?.members[next - 1]
+  if (newMember && newMember.uuid !== accountStore.selectedAccount?.uuid) {
+    voice.initiateCall(newMember.uuid)
+  }
+})
+
+// ── Lifecycle ─────────────────────────────────────────────────────────────────
+
+onMounted(async () => {
+  // Load background video
+  try {
+    sceneVideo.value = await (window as any).api.video.getScene()
+  } catch {}
+
+  // Create party for local player (no-op if already in one)
+  await lobbyStore.createParty()
+
+  // Init voice capture
+  await voice.init()
+  initVoiceIpc()
+})
 
 onActivated(() => { videoRef.value?.play() })
+
+function onVideoError(e: Event) {
+  const v = e.target as HTMLVideoElement
+  console.error('[video] error code:', v.error?.code, 'src:', v.currentSrc)
+}
 </script>
 
 <style lang="scss" scoped>
@@ -104,6 +237,9 @@ onActivated(() => { videoRef.value?.play() })
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 // ── Video card ────────────────────────────────────────────────────────────────
@@ -149,6 +285,7 @@ onActivated(() => { videoRef.value?.play() })
   transform: scale(1.15);
 }
 
+// ── Center player (HeroSkinViewer, original positioning) ─────────────────────
 .skin-wrap {
   position: absolute;
   top: 0;
@@ -158,11 +295,139 @@ onActivated(() => { videoRef.value?.play() })
   height: calc(100% + 14vh);
   pointer-events: none;
   animation: skinFloat 3s ease-in-out infinite alternate;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.slot-crown {
+  margin-top: 10px;
+  margin-bottom: -4px;
+  filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.65));
+  animation: crown-float 3s ease-in-out infinite;
+  z-index: 2;
+}
+
+@keyframes crown-float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-3px); }
 }
 
 @keyframes skinFloat {
   from { transform: translateX(-50%) translateY(0px); }
   to   { transform: translateX(-50%) translateY(-14px); }
+}
+
+.skin-namebar {
+  position: absolute;
+  bottom: calc(14vh + 10px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  pointer-events: none;
+}
+
+.skin-username {
+  font-size: 13px;
+  font-weight: 600;
+  color: $text-primary;
+}
+
+.skin-you-tag {
+  font-size: 10px;
+  color: $accent;
+  font-weight: 700;
+  background: rgba(85, 178, 255, 0.18);
+  border-radius: 4px;
+  padding: 1px 5px;
+  letter-spacing: 0.5px;
+}
+
+// ── Flanking lobby slots ──────────────────────────────────────────────────────
+.flank-slot {
+  position: absolute;
+  top: 33%;
+  animation: skinFloat 3s ease-in-out infinite alternate;
+
+  &--left  { left: 20%; transform: translateX(-50%); animation-delay: -1.1s; }
+  &--right { left: 80%; transform: translateX(-50%); animation-delay: -2.2s; }
+}
+
+// ── Voice controls ────────────────────────────────────────────────────────────
+.voice-controls {
+  position: absolute;
+  bottom: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 10;
+}
+
+.voice-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.55);
+  color: rgba(255, 255, 255, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 150ms, color 150ms, border-color 150ms;
+  backdrop-filter: blur(6px);
+
+  &.active { color: rgba(255, 255, 255, 0.9); }
+  &.muted  { color: #ff453a; border-color: rgba(255, 69, 58, 0.45); background: rgba(255, 69, 58, 0.12); }
+  &:hover  { background: rgba(255, 255, 255, 0.1); }
+}
+
+.party-id {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.45);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(6px);
+  user-select: all;
+}
+
+// ── Ready button (non-leader) ─────────────────────────────────────────────────
+.ready-btn {
+  height: 46px;
+  padding: 0 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.6);
+  font-family: $font-family;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 150ms, border-color 150ms, color 150ms;
+  backdrop-filter: blur(8px);
+
+  &:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+
+  &--ready {
+    background: rgba(52, 199, 89, 0.18);
+    border-color: rgba(52, 199, 89, 0.5);
+    color: #34c759;
+
+    &:hover { background: rgba(52, 199, 89, 0.26); }
+  }
 }
 
 // ── News ──────────────────────────────────────────────────────────────────────
@@ -299,5 +564,35 @@ onActivated(() => { videoRef.value?.play() })
 .friend-name {
   font-size: 13px;
   color: $text-secondary;
+}
+
+// ── Download overlay ──────────────────────────────────────────────────────────
+.download-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.download-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top-color: $primary;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.download-label {
+  font-size: 12px;
+  color: $text-muted;
+  letter-spacing: 0.04em;
 }
 </style>

@@ -31,6 +31,8 @@ export function connectBejaSocket(token: string, getWindow: () => BrowserWindow 
     'party:skin_update',
     'party:launched',
     'party:disbanded',
+    'party:invite_received',
+    'party:error',
     'voice:speaking',
     'voice:offer',
     'voice:answer',

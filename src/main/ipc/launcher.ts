@@ -1,4 +1,5 @@
 import { IpcMain, BrowserWindow, dialog, ipcMain as _ipcMain } from 'electron'
+import { showTray, hideTray } from '../services/trayService'
 import { writeFileSync, readFileSync, existsSync, readdirSync } from 'fs'
 import { join } from 'path'
 import { launchGame, killGame, isRunning } from '../services/launchService'
@@ -35,10 +36,14 @@ export function setupLaunchHandlers(ipcMain: IpcMain, mainWindow: BrowserWindow 
         if (status === 'running') {
           const profile = getProfile(profileId)
           setPlayingPresence(profile?.version)
-          if (getSettings().launcher.closeOnLaunch) mainWindow?.hide()
+          if (getSettings().launcher.closeOnLaunch) {
+            mainWindow?.hide()
+            showTray()
+          }
         }
         if (status.startsWith('stopped')) {
           setIdlePresence()
+          hideTray()
           if (getSettings().launcher.keepLauncherOpen) mainWindow?.show()
         }
       },

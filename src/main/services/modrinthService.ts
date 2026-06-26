@@ -33,7 +33,7 @@ function get(url: string): Promise<string> {
   })
 }
 
-function downloadFile(url: string, dest: string, redirects = 0): Promise<void> {
+export function downloadFile(url: string, dest: string, redirects = 0): Promise<void> {
   if (redirects > 8) return Promise.reject(new Error('Too many redirects'))
   return new Promise((resolve, reject) => {
     const lib = url.startsWith('https') ? https : http

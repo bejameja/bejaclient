@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, renameSync, copyFileSync, statSync, unlinkSync } from 'fs'
-import { join, basename, extname } from 'path'
+import { join, basename } from 'path'
+import AdmZip from 'adm-zip'
 import { getSettings } from './settingsService'
 import { getProfile } from './profileService'
 import { shell } from 'electron'
@@ -12,6 +13,39 @@ export interface ModInfo {
   filePath: string
   fileSize: number
   modifiedAt: string
+  iconDataUrl?: string
+}
+
+function extractModMeta(filePath: string): { name?: string; iconDataUrl?: string } {
+  try {
+    const zip = new AdmZip(filePath)
+
+    // Fabric: fabric.mod.json
+    const fabricEntry = zip.getEntry('fabric.mod.json')
+    if (fabricEntry) {
+      const meta = JSON.parse(fabricEntry.getData().toString('utf-8'))
+      let iconDataUrl: string | undefined
+      const iconPath: string | undefined = typeof meta.icon === 'string' ? meta.icon : undefined
+      if (iconPath) {
+        const iconEntry = zip.getEntry(iconPath)
+        if (iconEntry) {
+          const ext = iconPath.split('.').pop()?.toLowerCase() ?? 'png'
+          const mime = ext === 'png' ? 'image/png' : ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : 'image/png'
+          iconDataUrl = `data:${mime};base64,${iconEntry.getData().toString('base64')}`
+        }
+      }
+      return { name: meta.name as string | undefined, iconDataUrl }
+    }
+
+    // Forge/NeoForge: META-INF/mods.toml or pack.png fallback
+    const packPng = zip.getEntry('pack.png')
+    if (packPng) {
+      return { iconDataUrl: `data:image/png;base64,${packPng.getData().toString('base64')}` }
+    }
+  } catch {
+    // corrupt or non-mod JAR — silently skip
+  }
+  return {}
 }
 
 function getModsDir(profileId: string): string {
@@ -35,21 +69,23 @@ export function listMods(profileId: string): ModInfo[] {
     .map(f => {
       const filePath = join(modsDir, f.name)
       const enabled = f.name.endsWith('.jar')
-      const displayName = f.name
+      const fallbackName = f.name
         .replace(/\.jar\.disabled$/, '')
         .replace(/\.jar$/, '')
         .replace(/[-_]/g, ' ')
         .replace(/\b\w/g, c => c.toUpperCase())
       const stat = statSync(filePath)
+      const { name: metaName, iconDataUrl } = extractModMeta(filePath)
 
       return {
         id: f.name,
-        name: displayName,
+        name: metaName || fallbackName,
         fileName: f.name,
         enabled,
         filePath,
         fileSize: stat.size,
         modifiedAt: stat.mtime.toISOString(),
+        iconDataUrl,
       }
     })
     .sort((a, b) => a.name.localeCompare(b.name))

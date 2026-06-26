@@ -255,6 +255,11 @@
 
       </template>
 
+      <!-- ── ACCOUNTS ─────────────────────────────────────────────────────── -->
+      <template v-else-if="activeSection === 'accounts'">
+        <AccountsSettings />
+      </template>
+
       <!-- ── APPEARANCE ────────────────────────────────────────────────────── -->
       <template v-else-if="activeSection === 'appearance'">
 
@@ -323,6 +328,7 @@
 import { ref, computed, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '../store/settingsStore'
+import AccountsSettings from './settings/AccountsSettings.vue'
 
 const settingsStore = useSettingsStore()
 const s = computed(() => settingsStore.settings)
@@ -360,10 +366,18 @@ const IconAppearance = {
   ])
 }
 
+const IconAccounts = {
+  render: () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
+    h('circle', { cx: 12, cy: 8, r: 4 }),
+    h('path', { d: 'M4 20c0-4 3.6-7 8-7s8 3 8 7' }),
+  ])
+}
+
 const sections = computed(() => [
   { key: 'game',       label: t('settings.sections.game'),       icon: IconGame       },
   { key: 'launcher',   label: t('settings.sections.launcher'),   icon: IconLauncher   },
   { key: 'appearance', label: t('settings.sections.appearance'), icon: IconAppearance },
+  { key: 'accounts',   label: 'Accounts',                        icon: IconAccounts   },
 ])
 
 const activeSection = ref('game')

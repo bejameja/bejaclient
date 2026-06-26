@@ -40,7 +40,10 @@
         </template>
         Add Microsoft Account
       </Button>
-      <span class="add-hint">A Microsoft login window will open</span>
+      <Button variant="secondary" :loading="accountStore.loading" @click="importFromLauncher">
+        Import from Minecraft Launcher
+      </Button>
+      <span class="add-hint">A Microsoft login window will open — or import existing accounts from the official Minecraft Launcher</span>
     </div>
 
     <div v-if="accountStore.error" class="error-msg">
@@ -62,6 +65,7 @@ const accounts = computed(() => accountStore.accounts)
 const refreshing = ref<string | null>(null)
 
 async function addAccount() { await accountStore.login() }
+async function importFromLauncher() { await accountStore.importFromLauncher() }
 async function selectAccount(id: string) { await accountStore.selectAccount(id) }
 async function refreshAccount(id: string) {
   refreshing.value = id

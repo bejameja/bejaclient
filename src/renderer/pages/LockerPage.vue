@@ -111,6 +111,7 @@
         :class="{ 'skin-card--active': cape.id === selectedCapeUuid }"
         @click="equipCape(cape)"
       >
+        <span v-if="cape.builtin" class="cape-builtin-badge">BEJA</span>
         <div class="cape-front-wrap">
           <div class="cape-front" :style="capeFrontStyle(cape.url)" />
         </div>
@@ -284,7 +285,11 @@ interface CapeEntry {
   url: string
   alias: string
   state: 'ACTIVE' | 'INACTIVE'
+  builtin?: boolean
 }
+
+const BEJA_ORIGINAL_ID  = 'beja-original'
+const BEJA_ORIGINAL_URL = 'http://127.0.0.1:25588/beja-default.png'
 
 const ownedCapes    = ref<CapeEntry[]>([])
 const capesLoading  = ref(false)
@@ -305,14 +310,18 @@ async function loadOwnedCapes() {
   let   bejaActiveUrl: string | null = null
   const debugLines: string[] = []
 
-  // 1. BejaClient cosmetics (primary)
+  // 1. BejaClient cosmetics (primary); fall back to localStorage when API is down
   if (account.value?.uuid) {
     try {
       const cos = await window.api.cosmetics.get(account.value.uuid) as Record<string, unknown> | null
-      debugLines.push(`beja cosmetics: ${JSON.stringify(cos)}`)
+      debugLines.push(`beja cosmetics: ${JSON.stringify(cos).slice(0, 80)}`)
       if (cos && typeof cos.cape_url === 'string' && cos.cape_url) bejaActiveUrl = cos.cape_url
     } catch (e) {
       debugLines.push(`beja cosmetics error: ${e}`)
+    }
+    if (!bejaActiveUrl) {
+      const local = loadLocalCapeUrl()
+      if (local) { bejaActiveUrl = local; debugLines.push('cape_url from local fallback') }
     }
   } else {
     debugLines.push('no uuid on account')
@@ -349,12 +358,23 @@ async function loadOwnedCapes() {
   }
 
   // 3. If BejaClient cape URL isn't already in the list, add it
-  if (bejaActiveUrl && !collected.some(c => c.url === bejaActiveUrl)) {
+  if (bejaActiveUrl && bejaActiveUrl !== BEJA_ORIGINAL_URL && !collected.some(c => c.url === bejaActiveUrl)) {
     collected.unshift({
       id:    bejaActiveUrl,
       url:   bejaActiveUrl,
       alias: 'BejaClient Cape',
       state: 'ACTIVE',
+    })
+  }
+
+  // 4. Always prepend the built-in BejaClient Original cape
+  if (!collected.some(c => c.id === BEJA_ORIGINAL_ID)) {
+    collected.unshift({
+      id:      BEJA_ORIGINAL_ID,
+      url:     BEJA_ORIGINAL_URL,
+      alias:   'BejaClient Original',
+      state:   'ACTIVE',
+      builtin: true,
     })
   }
 
@@ -384,14 +404,25 @@ function capeFrontStyle(url: string | null) {
   }
 }
 
+function saveLocalCapeUrl(url: string | null) {
+  if (url) localStorage.setItem('beja_local_cape_url', url)
+  else     localStorage.removeItem('beja_local_cape_url')
+}
+
+function loadLocalCapeUrl(): string | null {
+  return localStorage.getItem('beja_local_cape_url')
+}
+
 async function equipNoCape() {
   selectedCapeUuid.value = null
+  saveLocalCapeUrl(null)
   lockerStore.selectSkin({ skinUrl: lockerStore.skinUrl, capeUrl: null, model: lockerStore.model })
   try { await window.api.cosmetics.update({ cape_url: null }) } catch { /* non-fatal */ }
 }
 
 async function equipCape(cape: CapeEntry) {
   selectedCapeUuid.value = cape.id
+  saveLocalCapeUrl(cape.url)
   lockerStore.selectSkin({ skinUrl: lockerStore.skinUrl, capeUrl: cape.url, model: lockerStore.model })
   try { await window.api.cosmetics.update({ cape_url: cape.url }) } catch { /* non-fatal */ }
 }
@@ -816,6 +847,22 @@ onMounted(() => {
   color: #555;
   flex-shrink: 0;
   margin-left: 4px;
+}
+
+// ── Built-in cape badge ───────────────────────────────────────────────────────
+.cape-builtin-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  font-family: 'Mojangles', monospace;
+  font-size: 7px;
+  letter-spacing: 0.1em;
+  color: #fff;
+  background: rgba(74,255,224,0.18);
+  border: 1px solid rgba(74,255,224,0.55);
+  padding: 2px 6px;
+  pointer-events: none;
+  z-index: 2;
 }
 
 // ── No-cape card ─────────────────────────────────────────────────────────────

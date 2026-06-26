@@ -19,8 +19,12 @@ contextBridge.exposeInMainWorld('api', {
     listAccounts: () => ipcRenderer.invoke('auth:list-accounts'),
     selectAccount: (id: string) => ipcRenderer.invoke('auth:select-account', id),
     refreshAccount: (id: string) => ipcRenderer.invoke('auth:refresh', id),
+    importFromLauncher: () => ipcRenderer.invoke('auth:import-launcher'),
     onDeviceCode: (cb: (data: { verificationUri: string; userCode: string; expiresIn: number }) => void) => {
       ipcRenderer.on('auth:device-code', (_e, d) => cb(d))
+    },
+    onBrowserOpened: (cb: () => void) => {
+      ipcRenderer.on('auth:browser-opened', () => cb())
     },
   },
 
@@ -176,6 +180,7 @@ contextBridge.exposeInMainWorld('api', {
     onSkinUpdate:    (cb: (d: unknown) => void) => ipcRenderer.on('party:skin_update',   (_e, d) => cb(d)),
     onLaunched:      (cb: (d: unknown) => void) => ipcRenderer.on('party:launched',      (_e, d) => cb(d)),
     onDisbanded:     (cb: ()           => void) => ipcRenderer.on('party:disbanded',     ()      => cb()),
+    onError:         (cb: (d: unknown) => void) => ipcRenderer.on('party:error',         (_e, d) => cb(d)),
     onSpeaking:      (cb: (d: unknown) => void) => ipcRenderer.on('voice:speaking',      (_e, d) => cb(d)),
     onVoiceOffer:    (cb: (d: unknown) => void) => ipcRenderer.on('voice:offer',         (_e, d) => cb(d)),
     onVoiceAnswer:   (cb: (d: unknown) => void) => ipcRenderer.on('voice:answer',        (_e, d) => cb(d)),
@@ -246,6 +251,11 @@ contextBridge.exposeInMainWorld('api', {
     send:      (toUuid: string, content: string) => ipcRenderer.invoke('chat:send', toUuid, content),
     history:   (targetUuid: string)              => ipcRenderer.invoke('chat:history', targetUuid),
     onMessage: (cb: (msg: unknown) => void)      => { ipcRenderer.on('chat:message', (_e, d) => cb(d)) },
+  },
+
+  // Video
+  video: {
+    getScene: () => ipcRenderer.invoke('video:get-scene'),
   },
 
   // Auto-updater

@@ -16,6 +16,9 @@ import { setupPassHandlers } from './ipc/pass'
 import { setupQuestsHandlers } from './ipc/quests'
 import { setupCapesHandlers } from './ipc/capes'
 import { setupServerHandlers } from './ipc/servers'
+import { setupVideoHandlers } from './ipc/video'
+import { initTrayService } from './services/trayService'
+import { startCapeServer } from './services/capeServer'
 
 // ── Crash logging ─────────────────────────────────────────────────────────────
 // Runs before anything else so even early failures are captured.
@@ -41,6 +44,7 @@ process.on('unhandledRejection', (reason) => {
 })
 
 log('INFO', `BejaClient starting — packaged=${app.isPackaged} version=${app.getVersion()}`)
+
 
 // Must be called before app.whenReady() and must match build.appId in package.json.
 // Without this, pinned taskbar entries show "Electron App" with the default icon.
@@ -161,7 +165,9 @@ app.on('before-quit', () => {
 app.whenReady().then(() => {
   log('INFO', 'app.whenReady fired')
 
+  startCapeServer()
   createWindow()
+  initTrayService(() => mainWindow)
   setupWindowHandlers()
   setupAuthHandlers(ipcMain, mainWindow)
   setupVersionHandlers(ipcMain)
@@ -177,6 +183,7 @@ app.whenReady().then(() => {
   setupQuestsHandlers(ipcMain)
   setupCapesHandlers(ipcMain)
   setupServerHandlers(ipcMain, () => mainWindow)
+  setupVideoHandlers()
   initDiscordRPC()
 
   app.on('activate', () => {

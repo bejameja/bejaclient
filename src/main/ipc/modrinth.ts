@@ -65,6 +65,7 @@ export function setupModrinthHandlers(ipcMain: IpcMain, mainWindow: () => Browse
         total += res.total_hits
       } catch (e) {
         console.error('[explore:search] modrinth error:', e)
+        if (source === 'modrinth') throw e
       }
     }
 

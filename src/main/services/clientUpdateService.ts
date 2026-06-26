@@ -136,10 +136,18 @@ function fetchJson<T>(url: string, redirects = 5): Promise<T> {
           if (redirects === 0) return reject(new Error('Too many redirects'))
           return fetchJson<T>(res.headers.location, redirects - 1).then(resolve).catch(reject)
         }
+        if (res.statusCode && res.statusCode >= 400) {
+          res.resume() // drain so socket is reused
+          return reject(new Error(`Server returned HTTP ${res.statusCode}`))
+        }
         let data = ''
         res.on('data', (c: string) => (data += c))
         res.on('end', () => {
-          try { resolve(JSON.parse(data)) } catch (e) { reject(e) }
+          const trimmed = data.trimStart()
+          if (trimmed.startsWith('<')) {
+            return reject(new Error(`Server returned HTML instead of JSON (HTTP ${res.statusCode ?? '?'})`))
+          }
+          try { resolve(JSON.parse(trimmed)) } catch (e) { reject(e) }
         })
         res.on('error', reject)
       })
@@ -222,7 +230,11 @@ export async function checkAndUpdateClientJar(
       .filter(f => f.startsWith('beja-bootstrap-') && f.endsWith('.jar'))
       .forEach(f => { try { unlinkSync(join(dlDir, f)) } catch { /* ignore */ } })
 
-    const dest = join(dlDir, remote.filename)
+    // Use canonical version-based filename regardless of what the server reports.
+    // Server filename can lag behind the version field (e.g. version=1.1.0 but
+    // filename=beja-bootstrap-1.0.9.jar), which causes getLocalVersion to always
+    // see the old version and re-download on every launch.
+    const dest = join(dlDir, `beja-bootstrap-${remote.version}.jar`)
     await downloadFile(remote.url, dest, pct => {
       onStatus(`Downloading BejaClient ${remote.version}… ${pct}%`)
     })

@@ -3,11 +3,11 @@ import { join } from 'path'
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import * as https from 'https'
 
-// Uses Microsoft's Live Connect OAuth (the same approach used by Minecraft Java launcher)
-// client_id 00000000402b5328 = Xbox App, valid for the live.com OAuth endpoint
-const LIVE_CLIENT_ID = '00000000402b5328'
-const LIVE_SCOPE = 'service::user.auth.xboxlive.com::MBI_SSL'
-const LIVE_REDIRECT = 'https://login.live.com/oauth20_desktop.srf'
+const AZURE_CLIENT_ID = '00000000402b5328'
+const AZURE_SCOPE = 'XboxLive.signin offline_access'
+const AZURE_AUTH_ENDPOINT = 'https://login.live.com/oauth20_authorize.srf'
+const AZURE_TOKEN_ENDPOINT = 'https://login.live.com/oauth20_token.srf'
+const LIVE_REDIRECT_URI = 'https://login.live.com/oauth20_desktop.srf'
 
 const BEJA_API = 'http://206.217.141.184:3093'
 
@@ -90,32 +90,29 @@ function get(url: string, headers: Record<string, string> = {}) {
   })
 }
 
-// Step 1: Exchange Live auth code for tokens
 async function exchangeLiveCode(code: string): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
   const body = new URLSearchParams({
-    client_id: LIVE_CLIENT_ID,
+    client_id: AZURE_CLIENT_ID,
     code,
     grant_type: 'authorization_code',
-    redirect_uri: LIVE_REDIRECT,
-    scope: LIVE_SCOPE,
+    redirect_uri: LIVE_REDIRECT_URI,
   }).toString()
-  const raw = await post('https://login.live.com/oauth20_token.srf', body)
+  const raw = await post(AZURE_TOKEN_ENDPOINT, body)
   const data = JSON.parse(raw)
-  if (!data.access_token) throw new Error(data.error_description ?? 'Failed to get Live token')
+  if (!data.access_token) throw new Error(data.error_description ?? 'Failed to get token')
   return data
 }
 
-// Step 2: Refresh Live token
 async function refreshLiveToken(refreshToken: string): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
   const body = new URLSearchParams({
-    client_id: LIVE_CLIENT_ID,
+    client_id: AZURE_CLIENT_ID,
     refresh_token: refreshToken,
     grant_type: 'refresh_token',
-    scope: LIVE_SCOPE,
+    redirect_uri: LIVE_REDIRECT_URI,
   }).toString()
-  const raw = await post('https://login.live.com/oauth20_token.srf', body)
+  const raw = await post(AZURE_TOKEN_ENDPOINT, body)
   const data = JSON.parse(raw)
-  if (!data.access_token) throw new Error(data.error_description ?? 'Failed to refresh Live token')
+  if (!data.access_token) throw new Error(data.error_description ?? 'Failed to refresh token')
   return data
 }
 
@@ -125,7 +122,7 @@ async function authXboxLive(liveToken: string): Promise<{ token: string; userHas
     Properties: {
       AuthMethod: 'RPS',
       SiteName: 'user.auth.xboxlive.com',
-      RpsTicket: `t=${liveToken}`,
+      RpsTicket: `d=${liveToken}`,
     },
     RelyingParty: 'http://auth.xboxlive.com',
     TokenType: 'JWT',
@@ -158,8 +155,9 @@ async function getMinecraftToken(xstsToken: string, userHash: string): Promise<s
     'https://api.minecraftservices.com/authentication/login_with_xbox',
     { identityToken: `XBL3.0 x=${userHash};${xstsToken}` },
   )
+  console.log('[Auth] MC token raw response:', raw.slice(0, 300))
   const data = JSON.parse(raw)
-  if (!data.access_token) throw new Error('Failed to get Minecraft token')
+  if (!data.access_token) throw new Error(`Failed to get Minecraft token: ${JSON.stringify(data)}`)
   return data.access_token
 }
 
@@ -222,63 +220,76 @@ async function finalizeLogin(liveAccessToken: string, liveRefreshToken: string, 
 export function loginWithMicrosoft(mainWindow: BrowserWindow | null): Promise<StoredAccount> {
   return new Promise((resolve, reject) => {
     const authUrl =
-      `https://login.live.com/oauth20_authorize.srf` +
-      `?client_id=${LIVE_CLIENT_ID}` +
+      `${AZURE_AUTH_ENDPOINT}` +
+      `?client_id=${AZURE_CLIENT_ID}` +
       `&response_type=code` +
-      `&scope=${encodeURIComponent(LIVE_SCOPE)}` +
-      `&redirect_uri=${encodeURIComponent(LIVE_REDIRECT)}`
+      `&scope=${encodeURIComponent(AZURE_SCOPE)}` +
+      `&redirect_uri=${encodeURIComponent(LIVE_REDIRECT_URI)}` +
+      `&prompt=select_account`
 
-    const authWin = new BrowserWindow({
-      width: 520,
-      height: 680,
+    const authWindow = new BrowserWindow({
+      width: 480,
+      height: 640,
       parent: mainWindow ?? undefined,
-      modal: !!mainWindow,
-      show: false,
-      title: 'Sign in with Microsoft',
+      modal: true,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        partition: 'persist:auth',
+      },
       autoHideMenuBar: true,
-      webPreferences: { nodeIntegration: false, contextIsolation: true },
+      title: 'Sign in with Microsoft',
     })
 
-    authWin.once('ready-to-show', () => authWin.show())
+    authWindow.loadURL(authUrl)
 
-    // handled flag prevents 'closed' from rejecting after redirect is captured
     let handled = false
 
-    async function handleRedirect(url: string) {
+    const handleUrl = async (url: string) => {
       if (handled) return
-      if (!url.startsWith(LIVE_REDIRECT)) return
-      handled = true
+      let parsed: URL
+      try { parsed = new URL(url) } catch { return }
+      if (!parsed.pathname.includes('oauth20_desktop.srf')) return
 
-      const parsed = new URL(url)
+      handled = true
+      authWindow.destroy()
+
       const code = parsed.searchParams.get('code')
       const error = parsed.searchParams.get('error')
-
-      // Close window safely without triggering the 'closed' rejection
-      if (!authWin.isDestroyed()) authWin.hide()
-      setTimeout(() => { if (!authWin.isDestroyed()) authWin.destroy() }, 100)
 
       if (error || !code) {
         reject(new Error(error ?? 'No auth code received'))
         return
       }
       try {
+        console.log('[Auth] Exchanging code for tokens…')
         const tokens = await exchangeLiveCode(code)
+        console.log('[Auth] Token exchange OK, finalizing login…')
         const account = await finalizeLogin(tokens.access_token, tokens.refresh_token, tokens.expires_in)
+        console.log('[Auth] Login complete:', account.username)
         resolve(account)
       } catch (e) {
+        console.error('[Auth] Login chain failed:', e)
         reject(e)
       }
     }
 
-    authWin.webContents.on('will-redirect', (_event, url) => { handleRedirect(url) })
-    authWin.webContents.on('will-navigate', (_event, url) => { handleRedirect(url) })
-    authWin.webContents.on('did-navigate', (_event, url) => { handleRedirect(url) })
+    authWindow.webContents.on('will-navigate', (_e, url) => handleUrl(url))
+    authWindow.webContents.on('will-redirect', (_e, url) => handleUrl(url))
 
-    authWin.on('closed', () => {
+    authWindow.on('closed', () => {
       if (!handled) reject(new Error('Sign-in cancelled'))
     })
 
-    authWin.loadURL(authUrl)
+    const timeout = setTimeout(() => {
+      if (!handled) {
+        handled = true
+        if (!authWindow.isDestroyed()) authWindow.destroy()
+        reject(new Error('Sign-in timed out'))
+      }
+    }, 5 * 60 * 1000)
+
+    authWindow.on('closed', () => clearTimeout(timeout))
   })
 }
 
@@ -287,13 +298,9 @@ export async function refreshAccount(id: string): Promise<StoredAccount | null> 
   const account = accounts.find(a => a.id === id)
   if (!account?.refreshToken) return null
 
-  try {
-    const tokens = await refreshLiveToken(account.refreshToken)
-    const updated = await finalizeLogin(tokens.access_token, tokens.refresh_token, tokens.expires_in)
-    return { ...updated, id: account.id }
-  } catch {
-    return null
-  }
+  const tokens = await refreshLiveToken(account.refreshToken)
+  const updated = await finalizeLogin(tokens.access_token, tokens.refresh_token, tokens.expires_in)
+  return { ...updated, id: account.id }
 }
 
 export function logoutAccount(id: string): void {
@@ -306,4 +313,69 @@ export function selectAccount(id: string): void {
 
 export function getSelectedAccount(): StoredAccount | null {
   return loadAccounts().find(a => a.selected) ?? null
+}
+
+export async function importFromOfficialLauncher(): Promise<StoredAccount[]> {
+  const launcherPath = join(app.getPath('appData'), '.minecraft', 'launcher_accounts.json')
+  if (!existsSync(launcherPath)) throw new Error('Official Minecraft Launcher not found or not logged in')
+
+  const raw = JSON.parse(readFileSync(launcherPath, 'utf-8'))
+  const imported: StoredAccount[] = []
+
+  for (const entry of Object.values(raw.accounts ?? {})) {
+    const acc = entry as Record<string, unknown>
+    const profile = acc.minecraftProfile as { id: string; name: string } | undefined
+    if (!profile?.id) continue
+
+    const accessToken = acc.accessToken as string
+    const tokenExpiry = acc.accessTokenExpiresAt
+      ? new Date(acc.accessTokenExpiresAt as string).getTime()
+      : Date.now() + 86400000
+
+    let skinUrl: string | null = null
+    let capeUrl: string | null = null
+    let skinModel: 'default' | 'slim' = 'default'
+
+    try {
+      const mcProfile = await getMinecraftProfile(accessToken)
+      const activeSkin = mcProfile.skins.find(s => s.state === 'ACTIVE')
+      const activeCape = mcProfile.capes.find(c => c.state === 'ACTIVE')
+      skinUrl = activeSkin?.url?.replace('http://', 'https://') ?? null
+      capeUrl = activeCape?.url?.replace('http://', 'https://') ?? null
+      skinModel = activeSkin?.variant === 'SLIM' ? 'slim' : 'default'
+    } catch { /* expired token — proceed without skin */ }
+
+    let bejaToken: string | undefined
+    try {
+      const r = await postJson(`${BEJA_API}/api/auth/login`, { uuid: profile.id, username: profile.name })
+      bejaToken = (JSON.parse(r) as { token?: string }).token
+    } catch { /* non-fatal */ }
+
+    const account: StoredAccount = {
+      id: profile.id,
+      username: profile.name,
+      uuid: profile.id,
+      accessToken,
+      refreshToken: '',
+      tokenExpiry,
+      skinUrl,
+      capeUrl,
+      skinModel,
+      selected: false,
+      bejaToken,
+    }
+
+    const accounts = loadAccounts()
+    const existing = accounts.findIndex(a => a.id === account.id)
+    if (existing >= 0) {
+      accounts[existing] = { ...accounts[existing], ...account, selected: accounts[existing].selected }
+    } else {
+      accounts.push(account)
+    }
+    saveAccounts(accounts)
+    imported.push(account)
+  }
+
+  if (imported.length === 0) throw new Error('No accounts found in official launcher')
+  return imported
 }

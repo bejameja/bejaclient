@@ -1,6 +1,7 @@
 import { IpcMain, dialog, shell, app } from 'electron'
 import { getSettings, saveSettings, AppSettings } from '../services/settingsService'
 import * as https from 'https'
+import { scanLocalJava } from '@xmcl/installer'
 
 function fetchNews(): Promise<unknown[]> {
   return new Promise((resolve, reject) => {
@@ -77,7 +78,6 @@ export function setupSettingsHandlers(ipcMain: IpcMain): void {
   ipcMain.handle('system:get-version', () => app.getVersion())
 
   ipcMain.handle('system:java-versions', async () => {
-    const { scanLocalJava } = await import('@xmcl/installer')
     try {
       return await scanLocalJava()
     } catch {

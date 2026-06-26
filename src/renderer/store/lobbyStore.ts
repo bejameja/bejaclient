@@ -25,6 +25,9 @@ export const useLobbyStore = defineStore('lobby', () => {
   const party        = ref<Party | null>(null)
   const isCreating   = ref(false)
 
+  let _pendingJoin: ((r: { ok: boolean; error?: string }) => void) | null = null
+  let _pendingJoinTimer: ReturnType<typeof setTimeout> | null = null
+
   const localUuid = computed(() => accountStore.selectedAccount?.uuid ?? null)
 
   const localMember = computed<PartyMember | null>(() => {
@@ -79,7 +82,16 @@ export const useLobbyStore = defineStore('lobby', () => {
       }],
     }
 
-    window.api.lobby.emit('party:create', { partyId: id }).catch(() => {})
+    window.api.lobby.emit('party:create', {
+      partyId: id,
+      member: {
+        uuid:      account.uuid,
+        username:  account.username,
+        skinUrl:   account.skinUrl,
+        capeUrl:   account.capeUrl,
+        skinModel: account.skinModel,
+      },
+    }).catch(() => {})
     isCreating.value = false
   }
 
@@ -87,6 +99,41 @@ export const useLobbyStore = defineStore('lobby', () => {
     if (!party.value) return
     window.api.lobby.emit('party:leave', { partyId: party.value.id }).catch(() => {})
     party.value = null
+  }
+
+  async function joinParty(code: string): Promise<{ ok: boolean; error?: string }> {
+    const account = accountStore.selectedAccount
+    if (!account) return { ok: false, error: 'Not logged in' }
+    const partyId = code.trim().toUpperCase()
+    if (partyId.length < 6) return { ok: false, error: 'Enter a 6-character code' }
+    if (party.value) await leaveParty()
+
+    return new Promise<{ ok: boolean; error?: string }>((resolve) => {
+      _pendingJoin = resolve
+      _pendingJoinTimer = setTimeout(() => {
+        if (_pendingJoin) {
+          _pendingJoin = null
+          resolve({ ok: false, error: 'Party not found — check the code and try again' })
+        }
+      }, 5000)
+
+      window.api.lobby.emit('party:join', {
+        partyId,
+        member: {
+          uuid:      account.uuid,
+          username:  account.username,
+          skinUrl:   account.skinUrl,
+          capeUrl:   account.capeUrl,
+          skinModel: account.skinModel,
+        },
+      }).catch(() => {
+        if (_pendingJoinTimer) { clearTimeout(_pendingJoinTimer); _pendingJoinTimer = null }
+        if (_pendingJoin) {
+          _pendingJoin = null
+          resolve({ ok: false, error: 'Failed to send join request' })
+        }
+      })
+    })
   }
 
   async function inviteFriend(friendUuid: string): Promise<void> {
@@ -154,13 +201,28 @@ export const useLobbyStore = defineStore('lobby', () => {
 
   function handlePartyState(data: Party): void {
     party.value = data
+    if (_pendingJoin) {
+      if (_pendingJoinTimer) { clearTimeout(_pendingJoinTimer); _pendingJoinTimer = null }
+      const r = _pendingJoin
+      _pendingJoin = null
+      r({ ok: true })
+    }
+  }
+
+  function handlePartyError(data: { message?: string }): void {
+    if (_pendingJoin) {
+      if (_pendingJoinTimer) { clearTimeout(_pendingJoinTimer); _pendingJoinTimer = null }
+      const r = _pendingJoin
+      _pendingJoin = null
+      r({ ok: false, error: data?.message ?? 'Party not found' })
+    }
   }
 
   return {
     party, isCreating,
     localUuid, localMember, isLeader, isReady, allReady, canLaunch, slots, memberCount,
-    createParty, leaveParty, inviteFriend, toggleReady, launchParty,
+    createParty, leaveParty, joinParty, inviteFriend, toggleReady, launchParty,
     handleMemberJoined, handleMemberLeft, handleReadyUpdate,
-    handleSkinUpdate, handleDisbanded, handleSpeaking, handlePartyState,
+    handleSkinUpdate, handleDisbanded, handleSpeaking, handlePartyState, handlePartyError,
   }
 })

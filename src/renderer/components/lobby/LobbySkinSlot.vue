@@ -48,17 +48,18 @@
             :width="dims.w"
             :height="dims.h"
           />
-        </div>
 
-        <!-- Name strip -->
-        <div class="slot-footer">
-          <div class="slot-namebar" :class="{ 'slot-namebar--speaking': member.isSpeaking }">
+          <!-- Minecraft-style nametag above head -->
+          <div class="slot-nametag" :class="{ 'slot-nametag--speaking': member.isSpeaking }">
             <span v-if="member.isSpeaking" class="speak-waves">
               <span /><span /><span />
             </span>
-            <span class="slot-username">{{ member.username }}</span>
-            <span v-if="isLocal" class="slot-you-tag">You</span>
+            {{ member.username }}
           </div>
+        </div>
+
+        <!-- Ready badge -->
+        <div class="slot-footer">
           <div class="slot-ready-badge" :class="{ 'ready': member.isReady }">
             <svg v-if="member.isReady" width="10" height="10" viewBox="0 0 10 10" fill="none">
               <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -84,13 +85,15 @@ const _skinTextureCache = new Map<string, string>() // skinUrl → data-url or s
 const props = defineProps<{
   member: PartyMember | null
   isLocal?: boolean
-  size: 'xl' | 'lg' | 'md' | 'sm' | 'xs'
+  size: '2xl' | 'xl' | 'lg' | 'md' | 'sm' | 'xs'
+  initialRotationY?: number
 }>()
 
 defineEmits<{ invite: [] }>()
 
 const dims = computed(() => {
   const map: Record<string, { w: number; h: number }> = {
+    '2xl': { w: 290, h: 434 },
     xl: { w: 280, h: 420 },
     lg: { w: 230, h: 340 },
     md: { w: 195, h: 290 },
@@ -108,8 +111,8 @@ const isLoadingSkin = ref(false)
 let viewer: SkinViewer | null = null
 
 // ── Lerp animation state ─────────────────────────────────────────────────────
-let targetRotY  = -0.3
-let currentRotY = -0.3
+let targetRotY  = 0.524
+let currentRotY = 0.524
 let breathPhase = Math.random() * Math.PI * 2 // randomise phase so not all bobs in sync
 let rafId: number | null = null
 
@@ -144,7 +147,7 @@ function onMouseMove(e: MouseEvent): void {
 }
 
 function onMouseLeave(): void {
-  targetRotY = -0.3 // spring back to neutral
+  targetRotY = props.initialRotationY ?? 0.524
 }
 
 // ── Viewer lifecycle ──────────────────────────────────────────────────────────
@@ -161,13 +164,27 @@ function buildViewer(): void {
   })
 
   viewer.renderer.setClearColor(0x000000, 0) // transparent bg
-  viewer.zoom = 0.78
+  viewer.zoom = 1
 
-  viewer.animations.add(IdleAnimation)
+  // Custom idle — subtle breathing/sway matching the hero skin
+  const customIdle = (player: any, time: number) => {
+    const env = (1 - Math.cos(Math.PI * time)) / 2
+    player.skin.head.rotation.x = -0.1745 * env
+    const armZ = 0.0873 + 0.0873 * env
+    player.skin.rightArm.rotation.z = -armZ
+    player.skin.leftArm.rotation.z  =  armZ
+    player.skin.rightLeg.rotation.x = -0.0873 * env
+    player.skin.leftLeg.rotation.x  = -0.0873 * env
+    player.skin.rightLeg.rotation.z = -0.0873
+    player.skin.leftLeg.rotation.z  =  0.0873
+  }
+  ;(viewer.animations as any).handles.clear()
+  viewer.animations.add(customIdle)
 
   // Reset lerp state
-  currentRotY = -0.3
-  targetRotY  = -0.3
+  const initRot = props.initialRotationY ?? 0.524
+  currentRotY = initRot
+  targetRotY  = initRot
   viewer.playerWrapper.rotation.y = currentRotY
 
   startRenderLoop()
@@ -268,19 +285,17 @@ watch(dims, () => {
   align-items: center;
   justify-content: center;
   gap: 14px;
-  border: 2px dashed rgba(255,255,255,0.13);
   border-radius: 18px;
-  background: rgba(255,255,255,0.02);
   cursor: pointer;
   color: rgba(255,255,255,0.3);
   font-family: $font-family;
   transition:
-    border-color 280ms cubic-bezier(0.4, 0, 0.2, 1),
     color        280ms cubic-bezier(0.4, 0, 0.2, 1),
     background   280ms cubic-bezier(0.4, 0, 0.2, 1),
     transform    280ms cubic-bezier(0.34, 1.56, 0.64, 1),
     box-shadow   280ms cubic-bezier(0.4, 0, 0.2, 1);
 
+  .slot--2xl & { width: 210px; height: 320px; }
   .slot--xl & { width: 200px; height: 310px; }
   .slot--lg & { width: 168px; height: 250px; }
   .slot--md & { width: 142px; height: 210px; }
@@ -288,11 +303,7 @@ watch(dims, () => {
   .slot--xs & { width: 112px; height: 165px; }
 
   &:hover {
-    border-color: rgba(85, 178, 255, 0.55);
-    color: rgba(85, 178, 255, 0.9);
-    background: rgba(85, 178, 255, 0.07);
     transform: scale(1.05);
-    box-shadow: 0 0 28px rgba(85, 178, 255, 0.18), inset 0 0 20px rgba(85, 178, 255, 0.04);
   }
 }
 
@@ -300,14 +311,17 @@ watch(dims, () => {
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  border: 1.5px dashed currentColor;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  color: rgba(255, 255, 255, 0.85);
+  transition:
+    transform 600ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    color     600ms ease;
 
   .slot-invite:hover & {
-    transform: scale(1.12) rotate(90deg);
+    transform: scale(1.12) rotate(180deg);
+    color: #f97316;
   }
 }
 
@@ -419,29 +433,37 @@ watch(dims, () => {
   &--ready { opacity: 1; }
 }
 
-// ── Footer / name strip ───────────────────────────────────────────────────────
+// ── Minecraft nametag ─────────────────────────────────────────────────────────
+.slot-nametag {
+  position: absolute;
+  top: -10%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: rgba(80, 80, 80, 0.4);
+  font-family: 'Mojangles', monospace;
+  font-size: 11px;
+  color: #b0b0b0;
+  white-space: nowrap;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+
+  &--speaking {
+    background: rgba(80, 80, 80, 0.55);
+  }
+}
+
+// ── Footer / ready badge ──────────────────────────────────────────────────────
 .slot-footer {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 5px;
   margin-top: 10px;
-}
-
-.slot-namebar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 20px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.08);
-  transition: background 250ms cubic-bezier(0.4,0,0.2,1), border-color 250ms cubic-bezier(0.4,0,0.2,1);
-
-  &--speaking {
-    background: rgba(255,255,255,0.12);
-    border-color: rgba(255,255,255,0.22);
-  }
 }
 
 // Animated sound bars when speaking

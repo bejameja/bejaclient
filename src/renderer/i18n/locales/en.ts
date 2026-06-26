@@ -84,6 +84,7 @@ export default {
     categories: 'Categories',
     clearAll: 'clear all',
     noResults: 'No results',
+    retry: 'RETRY',
     install: 'INSTALL',
     loadMore: 'LOAD MORE',
     apply: 'Apply',

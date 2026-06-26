@@ -17,6 +17,7 @@ export type LoaderType = 'vanilla' | 'fabric' | 'forge' | 'quilt' | 'neoforge'
 export interface LaunchProfile {
   id: string
   name: string
+  description?: string
   version: string
   loader: LoaderType
   loaderVersion: string
@@ -60,6 +61,7 @@ export interface ModInfo {
   filePath: string
   fileSize: number
   modifiedAt: string
+  iconDataUrl?: string
 }
 
 export interface GameSettings {
@@ -231,7 +233,9 @@ declare global {
         listAccounts(): Promise<Account[]>
         selectAccount(id: string): Promise<Account[]>
         refreshAccount(id: string): Promise<Account | null>
+        importFromLauncher(): Promise<Account[]>
         onDeviceCode(cb: (data: { verificationUri: string; userCode: string; expiresIn: number }) => void): void
+        onBrowserOpened(cb: () => void): void
       }
       versions: {
         listRemote(): Promise<VersionManifest>
@@ -335,6 +339,7 @@ declare global {
         onSkinUpdate(cb: (d: { uuid: string; skinUrl: string | null; capeUrl: string | null; skinModel: 'default' | 'slim' }) => void): void
         onLaunched(cb: (d: { server: string; port: number; profileId: string }) => void): void
         onDisbanded(cb: () => void): void
+        onError(cb: (d: { message?: string }) => void): void
         onSpeaking(cb: (d: { uuid: string; isSpeaking: boolean }) => void): void
         onVoiceOffer(cb: (d: { from: string; sdp: string }) => void): void
         onVoiceAnswer(cb: (d: { from: string; sdp: string }) => void): void

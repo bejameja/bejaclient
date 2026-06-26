@@ -111,7 +111,7 @@ onMounted(async () => {
   if (acct) {
     const skinUrl = acct.skinUrl
     const model   = acct.skinModel ?? 'default'
-    let capeUrl   = acct.capeUrl ?? null
+    let capeUrl   = localStorage.getItem('beja_local_cape_url') ?? acct.capeUrl ?? null
     window.api.cosmetics.get(acct.uuid)
       .then((cosmetics: { cape_url?: string | null } | null) => {
         if (cosmetics?.cape_url) capeUrl = cosmetics.cape_url
@@ -166,6 +166,7 @@ onMounted(async () => {
   window.api.lobby.onSkinUpdate(d   => lobbyStore.handleSkinUpdate(d as any))
   window.api.lobby.onSpeaking(d     => lobbyStore.handleSpeaking(d as any))
   window.api.lobby.onDisbanded(()   => lobbyStore.handleDisbanded())
+  window.api.lobby.onError(d        => lobbyStore.handlePartyError(d as any))
   window.api.lobby.onLaunched(async d => {
     const data = d as { server: string; port: number; profileId: string }
     try {

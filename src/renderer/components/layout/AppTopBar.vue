@@ -1,10 +1,13 @@
 <template>
-  <header class="topbar" :class="{ maximized }">
+  <header class="topbar" :class="{ maximized }" :style="topbarTheme">
 
     <!-- Brand -->
     <div class="topbar-brand">
       <div class="brand-info">
-        <span class="brand-name">BejaClient</span>
+        <div class="brand-name-wrap">
+          <span class="brand-name">BejaClient</span>
+          <span class="beta-badge">BETA</span>
+        </div>
         <span class="brand-version">BejaClient version {{ version }}</span>
       </div>
     </div>
@@ -38,20 +41,31 @@
           <div v-if="dropdownOpen" ref="dropdownRef" class="acc-dropdown" :style="dropdownStyle" @click.stop>
             <div class="dd-label">Accounts</div>
 
-            <button
+            <div
               v-for="acc in accountStore.accounts"
               :key="acc.id"
-              class="dd-item"
-              :class="{ active: acc.selected }"
-              @click="switchAccount(acc.id)"
+              class="dd-item-row"
             >
-              <img class="dd-head" :src="`https://mc-heads.net/avatar/${acc.uuid}/18`" :alt="acc.username"
-                @error="(e) => (e.target as HTMLImageElement).style.display='none'" />
-              <span class="dd-name">{{ acc.username }}</span>
-              <svg v-if="acc.selected" width="10" height="10" viewBox="0 0 10 10" fill="none">
-                <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </button>
+              <button
+                class="dd-item"
+                :class="{ active: acc.selected }"
+                @click="switchAccount(acc.id)"
+              >
+                <img class="dd-head" :src="`https://mc-heads.net/avatar/${acc.uuid}/18`" :alt="acc.username"
+                  @error="(e) => (e.target as HTMLImageElement).style.display='none'" />
+                <span class="dd-name">{{ acc.username }}</span>
+                <svg v-if="acc.selected" width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <button class="dd-signout" title="Sign out" @click.stop="signOut(acc.id)">
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                  <path d="M5 2H2.5A.5.5 0 002 2.5v8a.5.5 0 00.5.5H5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                  <path d="M8.5 9L11 6.5L8.5 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                  <line x1="11" y1="6.5" x2="5" y2="6.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                </svg>
+              </button>
+            </div>
 
             <div class="dd-sep" />
 
@@ -77,7 +91,7 @@
         <circle cx="6.5" cy="4.5" r="2.5" stroke="currentColor" stroke-width="1.3"/>
         <path d="M1.5 11.5c0-2.485 2.239-4.5 5-4.5s5 2.015 5 4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
       </svg>
-      <span class="account-name account-name--guest">{{ accountStore.loading ? 'Signing in…' : 'Sign in' }}</span>
+      <span class="account-name account-name--guest">{{ accountStore.loginStatus ?? (accountStore.loading ? 'Signing in…' : 'Sign in') }}</span>
     </button>
 
     <!-- Window controls -->
@@ -109,7 +123,10 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useAccountStore }  from '../../store/accountStore'
 import { useLauncherStore } from '../../store/launcherStore'
+import { usePageTheme }     from '../../composables/usePageTheme'
 import pillBg from '../../assets/pill-bg.png'
+
+const { topbarTheme } = usePageTheme()
 
 const accountStore = useAccountStore()
 const launcherStore = useLauncherStore()
@@ -118,7 +135,7 @@ const maximized    = ref(false)
 const dropdownOpen = ref(false)
 const pillRef      = ref<HTMLElement | null>(null)
 const dropdownRef  = ref<HTMLElement | null>(null)
-const version      = '1.0.0'
+const version      = '1.1.12'
 
 const account       = computed(() => accountStore.selectedAccount)
 const instanceLabel = computed(() => launcherStore.activeProfile?.name ?? 'No instance')
@@ -145,6 +162,11 @@ async function switchAccount(id: string) {
 async function addAccount() {
   dropdownOpen.value = false
   await accountStore.login()
+}
+
+async function signOut(id: string) {
+  await accountStore.logout(id)
+  if (!accountStore.hasAccounts) dropdownOpen.value = false
 }
 
 function onClickOutside(e: MouseEvent) {
@@ -175,10 +197,13 @@ onUnmounted(() => {
   height: 58px;
   flex-shrink: 0;
   -webkit-app-region: drag;
-  background: #070908;
+  background: rgba(7, 9, 8, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   padding: 0 12px 0 20px;
   gap: 12px;
+  transition: background 400ms ease, border-color 400ms ease;
 }
 
 // ── Brand ─────────────────────────────────────────────────────────────────────
@@ -204,12 +229,32 @@ onUnmounted(() => {
   gap: 1px;
 }
 
+.brand-name-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  line-height: 1;
+}
+
 .brand-name {
   font-size: 14px;
   font-weight: 400;
   color: $text-primary;
   line-height: 1;
   font-family: 'Mojangles', sans-serif;
+}
+
+.beta-badge {
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: #ffffff;
+  background: #cc0000;
+  border-radius: 0;
+  padding: 1px 4px;
+  line-height: 1.4;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  margin-top: -1px;
 }
 
 .brand-version {
@@ -357,6 +402,32 @@ onUnmounted(() => {
 }
 
 .dd-add { color: $accent; }
+
+.dd-item-row {
+  display: flex;
+  align-items: center;
+  .dd-item { flex: 1; }
+}
+
+.dd-signout {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-right: 4px;
+  background: none;
+  border: none;
+  color: $text-secondary;
+  cursor: pointer;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 100ms, background 100ms, color 100ms;
+
+  .dd-item-row:hover & { opacity: 1; }
+  &:hover { background: rgba(255,80,80,0.15); color: #ff6060; }
+}
 
 .dd-enter-active, .dd-leave-active { transition: opacity 120ms ease, transform 120ms ease; }
 .dd-enter-from, .dd-leave-to { opacity: 0; transform: translateY(-6px); }

@@ -71,7 +71,7 @@
   <Transition name="err-fade">
     <div v-if="status === 'error' && store.lastError" class="launch-error">
       <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.2"/><line x1="6" y1="3.5" x2="6" y2="6.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="6" cy="8.5" r="0.6" fill="currentColor"/></svg>
-      <span class="launch-error-text">{{ store.lastError.split('\n')[0] }}</span>
+      <span class="launch-error-text">{{ store.lastError }}</span>
     </div>
   </Transition>
   </div>
@@ -142,22 +142,24 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside, true
 
 .launch-error {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
-  padding: 5px 10px;
+  padding: 6px 10px;
   background: $surface-elevated;
   border: 1px solid $border;
   border-radius: $radius;
-  max-width: 275px;
+  max-width: 340px;
   color: $text-secondary;
+  cursor: pointer;
+  user-select: text;
 }
 
 .launch-error-text {
   font-size: 11px;
   color: $text-secondary;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.45;
 }
 
 .err-fade-enter-active, .err-fade-leave-active { transition: opacity 0.2s ease; }

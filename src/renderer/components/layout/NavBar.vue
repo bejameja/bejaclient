@@ -21,6 +21,13 @@
       >
         <img class="nav-icon-img" :src="item.icon" :alt="item.label" />
         <span v-if="item.badge" class="nav-badge">{{ item.badge }}</span>
+        <span v-if="item.wip" class="nav-wip">
+          <svg class="wip-clock" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.4"/>
+            <line class="clock-min" x1="7" y1="7" x2="10.5" y2="7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            <line x1="7" y1="7" x2="7" y2="4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+        </span>
       </RouterLink>
     </nav>
 
@@ -56,6 +63,7 @@ import iconFriends   from '../../assets/icons8-freunde-64.png'
 import iconQuests    from '../../assets/icons8-aufgabe-50.png'
 import iconPass      from '../../assets/icons8-passieren-50.png'
 import iconCrates    from '../../assets/icons8-package-50.png'
+import iconShop      from '../../assets/icons8-rakete-50.png'
 import iconSettings  from '../../assets/icons8-settings-50.png'
 
 const route         = useRoute()
@@ -69,9 +77,10 @@ const navItems = computed(() => [
   { label: t('nav.explore'),    path: '/mods',      exact: false, icon: iconExplore,  badge: null },
   { label: t('nav.profiles'),   path: '/profiles',  exact: false, icon: iconProfiles, badge: null },
   { label: t('nav.friends'),    path: '/friends',   exact: false, icon: iconFriends,  badge: friendsStore.pendingCount || null },
-  { label: t('nav.clientPass'), path: '/pass',      exact: false, icon: iconPass,     badge: null },
-  { label: 'Crates',           path: '/crates',    exact: false, icon: iconCrates,   badge: null },
-  { label: t('nav.quests'),     path: '/quests',    exact: false, icon: iconQuests,   badge: null },
+  { label: t('nav.clientPass'), path: '/pass',      exact: false, icon: iconPass,     badge: null, wip: true },
+  { label: 'Crates',           path: '/crates',    exact: false, icon: iconCrates,   badge: null, wip: true },
+  { label: 'Shop',             path: '/shop',      exact: false, icon: iconShop,     badge: null, wip: true },
+  { label: t('nav.quests'),    path: '/quests',    exact: false, icon: iconQuests,   badge: null, wip: true },
   { label: t('nav.settings'),   path: '/settings',  exact: false, icon: iconSettings, badge: null },
 ])
 
@@ -294,6 +303,37 @@ function openExternal(url: string) {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.nav-wip {
+  position: absolute;
+  top: 8px;
+  right: 11px;
+  width: 15px;
+  height: 15px;
+  background: rgba(18, 20, 24, 0.85);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.wip-clock {
+  width: 11px;
+  height: 11px;
+  color: #f5a623;
+}
+
+.clock-min {
+  transform-origin: 7px 7px;
+  animation: clock-tick 2s steps(60, end) infinite;
+}
+
+@keyframes clock-tick {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 
 // ── Spacer ────────────────────────────────────────────────────────────────────

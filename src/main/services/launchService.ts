@@ -2,6 +2,7 @@ import { ChildProcess } from 'child_process'
 import { copyFileSync, existsSync, mkdirSync, readdirSync, unlinkSync } from 'fs'
 import { join } from 'path'
 import { app } from 'electron'
+import { launch } from '@xmcl/core'
 
 class Log4jParser {
   private buf = ''
@@ -37,14 +38,30 @@ import { getSettings } from './settingsService'
 import { getProfile, updateProfile, type LaunchProfile } from './profileService'
 import { getSelectedAccount, refreshAccount } from './authService'
 import { checkAndUpdateClientJar, resolveAdapterJar, resolveBootstrapJar } from './clientUpdateService'
+import { ensureCoreMods } from './coreModsService'
+import { patchOptionsFile } from './optionsService'
+import { installVersion, listFabricVersions } from './versionService'
+import { analyzeCrashLog } from './crashAnalyzer'
+import { enforceModCompatibility } from './modCompatibilityChecker'
+
+const CORE_MOD_SLUGS = ['sodium', 'lithium', 'ferritecore']
+
+// Staged names use beja-core- prefix so removeBejaModJars never touches them
+function coreModStagedName(slug: string): string {
+  return `beja-core-${slug}.jar`
+}
 
 function removeBejaModJars(gameDir: string, onLog: (line: string) => void): void {
   const modsDir = join(gameDir, 'mods')
   if (!existsSync(modsDir)) return
-  // Remove legacy bejaclient-*.jar dropped in mods/ (BejaClient runs as agent, not a mod)
-  const stale = readdirSync(modsDir).filter(
-    f => f.startsWith('bejaclient-') && f.endsWith('.jar')
-  )
+  // Remove legacy bejaclient-*.jar and any old slug-prefixed optimization mod JARs.
+  // beja-core-*.jar (staged by us) are intentionally excluded.
+  const stale = readdirSync(modsDir).filter(f => {
+    if (!f.endsWith('.jar')) return false
+    if (f.startsWith('beja-core-')) return false   // our staged core mods — keep
+    if (f.startsWith('bejaclient-')) return true
+    return CORE_MOD_SLUGS.some(s => f.startsWith(s + '-'))
+  })
   for (const f of stale) {
     try {
       unlinkSync(join(modsDir, f))
@@ -67,20 +84,88 @@ function resolveVersionId(mcVersion: string, loader: string, gameDir: string): s
   return match ?? mcVersion
 }
 
-function buildJvmArgs(profile: LaunchProfile): string[] {
-  const args: string[] = profile.jvmArgs ? profile.jvmArgs.split(' ').filter(Boolean) : []
+function mcMinorVersion(version: string): number {
+  return parseInt(version.split('.')[1] ?? '0', 10)
+}
 
+const G1GC_FLAGS = [
+  '-XX:+UseG1GC',
+  '-XX:+ParallelRefProcEnabled',
+  '-XX:MaxGCPauseMillis=200',
+  '-XX:+UnlockExperimentalVMOptions',
+  '-XX:+DisableExplicitGC',
+  '-XX:+AlwaysPreTouch',
+  '-XX:G1NewSizePercent=30',
+  '-XX:G1MaxNewSizePercent=40',
+  '-XX:G1HeapRegionSize=8M',
+  '-XX:G1ReservePercent=20',
+  '-XX:G1HeapWastePercent=5',
+  '-XX:G1MixedGCCountTarget=4',
+  '-XX:InitiatingHeapOccupancyPercent=15',
+  '-XX:G1MixedGCLiveThresholdPercent=90',
+  '-XX:G1RSetUpdatingPauseTimePercent=5',
+  '-XX:SurvivorRatio=32',
+  '-XX:+PerfDisableSharedMem',
+  '-XX:MaxTenuringThreshold=1',
+] as const
+
+const ZGC_FLAGS = [
+  '-XX:+UseZGC',
+  '-XX:+ZGenerational',           // generational ZGC — stable in Java 21.0.1+
+  '-XX:+DisableExplicitGC',
+  '-XX:+AlwaysPreTouch',
+  '-XX:+UnlockExperimentalVMOptions',
+] as const
+
+const COMMON_FLAGS = [
+  '-XX:+OptimizeStringConcat',
+  '-XX:+UseStringDeduplication',
+  '-Xshare:off',                  // suppress OpenJDK CDS bootstrap warning
+  '-Djava.rmi.server.useCodebaseOnly=true',
+] as const
+
+function hasGcFlag(args: string[]): boolean {
+  return args.some(a => /Use(ZGC|G1GC|ShenandoahGC|SerialGC|ParallelGC|CMS)/.test(a))
+}
+
+function buildJvmArgs(profile: LaunchProfile): string[] {
+  const userArgs = profile.jvmArgs?.split(' ').filter(Boolean) ?? []
+  const mcMinor  = mcMinorVersion(profile.version)
+
+  const gcFlags = hasGcFlag(userArgs)
+    ? []
+    : mcMinor >= 17
+      ? [...ZGC_FLAGS]
+      : [...G1GC_FLAGS]
+
+  const javaagent: string[] = []
   if (profile.useBejaClient) {
-    const bootstrapJar = resolveBootstrapJar()
-    if (bootstrapJar) {
-      args.unshift(`-javaagent:${bootstrapJar}=${profile.version}`)
-      console.log(`[BejaBootstrap] Injecting: ${bootstrapJar} (MC ${profile.version})`)
+    const jar = resolveBootstrapJar()
+    if (jar) {
+      javaagent.push(`-javaagent:${jar}=${profile.version}`)
+      console.log(`[BejaBootstrap] Injecting: ${jar} (MC ${profile.version})`)
     } else {
       console.warn('[BejaBootstrap] Bootstrap JAR not found — client will launch without BejaClient.')
     }
   }
 
-  return args
+  // Order: agent → GC → common → user (user args can override anything)
+  return [...javaagent, ...gcFlags, ...COMMON_FLAGS, ...userArgs]
+}
+
+function buildGameEnv(): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...process.env }
+  if (process.platform === 'linux') {
+    // Force dedicated GPU on Linux (NVIDIA PRIME / AMD DRI_PRIME)
+    env['__NV_PRIME_RENDER_OFFLOAD']    = '1'
+    env['__GLX_VENDOR_LIBRARY_NAME']    = 'nvidia'
+    env['__VK_LAYER_NV_optimus']        = 'NVIDIA_only'
+    env['DRI_PRIME']                    = '1'
+  }
+  // Disable GPU driver's VSync/frame limiter from the driver side
+  env['__GL_SYNC_TO_VBLANK'] = '0'
+  env['vblank_mode']         = '0'          // Mesa/AMD
+  return env
 }
 
 let activeProcess: ChildProcess | null = null
@@ -106,21 +191,55 @@ export async function launchGame(
 
   if (account.tokenExpiry < Date.now() + 60000) {
     onStatus('Refreshing authentication...')
-    const refreshed = await refreshAccount(account.id)
-    if (!refreshed) throw new Error('Failed to refresh account. Please log in again.')
-    account = refreshed
+    try {
+      const refreshed = await refreshAccount(account.id)
+      if (refreshed) account = refreshed
+    } catch (e) {
+      throw new Error(`Token refresh failed — please log out and sign in again. (${e instanceof Error ? e.message : String(e)})`)
+    }
   }
 
   const settings = getSettings()
   const javaPath = profile.javaPath || settings.game.defaultJavaPath || 'java'
   const gameDir = profile.gameDir || settings.game.defaultGameDir
+  const modsDir = join(gameDir, 'mods')
 
   onLog(`[Launcher] Profile: ${profile.name} | ${profile.version} | ${profile.loader} | BejaClient: ${profile.useBejaClient}`)
   onLog(`[Launcher] Java: ${javaPath} | Game dir: ${gameDir}`)
 
+  // Auto-install version + loader if not present (deferred from profile creation)
+  const baseVersionDir = join(gameDir, 'versions', profile.version)
+  const tentativeVersionId = resolveVersionId(profile.version, profile.loader, gameDir)
+  const loaderAlreadyInstalled = profile.loader === 'vanilla' || tentativeVersionId !== profile.version
+  if (!existsSync(baseVersionDir) || !loaderAlreadyInstalled) {
+    onLog(`[Launcher] Version not installed — downloading ${profile.version}${profile.loader !== 'vanilla' ? ` + ${profile.loader}` : ''}…`)
+    let loaderVer = profile.loaderVersion || undefined
+    if (profile.loader === 'fabric' && !loaderVer) {
+      try {
+        const versions = await listFabricVersions(profile.version)
+        loaderVer = (versions.find(v => v.loader.stable) ?? versions[0])?.loader.version
+      } catch { /* use undefined — installVersion will skip fabric step */ }
+    }
+    await installVersion(profile.version, profile.loader, loaderVer, (task, progress, total) => {
+      const pct = total > 0 ? Math.round((progress / total) * 100) : 0
+      onLog(`[Download] ${task} (${pct}%)`)
+    })
+    onLog('[Launcher] Download complete.')
+  }
+
   await checkAndUpdateClientJar(onLog, onStatus)
 
-  const { launch } = await import('@xmcl/core')
+  // Download Sodium/Lithium/FerriteCore to .bejaclient/bin/ if not present
+  const binDir = join(gameDir, '.bejaclient', 'bin')
+  const coreModPaths = (profile.useBejaClient && profile.loader === 'fabric')
+    ? await ensureCoreMods(binDir, profile.version, onLog)
+    : []
+
+  // Force unlimited FPS, disable VSync, apply optimized defaults in options.txt
+  patchOptionsFile(gameDir)
+
+  // Remove conflicting mods before launching
+  enforceModCompatibility(modsDir, onLog)
 
   onStatus('starting')
 
@@ -130,9 +249,9 @@ export async function launchGame(
   // Always purge any leftover bejaclient mod JARs — BejaClient runs as a Java agent, not a mod
   removeBejaModJars(gameDir, onLog)
 
-  // Stage adapter JAR into mods/ so Fabric Loader always picks it up on its classpath.
-  // fabric.addMods is unreliable in Fabric Loader 0.18.6+; mods/ is always scanned.
-  const modsDir = join(gameDir, 'mods')
+  // Stage adapter JAR + core mods into mods/ — fabric.addMods is unreliable in 0.18.6+.
+  // beja-core-*.jar names are excluded from removeBejaModJars so they survive the sweep.
+  if (!existsSync(modsDir)) mkdirSync(modsDir, { recursive: true })
   const adapterTempPath = join(modsDir, 'beja-adapter-loader.jar')
   if (existsSync(adapterTempPath)) {
     try { unlinkSync(adapterTempPath) } catch { /* ignore */ }
@@ -142,7 +261,6 @@ export async function launchGame(
     const adapterJar = resolveAdapterJar(profile.version)
     if (adapterJar) {
       try {
-        if (!existsSync(modsDir)) mkdirSync(modsDir, { recursive: true })
         copyFileSync(adapterJar, adapterTempPath)
         adapterWasStaged = true
         onLog(`[BejaClient] Staged adapter JAR → mods/beja-adapter-loader.jar`)
@@ -151,6 +269,23 @@ export async function launchGame(
       }
     } else {
       onLog('[BejaClient] Adapter JAR not found — BejaHooks calls may fail.')
+    }
+  }
+
+  // Stage Sodium / Lithium / FerriteCore into mods/ so Fabric scans them reliably.
+  // ModFilterHook in the bootstrap hides them from Mod Menu at runtime.
+  const stagedCorePaths: string[] = []
+  if (coreModPaths.length > 0) {
+    for (const srcPath of coreModPaths) {
+      const slug = CORE_MOD_SLUGS.find(s => srcPath.toLowerCase().includes(s)) ?? 'unknown'
+      const dest = join(modsDir, coreModStagedName(slug))
+      try {
+        copyFileSync(srcPath, dest)
+        stagedCorePaths.push(dest)
+        onLog(`[BejaClient] Staged core mod → mods/${coreModStagedName(slug)}`)
+      } catch (err) {
+        onLog(`[BejaClient] WARN: Failed to stage ${slug}: ${String(err)}`)
+      }
     }
   }
 
@@ -173,6 +308,9 @@ export async function launchGame(
       height: profile.resolution.height,
       fullscreen: false,
     },
+    extraExecOption: {
+      env: buildGameEnv(),
+    },
   })
 
   activeProcess = proc
@@ -182,7 +320,15 @@ export async function launchGame(
   const log4j = new Log4jParser()
   proc.stdout?.setEncoding('utf-8')
   proc.stderr?.setEncoding('utf-8')
-  proc.stdout?.on('data', (data: string) => log4j.feed(data, onLog))
+  proc.stdout?.on('data', (data: string) => {
+    log4j.feed(data, line => {
+      onLog(line)
+      for (const f of analyzeCrashLog(line)) {
+        onLog(`[CRASH] [${f.severity.toUpperCase()}] ${f.category}: ${f.humanReadable}`)
+        onLog(`[CRASH] Suggestion: ${f.suggestion}`)
+      }
+    })
+  })
   proc.stderr?.on('data', (data: string) => {
     data.split('\n').filter(Boolean).forEach(line => onLog(`[ERR] ${line}`))
   })
@@ -192,6 +338,9 @@ export async function launchGame(
   proc.on('close', () => {
     if (adapterWasStaged && existsSync(adapterTempPath)) {
       try { unlinkSync(adapterTempPath) } catch { /* ignore */ }
+    }
+    for (const p of stagedCorePaths) {
+      if (existsSync(p)) try { unlinkSync(p) } catch { /* ignore */ }
     }
     // Track playtime and update lastPlayed
     const sessionMs = sessionStartTime ? Date.now() - sessionStartTime : 0

@@ -139,7 +139,10 @@ export const useLauncherStore = defineStore('launcher', () => {
       await window.api.launch.start(profileId)
     } catch (e) {
       status.value = 'error'
-      lastError.value = String(e)
+      // Strip Electron's IPC wrapper to expose the real thrown message
+      const raw = String(e)
+      const inner = raw.match(/Error:\s(.+)$/s)?.[1] ?? raw
+      lastError.value = inner.trim()
     }
   }
 

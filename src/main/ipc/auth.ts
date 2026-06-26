@@ -5,6 +5,7 @@ import {
   logoutAccount,
   selectAccount,
   refreshAccount,
+  importFromOfficialLauncher,
 } from '../services/authService'
 
 export function setupAuthHandlers(ipcMain: IpcMain, mainWindow: BrowserWindow | null): void {
@@ -26,5 +27,9 @@ export function setupAuthHandlers(ipcMain: IpcMain, mainWindow: BrowserWindow | 
 
   ipcMain.handle('auth:refresh', async (_e, id: string) => {
     return await refreshAccount(id)
+  })
+
+  ipcMain.handle('auth:import-launcher', async () => {
+    return await importFromOfficialLauncher()
   })
 }

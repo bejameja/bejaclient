@@ -13,6 +13,7 @@ export const router = createRouter({
     { path: '/cosmetics', component: LockerPage,                                                  name: 'cosmetics' },
     { path: '/pass',      component: () => import('../pages/PassPage.vue'),                       name: 'pass'      },
     { path: '/crates',    component: () => import('../pages/CratesPage.vue'),                     name: 'crates'    },
+    { path: '/shop',      component: () => import('../pages/ShopPage.vue'),                        name: 'shop'      },
     { path: '/quests',    component: QuestsPage,                                                  name: 'quests'    },
     { path: '/capes',     component: () => import('../pages/CapesPage.vue'),                       name: 'capes'     },
     { path: '/profiles',  component: () => import('../pages/settings/ProfilesSettings.vue'),      name: 'profiles'  },
