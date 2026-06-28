@@ -20,6 +20,12 @@
   </a>
 </p>
 
+<p align="center">
+  <a href="https://github.com/bejameja/bejaclient/releases">
+    <img src="https://img.shields.io/github/downloads/bejameja/bejaclient/total?color=brightgreen&style=for-the-badge&label=TOTAL%20DOWNLOADS" alt="Total Downloads">
+  </a>
+</p>
+
 # BejaClient
 
 Welcome to the BejaClient repository, the codebase for the BejaClient Minecraft client.
