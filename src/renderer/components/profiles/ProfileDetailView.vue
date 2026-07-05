@@ -48,6 +48,7 @@
           </button>
           <Transition name="menu-pop">
             <div v-if="menuOpen" class="context-menu">
+              <button class="ctx-item" @click="openProfileFolder">Open folder</button>
               <button class="ctx-item" @click="exportPack">Export pack</button>
               <button class="ctx-item ctx-item--danger" @click="requestDelete">Delete profile</button>
             </div>
@@ -284,6 +285,11 @@ async function importMod(): Promise<void> {
 function browseMods(): void {
   menuOpen.value = false
   router.push('/mods')
+}
+
+async function openProfileFolder(): Promise<void> {
+  menuOpen.value = false
+  await window.api.mods.openFolder(props.profile.id)
 }
 
 async function exportPack(): Promise<void> {
