@@ -7,3 +7,4 @@ release
 Thumbs.db
 *.log
 src/renderer/assets/mc-scene.mp4
+/dist-electron
