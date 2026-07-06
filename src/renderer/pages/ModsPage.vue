@@ -212,7 +212,7 @@
 
           <div class="install-area">
             <Transition name="tick">
-              <span v-if="installedMap.get(`${hit.source}-${hit.id}`)?.size" class="installed-tick">✓</span>
+              <span v-if="isInstalled(hit)" class="installed-tick">✓</span>
             </Transition>
             <button
               class="install-btn"
@@ -279,10 +279,10 @@
             class="picker-row"
             :class="{
               checked:   pickerSelected.includes(p.id),
-              installed: pickerHit && installedMap.get(`${pickerHit.source}-${pickerHit.id}`)?.has(p.id),
+              installed: pickerHit && isInstalledInProfile(pickerHit, p.id),
             }"
           >
-            <template v-if="pickerHit && installedMap.get(`${pickerHit.source}-${pickerHit.id}`)?.has(p.id)">
+            <template v-if="pickerHit && isInstalledInProfile(pickerHit, p.id)">
               <span class="picker-already-tick">✓</span>
             </template>
             <template v-else>
@@ -292,7 +292,7 @@
               <span class="picker-profile-name">{{ p.name }}</span>
               <span class="picker-profile-meta">{{ p.version }} · {{ p.loader }}</span>
             </div>
-            <span v-if="pickerHit && installedMap.get(`${pickerHit.source}-${pickerHit.id}`)?.has(p.id)" class="picker-installed-label">{{ $t('mods.picker.installed') }}</span>
+            <span v-if="pickerHit && isInstalledInProfile(pickerHit, p.id)" class="picker-installed-label">{{ $t('mods.picker.installed') }}</span>
           </label>
 
           <div class="picker-footer">
@@ -531,6 +531,39 @@ function switchTab(key: string) {
 
 // ── Install tracking ──────────────────────────────────────────────────────────
 
+const profileModsMap = ref<Record<string, string[]>>({})
+
+async function refreshProfileMods(profileId: string) {
+  try {
+    const actualMods = await window.api.mods.list(profileId)
+    profileModsMap.value[profileId] = actualMods.map(m => m.fileName.toLowerCase())
+  } catch {
+    profileModsMap.value[profileId] = []
+  }
+}
+
+function isInstalledInProfile(hit: ExploreHit, profileId: string): boolean {
+  const key = hitKey(hit)
+  const profileIds = installedMap.value.get(key)
+  if (!profileIds || !profileIds.has(profileId)) return false
+
+  const actualFiles = profileModsMap.value[profileId]
+  if (!actualFiles || actualFiles.length === 0) return false
+
+  const slug = hit.slug.toLowerCase()
+  const title = hit.title.toLowerCase().replace(/[^a-z0-9]/g, '')
+  return actualFiles.some(fileName => {
+    const cleanFile = fileName.toLowerCase().replace(/[^a-z0-9]/g, '')
+    return cleanFile.includes(slug) || cleanFile.includes(title)
+  })
+}
+
+function isInstalled(hit: ExploreHit): boolean {
+  const activeId = activeProfileId.value
+  if (!activeId) return false
+  return isInstalledInProfile(hit, activeId)
+}
+
 async function loadInstalls() {
   try {
     const data = await window.api.installs.get()
@@ -539,6 +572,10 @@ async function loadInstalls() {
       installedMap.value.set(`modrinth-${projectId}`, new Set(profileIds))
     }
     installedMap.value = new Map(installedMap.value)
+
+    // load actual mods
+    await Promise.all(profiles.value.map(p => refreshProfileMods(p.id)))
+
     // Populate serverAddedMap
     for (const [key, profileIds] of Object.entries(data.servers)) {
       serverAddedMap.value.set(key, new Set(profileIds))
@@ -620,6 +657,10 @@ async function confirmModInstall() {
     const existing = installedMap.value.get(key) ?? new Set<string>()
     pickerSelected.value.forEach(pid => existing.add(pid))
     installedMap.value = new Map(installedMap.value).set(key, existing)
+    
+    // refresh files map
+    await Promise.all(pickerSelected.value.map(pid => refreshProfileMods(pid)))
+
     const n = pickerSelected.value.length
     showProgress(t('mods.toast.installed', { count: n }, n))
   }
@@ -786,7 +827,8 @@ function formatNum(n: number): string {
 const listEl = ref<HTMLElement | null>(null)
 
 onMounted(async () => {
-  await Promise.all([loadProfiles(), loadVersions(), loadCategories(), loadInstalls()])
+  await loadProfiles()
+  await Promise.all([loadVersions(), loadCategories(), loadInstalls()])
   window.api.modrinth.onProgress(msg => showProgress(msg))
   window.api.servers.onPingResult(data => applyPingResult(data as Parameters<typeof applyPingResult>[0]))
   doSearch()
