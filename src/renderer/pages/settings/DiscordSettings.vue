@@ -79,7 +79,7 @@
         <div class="setting-row">
           <div class="setting-info">
             <span class="setting-label">Large Image Key</span>
-            <span class="setting-desc">Discord asset name for large icon (e.g. 'logo')</span>
+            <span class="setting-desc">Discord asset name (e.g. 'logo') or direct HTTPS image URL (e.g. from Imgur)</span>
           </div>
           <div class="setting-control">
             <input
@@ -111,7 +111,7 @@
         <div class="setting-row">
           <div class="setting-info">
             <span class="setting-label">Small Image Key</span>
-            <span class="setting-desc">Discord asset name for small icon overlay</span>
+            <span class="setting-desc">Discord asset name (e.g. 'active') or direct HTTPS image URL</span>
           </div>
           <div class="setting-control">
             <input
@@ -180,7 +180,7 @@
         <div class="setting-row">
           <div class="setting-info">
             <span class="setting-label">Large Image Key</span>
-            <span class="setting-desc">Discord asset name for large icon (e.g. 'logo')</span>
+            <span class="setting-desc">Discord asset name (e.g. 'logo') or direct HTTPS image URL (e.g. from Imgur)</span>
           </div>
           <div class="setting-control">
             <input
@@ -212,7 +212,7 @@
         <div class="setting-row">
           <div class="setting-info">
             <span class="setting-label">Small Image Key</span>
-            <span class="setting-desc">Discord asset name for small icon overlay</span>
+            <span class="setting-desc">Discord asset name (e.g. 'active') or direct HTTPS image URL</span>
           </div>
           <div class="setting-control">
             <input
