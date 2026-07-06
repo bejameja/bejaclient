@@ -48,6 +48,8 @@ const store = useLauncherStore()
 </script>
 
 <style lang="scss" scoped>
+@use "sass:color";
+
 .conflict-overlay {
   position: fixed;
   inset: 0;
@@ -181,7 +183,7 @@ const store = useLauncherStore()
   font-weight: 700;
   cursor: pointer;
   transition: background $transition;
-  &:hover { background: darken(#e8a030, 8%); }
+  &:hover { background: color.adjust(#e8a030, $lightness: -8%); }
 }
 
 .modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 150ms ease; }
