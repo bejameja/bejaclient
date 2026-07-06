@@ -4,33 +4,40 @@
     <div class="settings-form">
       <!-- Tabs for Settings Sections -->
       <div class="rpc-tabs">
-        <button
-          class="rpc-tab-btn"
-          :class="{ active: activeTab === 'general' }"
-          @click="activeTab = 'general'"
-        >
-          General
-        </button>
-        <button
-          class="rpc-tab-btn"
-          :class="{ active: activeTab === 'idle' }"
-          @click="activeTab = 'idle'"
-        >
-          Idle (Launcher)
-        </button>
-        <button
-          class="rpc-tab-btn"
-          :class="{ active: activeTab === 'playing' }"
-          @click="activeTab = 'playing'"
-        >
-          Playing (Game)
+        <div class="tabs-list">
+          <button
+            class="rpc-tab-btn"
+            :class="{ active: activeTab === 'general' }"
+            @click="activeTab = 'general'"
+          >
+            General
+          </button>
+          <button
+            class="rpc-tab-btn"
+            :class="{ active: activeTab === 'idle' }"
+            @click="activeTab = 'idle'"
+          >
+            Idle (Launcher)
+          </button>
+          <button
+            class="rpc-tab-btn"
+            :class="{ active: activeTab === 'playing' }"
+            @click="activeTab = 'playing'"
+          >
+            Playing (Game)
+          </button>
+        </div>
+        
+        <!-- Reset Button -->
+        <button class="reset-btn" @click="resetToDefaults">
+          Reset to Defaults
         </button>
       </div>
 
       <!-- General Tab Content -->
       <div v-show="activeTab === 'general'" class="tab-content">
         <div class="setting-group">
-          <!-- Toggle -->
+          <!-- Enable Toggle -->
           <div class="setting-row">
             <div class="setting-info">
               <span class="setting-label">Enable Discord RPC</span>
@@ -45,7 +52,7 @@
             </div>
           </div>
           
-          <!-- Client ID -->
+          <!-- Custom Client ID -->
           <div class="setting-row setting-row--tall" :class="{ 'setting-row--muted': !s.discord.enabled }">
             <div class="setting-info">
               <span class="setting-label">Custom Discord Client ID</span>
@@ -121,7 +128,7 @@
               />
             </div>
           </div>
-          <!-- Large Image Text -->
+          <!-- Large Image Hover Text -->
           <div class="setting-row">
             <div class="setting-info">
               <span class="setting-label">Large Image Hover Text</span>
@@ -155,7 +162,7 @@
               />
             </div>
           </div>
-          <!-- Small Image Text -->
+          <!-- Small Image Hover Text -->
           <div class="setting-row">
             <div class="setting-info">
               <span class="setting-label">Small Image Hover Text</span>
@@ -229,7 +236,7 @@
               />
             </div>
           </div>
-          <!-- Large Image Text -->
+          <!-- Large Image Hover Text -->
           <div class="setting-row">
             <div class="setting-info">
               <span class="setting-label">Large Image Hover Text</span>
@@ -263,7 +270,7 @@
               />
             </div>
           </div>
-          <!-- Small Image Text -->
+          <!-- Small Image Hover Text -->
           <div class="setting-row">
             <div class="setting-info">
               <span class="setting-label">Small Image Hover Text</span>
@@ -343,11 +350,33 @@ const settingsStore = useSettingsStore()
 const s = computed(() => settingsStore.settings)
 const activeTab = ref<'general' | 'idle' | 'playing'>('general')
 
+// Save changes to disk
 async function save() {
   await settingsStore.save()
 }
 
-// Fallback images
+// Reset settings to default values
+async function resetToDefaults() {
+  s.value.discord = {
+    enabled: true,
+    clientId: '',
+    idleDetails: 'Browsing the launcher',
+    idleState: 'Idle',
+    idleLargeImageKey: 'logo',
+    idleLargeImageText: 'BejaClient',
+    idleSmallImageKey: '',
+    idleSmallImageText: '',
+    playingDetails: 'Playing Minecraft {version}',
+    playingState: 'In Game',
+    playingLargeImageKey: 'logo',
+    playingLargeImageText: 'BejaClient',
+    playingSmallImageKey: '',
+    playingSmallImageText: '',
+  }
+  await save()
+}
+
+// Default logo URL
 const DEFAULT_LOGO_URL = new URL('../../assets/bc-logo-new.png', import.meta.url).href
 
 // Preview variables (replace placeholders for preview)
@@ -454,9 +483,16 @@ const previewSmallImageText = computed(() => {
 /* Tabs */
 .rpc-tabs {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  gap: 6px;
   padding-bottom: 2px;
+  width: 100%;
+}
+
+.tabs-list {
+  display: flex;
+  gap: 6px;
 }
 
 .rpc-tab-btn {
@@ -482,6 +518,25 @@ const previewSmallImageText = computed(() => {
     border-color: rgba(255, 255, 255, 0.06);
     background: rgba(8, 8, 10, 0.6);
     box-shadow: inset 0 2px 0 var(--accent, #27ade0);
+  }
+}
+
+.reset-btn {
+  font-family: 'Mojangles', monospace;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #555;
+  cursor: pointer;
+  transition: all 80ms;
+  text-transform: uppercase;
+
+  &:hover {
+    color: #ff4a4a;
+    border-color: rgba(255, 74, 74, 0.3);
+    background: rgba(255, 74, 74, 0.05);
   }
 }
 
