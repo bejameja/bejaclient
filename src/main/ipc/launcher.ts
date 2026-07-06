@@ -36,7 +36,7 @@ export function setupLaunchHandlers(ipcMain: IpcMain, mainWindow: BrowserWindow 
           sendConsoleStatus(status)
           if (status === 'running') {
             const profile = getProfile(profileId)
-            setPlayingPresence(profile?.version)
+            setPlayingPresence(profile?.version, profile?.name)
             if (getSettings().launcher.closeOnLaunch) {
               mainWindow?.hide()
               showTray()

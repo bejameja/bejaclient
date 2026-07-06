@@ -148,7 +148,7 @@
         <div class="setting-row">
           <div class="setting-info">
             <span class="setting-label">Details</span>
-            <span class="setting-desc">First line of status text. Use {version} for the Minecraft version</span>
+            <span class="setting-desc">First line of status text. Use {version} for version, {profile} for profile name</span>
           </div>
           <div class="setting-control">
             <input
@@ -164,7 +164,7 @@
         <div class="setting-row">
           <div class="setting-info">
             <span class="setting-label">State</span>
-            <span class="setting-desc">Second line of status text. Use {version} for the Minecraft version</span>
+            <span class="setting-desc">Second line of status text. Use {version} for version, {profile} for profile name</span>
           </div>
           <div class="setting-control">
             <input

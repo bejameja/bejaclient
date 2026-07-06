@@ -10,6 +10,7 @@ let startTimestamp: number = Date.now()
 
 let currentPresenceType: 'idle' | 'playing' = 'idle'
 let currentPlayingVersion: string | undefined = undefined
+let currentPlayingProfileName: string | undefined = undefined
 let activeClientId: string = ''
 
 export async function initDiscordRPC(): Promise<void> {
@@ -64,7 +65,7 @@ export async function updateDiscordRPCFromSettings(): Promise<void> {
 
 function refreshPresence(): void {
   if (currentPresenceType === 'playing') {
-    setPlayingPresence(currentPlayingVersion)
+    setPlayingPresence(currentPlayingVersion, currentPlayingProfileName)
   } else {
     setIdlePresence()
   }
@@ -73,6 +74,7 @@ function refreshPresence(): void {
 export function setIdlePresence(): void {
   currentPresenceType = 'idle'
   currentPlayingVersion = undefined
+  currentPlayingProfileName = undefined
 
   if (!rpc || !ready) return
 
@@ -109,9 +111,10 @@ export function setIdlePresence(): void {
   rpc.setActivity(activity).catch(() => { })
 }
 
-export function setPlayingPresence(version?: string): void {
+export function setPlayingPresence(version?: string, profileName?: string): void {
   currentPresenceType = 'playing'
   currentPlayingVersion = version
+  currentPlayingProfileName = profileName
 
   if (!rpc || !ready) return
 
@@ -125,7 +128,9 @@ export function setPlayingPresence(version?: string): void {
   }
 
   const formatPlaceholder = (str: string) => {
-    return str.replace(/{version}/g, version || 'Minecraft')
+    return str
+      .replace(/{version}/g, version || 'Minecraft')
+      .replace(/{profile}/g, profileName || '')
   }
 
   const activity: any = {

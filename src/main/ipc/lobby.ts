@@ -34,7 +34,7 @@ export function setupLobbyHandlers(ipcMain: IpcMain, getWindow: () => BrowserWin
         sendConsoleStatus(status)
         if (status === 'running') {
           const profile = getProfile(profileId)
-          setPlayingPresence(profile?.version)
+          setPlayingPresence(profile?.version, profile?.name)
           if (getSettings().launcher.closeOnLaunch) win?.hide()
         }
         if (status.startsWith('stopped')) {
