@@ -26,6 +26,22 @@ const defaultSettings: AppSettings = {
     language: 'en',
     accentColor: '#27ade0',
   },
+  discord: {
+    enabled: true,
+    clientId: '',
+    idleDetails: 'Browsing the launcher',
+    idleState: 'Idle',
+    idleLargeImageKey: 'logo',
+    idleLargeImageText: 'BejaClient',
+    idleSmallImageKey: '',
+    idleSmallImageText: '',
+    playingDetails: 'Playing Minecraft {version}',
+    playingState: 'In Game',
+    playingLargeImageKey: 'logo',
+    playingLargeImageText: 'BejaClient',
+    playingSmallImageKey: '',
+    playingSmallImageText: '',
+  },
   activeProfileId: null,
 }
 
@@ -41,6 +57,7 @@ export const useSettingsStore = defineStore('settings', () => {
       game:       { ...defaultSettings.game,       ...saved.game },
       launcher:   { ...defaultSettings.launcher,   ...saved.launcher },
       appearance: { ...defaultSettings.appearance, ...saved.appearance },
+      discord:    { ...defaultSettings.discord,    ...saved.discord },
     }
     // Migrate old orange default → launcher cyan
     if (settings.value.appearance.accentColor === '#F97316') {

@@ -92,10 +92,28 @@ export interface AppearanceSettings {
   accentColor: string
 }
 
+export interface DiscordSettings {
+  enabled: boolean
+  clientId: string
+  idleDetails: string
+  idleState: string
+  idleLargeImageKey: string
+  idleLargeImageText: string
+  idleSmallImageKey: string
+  idleSmallImageText: string
+  playingDetails: string
+  playingState: string
+  playingLargeImageKey: string
+  playingLargeImageText: string
+  playingSmallImageKey: string
+  playingSmallImageText: string
+}
+
 export interface AppSettings {
   game: GameSettings
   launcher: LauncherSettings
   appearance: AppearanceSettings
+  discord: DiscordSettings
   activeProfileId: string | null
 }
 

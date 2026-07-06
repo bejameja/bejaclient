@@ -145,7 +145,7 @@ export default {
   },
 
   settings: {
-    sections: { game: 'Game', launcher: 'Launcher', appearance: 'Appearance' },
+    sections: { game: 'Game', launcher: 'Launcher', appearance: 'Appearance', discord: 'Discord RPC' },
     browse: 'BROWSE',
     game: {
       dir: 'Game Directory',

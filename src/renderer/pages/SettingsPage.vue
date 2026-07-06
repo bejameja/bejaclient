@@ -260,6 +260,11 @@
         <AccountsSettings />
       </template>
 
+      <!-- ── DISCORD ─────────────────────────────────────────────────────── -->
+      <template v-else-if="activeSection === 'discord'">
+        <DiscordSettings />
+      </template>
+
       <!-- ── APPEARANCE ────────────────────────────────────────────────────── -->
       <template v-else-if="activeSection === 'appearance'">
 
@@ -329,6 +334,7 @@ import { ref, computed, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '../store/settingsStore'
 import AccountsSettings from './settings/AccountsSettings.vue'
+import DiscordSettings from './settings/DiscordSettings.vue'
 
 const settingsStore = useSettingsStore()
 const s = computed(() => settingsStore.settings)
@@ -373,11 +379,21 @@ const IconAccounts = {
   ])
 }
 
+const IconDiscord = {
+  render: () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
+    h('path', { d: 'M18 20.25c0-.62-.38-1.18-.95-1.39-1.16-.43-2.39-.71-3.66-.81a17.47 17.47 0 0 0-2.78 0c-1.27.1-2.5.38-3.66.81-.57.21-.95.77-.95 1.39v.3c0 .24.16.44.4.47 3.51.5 7.09.5 10.6 0a.48.48 0 0 0 .4-.47v-.3Z' }),
+    h('path', { d: 'M19 14.5c0-3.5-1.5-6-4-7.5-2.5-1.5-5.5-1.5-8 0-2.5 1.5-4 4-4 7.5' }),
+    h('circle', { cx: '9.5', cy: '12.5', r: '1.5' }),
+    h('circle', { cx: '14.5', cy: '12.5', r: '1.5' })
+  ])
+}
+
 const sections = computed(() => [
   { key: 'game',       label: t('settings.sections.game'),       icon: IconGame       },
   { key: 'launcher',   label: t('settings.sections.launcher'),   icon: IconLauncher   },
   { key: 'appearance', label: t('settings.sections.appearance'), icon: IconAppearance },
   { key: 'accounts',   label: 'Accounts',                        icon: IconAccounts   },
+  { key: 'discord',    label: t('settings.sections.discord'),    icon: IconDiscord    },
 ])
 
 const activeSection = ref('game')

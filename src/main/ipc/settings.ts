@@ -2,6 +2,7 @@ import { IpcMain, dialog, shell, app } from 'electron'
 import { getSettings, saveSettings, AppSettings } from '../services/settingsService'
 import * as https from 'https'
 import { scanLocalJava } from '../services/mcinstall'
+import { updateDiscordRPCFromSettings } from '../services/discordRPC'
 
 function fetchNews(): Promise<unknown[]> {
   return new Promise((resolve, reject) => {
@@ -27,6 +28,7 @@ export function setupSettingsHandlers(ipcMain: IpcMain): void {
 
   ipcMain.handle('settings:set', (_e, settings: AppSettings) => {
     saveSettings(settings)
+    updateDiscordRPCFromSettings()
     return true
   })
 

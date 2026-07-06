@@ -28,10 +28,28 @@ export interface AppearanceSettings {
   accentColor: string
 }
 
+export interface DiscordSettings {
+  enabled: boolean
+  clientId: string
+  idleDetails: string
+  idleState: string
+  idleLargeImageKey: string
+  idleLargeImageText: string
+  idleSmallImageKey: string
+  idleSmallImageText: string
+  playingDetails: string
+  playingState: string
+  playingLargeImageKey: string
+  playingLargeImageText: string
+  playingSmallImageKey: string
+  playingSmallImageText: string
+}
+
 export interface AppSettings {
   game: GameSettings
   launcher: LauncherSettings
   appearance: AppearanceSettings
+  discord: DiscordSettings
   activeProfileId: string | null
 }
 
@@ -68,6 +86,22 @@ const defaultSettings: AppSettings = {
   appearance: {
     language: 'en',
     accentColor: '#27ade0',
+  },
+  discord: {
+    enabled: true,
+    clientId: '',
+    idleDetails: 'Browsing the launcher',
+    idleState: 'Idle',
+    idleLargeImageKey: 'logo',
+    idleLargeImageText: 'BejaClient',
+    idleSmallImageKey: '',
+    idleSmallImageText: '',
+    playingDetails: 'Playing Minecraft {version}',
+    playingState: 'In Game',
+    playingLargeImageKey: 'logo',
+    playingLargeImageText: 'BejaClient',
+    playingSmallImageKey: '',
+    playingSmallImageText: '',
   },
   activeProfileId: null,
 }
