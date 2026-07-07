@@ -284,8 +284,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onActivated, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import { useFriendsStore } from '../store/friendsStore'
 import { useAccountStore } from '../store/accountStore'
 import type { ChatMessage, PlayerProfile } from '../types'
@@ -296,6 +297,7 @@ const friendsStore  = useFriendsStore()
 const accountStore  = useAccountStore()
 const myUuid        = computed(() => accountStore.selectedAccount?.uuid ?? '')
 const { t } = useI18n()
+const route = useRoute()
 
 const activeTab = ref('friends')
 const search    = ref('')
@@ -471,10 +473,29 @@ function formatTime(iso: string): string {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
+async function checkDirectChat() {
+  const chatUuid = route.query.chat as string
+  if (chatUuid) {
+    if (friendsStore.friends.length === 0) {
+      await friendsStore.refresh()
+    }
+    const f = friendsStore.friends.find(f => f.uuid === chatUuid)
+    if (f) {
+      openChat(f)
+    }
+  }
+}
+
+onActivated(() => {
+  checkDirectChat()
+})
+
 onMounted(async () => {
   loading.value = true
   await friendsStore.refresh()
   loading.value = false
+
+  checkDirectChat()
 
   window.api.chat.onTyping((d: { fromUuid: string }) => {
     if (!chatFriend.value || d.fromUuid !== chatFriend.value.uuid) return

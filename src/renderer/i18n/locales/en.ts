@@ -15,6 +15,12 @@ export default {
     news: 'NEWS:',
     friends: 'FRIENDS',
     noFriends: 'no friends found...',
+    contextMenu: {
+      invite: 'Invite to Lobby',
+      message: 'Send Message',
+      remove: 'Remove Friend',
+      removeConfirm: 'Remove {name} from friends?',
+    },
   },
 
   launch: {

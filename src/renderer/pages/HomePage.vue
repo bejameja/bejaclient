@@ -132,7 +132,7 @@
       <h2 class="friends-heading">{{ $t('home.friends') }}</h2>
       <div class="friends-card">
         <template v-if="friends.length">
-          <div v-for="friend in friends" :key="friend.uuid" class="friend-row">
+          <div v-for="friend in friends" :key="friend.uuid" class="friend-row" @click.stop="openFriendMenu($event, friend)">
             <div class="friend-avatar-container">
               <img
                 v-if="!failedAvatars[friend.uuid]"
@@ -156,12 +156,49 @@
     <!-- Invite overlay -->
     <InviteOverlay :visible="inviteOpen" :initial-tab="inviteInitTab" @close="inviteOpen = false" />
 
+    <!-- Context menu teleported to body -->
+    <Teleport to="body">
+      <Transition name="menu-fade">
+        <div
+          v-if="menuActive && menuFriend"
+          class="friend-context-menu"
+          :style="{ top: `${menuPosition.y}px`, left: `${menuPosition.x}px` }"
+          @click.stop
+        >
+          <div class="menu-header">
+            <span class="menu-username">{{ menuFriend.username }}</span>
+          </div>
+          <button class="menu-item" @click="handleInvite(menuFriend)">
+            <svg class="menu-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/>
+            </svg>
+            {{ $t('home.contextMenu.invite') }}
+          </button>
+          <button class="menu-item" @click="handleMessage(menuFriend)">
+            <svg class="menu-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            {{ $t('home.contextMenu.message') }}
+          </button>
+          <div class="menu-divider" />
+          <button class="menu-item menu-item--danger" @click="handleRemoveFriend(menuFriend)">
+            <svg class="menu-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
+            </svg>
+            {{ $t('home.contextMenu.remove') }}
+          </button>
+        </div>
+      </Transition>
+    </Teleport>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onActivated, onMounted, watch } from 'vue'
-import { useFriendsStore }  from '../store/friendsStore'
+import { computed, ref, onActivated, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import { useFriendsStore, type Friend }  from '../store/friendsStore'
 import { useAccountStore }  from '../store/accountStore'
 import { useLockerStore }   from '../store/lockerStore'
 import { useLobbyStore }    from '../store/lobbyStore'
@@ -193,6 +230,48 @@ const activeSkinModel = computed(() => lockerStore.model    ?? account.value?.sk
 const friends        = computed(() => friendsStore.friends)
 const lobbySlots     = computed(() => lobbyStore.slots)
 const failedAvatars  = ref<Record<string, boolean>>({})
+
+const { t } = useI18n()
+const router = useRouter()
+const menuActive = ref(false)
+const menuPosition = ref({ x: 0, y: 0 })
+const menuFriend = ref<Friend | null>(null)
+
+function openFriendMenu(e: MouseEvent, friend: Friend) {
+  menuFriend.value = friend
+  let x = e.clientX
+  let y = e.clientY
+  if (x + 180 > window.innerWidth) {
+    x = window.innerWidth - 190
+  }
+  menuPosition.value = { x, y }
+  menuActive.value = true
+}
+
+function closeMenu() {
+  menuActive.value = false
+}
+
+async function handleInvite(friend: Friend) {
+  closeMenu()
+  if (!lobbyStore.party) {
+    await lobbyStore.createParty()
+  }
+  await lobbyStore.inviteFriend(friend.uuid)
+}
+
+function handleMessage(friend: Friend) {
+  closeMenu()
+  router.push({ path: '/friends', query: { chat: friend.uuid } })
+}
+
+async function handleRemoveFriend(friend: Friend) {
+  closeMenu()
+  const ok = confirm(t('home.contextMenu.removeConfirm', { name: friend.username }))
+  if (ok) {
+    await friendsStore.removeFriend(friend.uuid)
+  }
+}
 
 // ── Invite overlay ────────────────────────────────────────────────────────────
 
@@ -228,6 +307,8 @@ watch(() => lobbyStore.party?.members.length, (next, prev) => {
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 onMounted(async () => {
+  window.addEventListener('click', closeMenu)
+
   // Load background video
   try {
     sceneVideo.value = await (window as any).api.video.getScene()
@@ -236,6 +317,10 @@ onMounted(async () => {
   // Init voice capture
   await voice.init()
   initVoiceIpc()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('click', closeMenu)
 })
 
 onActivated(() => { videoRef.value?.play() })
@@ -624,6 +709,7 @@ function onVideoError(e: Event) {
   gap: 10px;
   padding: 8px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: pointer;
   &:last-child { border-bottom: none; }
 }
 
@@ -708,5 +794,93 @@ function onVideoError(e: Event) {
   font-size: 12px;
   color: $text-muted;
   letter-spacing: 0.04em;
+}
+</style>
+
+<style lang="scss">
+.friend-context-menu {
+  position: fixed;
+  z-index: 99999;
+  min-width: 180px;
+  background: #141414;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.menu-header {
+  padding: 6px 10px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #888888;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  margin-bottom: 4px;
+}
+
+.menu-username {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #f0f0f0;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+  }
+
+  &--danger {
+    color: #ff453a;
+    &:hover {
+      background: rgba(255, 69, 58, 0.15);
+      color: #ff453a;
+    }
+  }
+}
+
+.menu-icon {
+  flex-shrink: 0;
+  opacity: 0.7;
+  .menu-item:hover & {
+    opacity: 1;
+  }
+}
+
+.menu-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 4px 0;
+}
+
+// fade
+.menu-fade-enter-active, .menu-fade-leave-active {
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+.menu-fade-enter-from, .menu-fade-leave-to {
+  opacity: 0;
+  transform: scale(0.96) translateY(-4px);
 }
 </style>
