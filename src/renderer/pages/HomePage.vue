@@ -133,7 +133,19 @@
       <div class="friends-card">
         <template v-if="friends.length">
           <div v-for="friend in friends" :key="friend.uuid" class="friend-row">
-            <span class="friend-dot" :class="{ online: friend.online }" />
+            <div class="friend-avatar-container">
+              <img
+                v-if="!failedAvatars[friend.uuid]"
+                :src="`https://mc-heads.net/avatar/${friend.uuid}/26`"
+                :alt="friend.username"
+                class="friend-avatar-img"
+                @error="failedAvatars[friend.uuid] = true"
+              />
+              <div v-else class="friend-avatar-fallback">
+                {{ friend.username[0].toUpperCase() }}
+              </div>
+              <span class="friend-status-badge" :class="{ online: friend.online }" />
+            </div>
             <span class="friend-name">{{ friend.username }}</span>
           </div>
         </template>
@@ -178,8 +190,9 @@ const activeSkinUrl   = computed(() => lockerStore.skinUrl  ?? account.value?.sk
 const activeCapeUrl   = computed(() => lockerStore.capeUrl  ?? account.value?.capeUrl  ?? null)
 const activeSkinModel = computed(() => lockerStore.model    ?? account.value?.skinModel ?? 'default')
 
-const friends    = computed(() => friendsStore.friends)
-const lobbySlots = computed(() => lobbyStore.slots)
+const friends        = computed(() => friendsStore.friends)
+const lobbySlots     = computed(() => lobbyStore.slots)
+const failedAvatars  = ref<Record<string, boolean>>({})
 
 // ── Invite overlay ────────────────────────────────────────────────────────────
 
@@ -608,19 +621,58 @@ function onVideoError(e: Event) {
 .friend-row {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 7px 0;
+  gap: 10px;
+  padding: 8px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   &:last-child { border-bottom: none; }
 }
 
-.friend-dot {
-  width: 7px;
-  height: 7px;
+.friend-avatar-container {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+.friend-avatar-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  object-fit: cover;
+  image-rendering: pixelated;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.friend-avatar-fallback {
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  background: $surface-elevated;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: $text-primary;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.friend-status-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: $text-muted;
+  box-shadow: 0 0 0 2px $surface;
   flex-shrink: 0;
-  &.online { background: #30d158; }
+
+  &.online {
+    background: #30d158;
+    box-shadow: 0 0 4px rgba(48, 209, 88, 0.5), 0 0 0 2px $surface;
+  }
 }
 
 .friend-name {
