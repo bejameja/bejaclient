@@ -5,7 +5,7 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="15 18 9 12 15 6" />
       </svg>
-      Back
+      {{ $t('profiles.back') }}
     </button>
 
     <!-- Header ─────────────────────────────────────────────── -->
@@ -36,10 +36,10 @@
           :disabled="store.isLaunching || store.isRunning"
           @click="launchProfile"
         >
-          LAUNCH
+          {{ $t('profiles.launch') }}
           <img :src="iconPlay" class="launch-icon" />
         </button>
-        <button class="action-sq-btn" title="Profile settings" @click="$emit('settings', profile.id)">
+        <button class="action-sq-btn" :title="$t('profiles.profileSettings')" @click="$emit('settings', profile.id)">
           <img :src="iconSettings" class="sq-icon" />
         </button>
         <div class="dots-btn-wrap" ref="dotsWrapRef">
@@ -48,9 +48,9 @@
           </button>
           <Transition name="menu-pop">
             <div v-if="menuOpen" class="context-menu">
-              <button class="ctx-item" @click="openProfileFolder">Open folder</button>
-              <button class="ctx-item" @click="exportPack">Export pack</button>
-              <button class="ctx-item ctx-item--danger" @click="requestDelete">Delete profile</button>
+              <button class="ctx-item" @click="openProfileFolder">{{ $t('profiles.openFolder') }}</button>
+              <button class="ctx-item" @click="exportPack">{{ $t('profiles.exportPack') }}</button>
+              <button class="ctx-item ctx-item--danger" @click="requestDelete">{{ $t('profiles.deleteProfile') }}</button>
             </div>
           </Transition>
         </div>
@@ -62,7 +62,7 @@
     <!-- Content tabs ────────────────────────────────────────── -->
     <div class="content-tabs">
       <button class="content-tab active">
-        CONTENT
+        {{ $t('profiles.content') }}
         <img :src="iconPuzzle" class="tab-icon" />
       </button>
     </div>
@@ -77,7 +77,7 @@
         <input
           v-model="searchQuery"
           class="search-input"
-          :placeholder="`Search ${mods.length} projects...`"
+          :placeholder="$t('profiles.searchProjects', { count: mods.length })"
         />
       </div>
 
@@ -87,7 +87,7 @@
             <circle cx="12" cy="12" r="10" />
             <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
           </svg>
-          BROWSE CONTENT
+          {{ $t('profiles.browseContent') }}
         </button>
         <button class="upload-files-btn" @click="importMod">
           <svg class="btn-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -95,7 +95,7 @@
             <polyline points="17 8 12 3 7 8" />
             <line x1="12" y1="3" x2="12" y2="15" />
           </svg>
-          UPLOAD FILES
+          {{ $t('profiles.uploadFiles') }}
         </button>
       </div>
     </div>
@@ -109,14 +109,14 @@
       <template v-else-if="mods.length === 0">
         <div class="empty-state">
           <img :src="iconNotFound" class="empty-icon" />
-          <p class="empty-text">No content installed yet...</p>
+          <p class="empty-text">{{ $t('profiles.noContent') }}</p>
           <div class="empty-actions">
             <button class="import-btn" @click="importMod">
               <img :src="iconFile" class="btn-icon" />
-              Import
+              {{ $t('profiles.import') }}
             </button>
             <button class="browse-btn" @click="browseMods">
-              Browse
+              {{ $t('profiles.browse') }}
               <img :src="iconModrinth" class="btn-icon btn-icon--modrinth" />
             </button>
           </div>
@@ -125,7 +125,7 @@
 
       <template v-else>
         <div v-if="filteredMods.length === 0" class="no-results-state">
-          <p class="empty-text">No mods match your search...</p>
+          <p class="empty-text">{{ $t('profiles.noModsMatch') }}</p>
         </div>
         <div v-else class="mods-list">
           <div
@@ -173,8 +173,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useLauncherStore } from '../../store/launcherStore'
 import type { LaunchProfile, ModInfo } from '../../types'
+
+const { t } = useI18n()
 
 import iconBlocks   from '../../assets/icons8-blocks-middle.png'
 import iconPlay     from '../../assets/icons8-spielen-64.png'
@@ -244,10 +247,10 @@ const filteredMods = computed(() => {
 
 const playtimeLabel = computed(() => {
   const ms = props.profile.playtimeMs ?? 0
-  if (ms === 0) return 'never played'
+  if (ms === 0) return t('profiles.playtimeNever')
   const h = Math.floor(ms / 3600000)
   const m = Math.floor((ms % 3600000) / 60000)
-  return h > 0 ? `${h}h ${m}m played` : `${m}m played`
+  return h > 0 ? t('profiles.playtimeHours', { hours: h, minutes: m }) : t('profiles.playtimeMinutes', { minutes: m })
 })
 
 function formatSize(bytes: number): string {

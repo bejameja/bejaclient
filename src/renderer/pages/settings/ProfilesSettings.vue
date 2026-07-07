@@ -23,7 +23,7 @@
         :class="{ active: activeTab === tab.id }"
         @click="activeTab = tab.id"
       >
-        {{ tab.label }}
+        {{ $t(`profiles.tabs.${tab.id}`) }}
       </button>
     </div>
 
@@ -32,12 +32,12 @@
       <input
         v-model="search"
         class="search-input"
-        placeholder="Search profile..."
+        :placeholder="$t('profiles.searchPlaceholder')"
         @keydown.enter="refresh"
       />
       <div class="search-actions">
         <span class="search-sep" />
-        <button class="search-icon-btn" title="Refresh" @click="refresh">
+        <button class="search-icon-btn" :title="$t('profiles.refresh')" @click="refresh">
           <img :src="iconRefresh" class="search-icon" :class="{ spinning: refreshing }" />
         </button>
         <span class="search-sep" />
@@ -49,8 +49,8 @@
 
     <!-- Empty state -->
     <div v-if="!loading && filteredProfiles.length === 0 && search === ''" class="empty-state">
-      <p>No profiles yet.</p>
-      <button class="new-profile-btn" @click="openWizard">Create your first profile</button>
+      <p>{{ $t('profiles.noProfiles') }}</p>
+      <button class="new-profile-btn" @click="openWizard">{{ $t('profiles.createFirst') }}</button>
     </div>
 
     <!-- Grid -->
@@ -68,7 +68,7 @@
             <img :src="loaderIconSrc(profile.loader)" class="card-loader-icon" :title="profile.loader" />
             <img :src="iconModrinth" class="card-mod-icon" title="Modrinth" />
           </div>
-          <button class="card-delete-btn" title="Delete profile" @click.stop="confirmDelete(profile)">
+          <button class="card-delete-btn" :title="$t('profiles.deleteProfile')" @click.stop="confirmDelete(profile)">
             <img :src="iconRemove" class="card-btn-icon" />
           </button>
         </div>
@@ -80,13 +80,13 @@
           <div class="card-name">„{{ profile.name }}"</div>
           <div class="card-version">{{ profile.version }}</div>
           <div class="card-mods">
-            <span v-if="modCounts[profile.id] !== undefined">{{ modCounts[profile.id] }} mods</span>
+            <span v-if="modCounts[profile.id] !== undefined">{{ $t('profiles.modsCount', { count: modCounts[profile.id] }) }}</span>
             <span v-else class="mods-loading">…</span>
           </div>
         </div>
 
         <!-- Edit button -->
-        <button class="card-edit-btn" title="Open profile" @click="openDetail(profile)">
+        <button class="card-edit-btn" :title="$t('profiles.profileSettings')" @click="openDetail(profile)">
           <img :src="iconCreate" class="card-btn-icon" />
         </button>
       </div>
@@ -105,11 +105,11 @@
       <Transition name="modal-fade">
         <div v-if="deleteTarget" class="modal-overlay" @click.self="deleteTarget = null">
           <div class="modal">
-            <p class="modal-title">Delete "{{ deleteTarget.name }}"?</p>
-            <p class="modal-body">This cannot be undone.</p>
+            <p class="modal-title">{{ $t('profiles.deleteTitle', { name: deleteTarget.name }) }}</p>
+            <p class="modal-body">{{ $t('profiles.deleteBody') }}</p>
             <div class="modal-actions">
-              <button class="modal-btn modal-btn--cancel" @click="deleteTarget = null">Cancel</button>
-              <button class="modal-btn modal-btn--danger" @click="doDelete">Delete</button>
+              <button class="modal-btn modal-btn--cancel" @click="deleteTarget = null">{{ $t('profiles.cancel') }}</button>
+              <button class="modal-btn modal-btn--danger" @click="doDelete">{{ $t('profiles.deleteConfirm') }}</button>
             </div>
           </div>
         </div>
@@ -121,9 +121,12 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useLauncherStore } from '../../store/launcherStore'
 import type { LaunchProfile } from '../../types'
 import ProfileDetailView from '../../components/profiles/ProfileDetailView.vue'
+
+const { t } = useI18n()
 
 import iconRefresh from '../../assets/icons8-refresh-64.png'
 import iconSearch  from '../../assets/icons8-search-50.png'

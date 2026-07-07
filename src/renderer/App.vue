@@ -155,6 +155,7 @@ onMounted(async () => {
   }
   applyAccent(settingsStore.settings.appearance.accentColor)
   locale.value = settingsStore.settings.appearance.language
+  updateFontOverride(locale.value)
   launcherStore.setupLaunchListeners()
   useQuestsStore().setupTracking()
   window.api.friends.onOnline(d  => friendsStore.handleOnline(d))
@@ -187,8 +188,31 @@ onMounted(async () => {
   document.addEventListener('mousedown', (e) => { if (e.button === 0) playMouseClick() })
 })
 
+const ruFontOverrideId = 'ru-font-override'
+function updateFontOverride(lang: string) {
+  let styleEl = document.getElementById(ruFontOverrideId) as HTMLStyleElement | null
+  if (lang === 'ru') {
+    if (!styleEl) {
+      styleEl = document.createElement('style')
+      styleEl.id = ruFontOverrideId
+      styleEl.textContent = `
+        @font-face {
+          font-family: 'Mojangles';
+          src: local('Pixelify Sans'), local('Pixelify Sans Regular'), local('Plus Jakarta Sans'), local('Inter'), sans-serif;
+        }
+      `
+      document.head.appendChild(styleEl)
+    }
+  } else {
+    styleEl?.remove()
+  }
+}
+
 watch(() => settingsStore.settings.appearance.accentColor, applyAccent)
-watch(() => settingsStore.settings.appearance.language, (lang) => { locale.value = lang })
+watch(() => settingsStore.settings.appearance.language, (lang) => {
+  locale.value = lang
+  updateFontOverride(lang)
+})
 
 watch(() => launcherStore.status, (val, prev) => {
   if (val === 'running' && prev !== 'running') playLaunch()
