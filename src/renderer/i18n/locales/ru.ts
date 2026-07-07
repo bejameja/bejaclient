@@ -8,7 +8,7 @@ export default {
     clientPass: 'Client Pass',
     quests: 'Квесты',
     settings: 'Настройки',
-    footer: { terms: 'Условия использования', privacy: 'Конфиденциальность', support: 'Поддержка' },
+    footer: { terms: 'Условия', privacy: 'Приватность', support: 'Поддержка' },
   },
 
   home: {
