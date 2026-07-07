@@ -77,6 +77,7 @@ const languages = [
   { label: 'Deutsch', value: 'de' },
   { label: 'Français', value: 'fr' },
   { label: 'Español', value: 'es' },
+  { label: 'Русский', value: 'ru' },
   { label: 'Português', value: 'pt' },
   { label: '中文', value: 'zh' },
   { label: '日本語', value: 'ja' },
