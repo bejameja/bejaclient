@@ -126,7 +126,7 @@
               v-for="item in newsList.slice(0, 6)"
               :key="item.id"
               class="news-card"
-              @click="openNewsLink(item.readMoreLink)"
+              @click="openNews(item)"
             >
               <div class="news-card-inner">
                 <img
@@ -176,11 +176,36 @@
     <!-- Invite overlay -->
     <InviteOverlay :visible="inviteOpen" :initial-tab="inviteInitTab" @close="inviteOpen = false" />
 
+    <!-- News Detail Overlay -->
+    <div v-if="selectedArticle" class="news-overlay" @click.self="closeNews">
+      <div class="news-popup">
+        <button class="news-popup-close" @click="closeNews">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+        <div class="news-popup-image-wrap" v-if="selectedArticle.playPageImage?.url">
+          <img :src="selectedArticle.playPageImage.url" class="news-popup-image" />
+          <div class="news-popup-image-scrim"></div>
+        </div>
+        <div class="news-popup-body">
+          <div class="news-popup-meta">
+            <span class="news-popup-tag">{{ selectedArticle.tag || 'Update' }}</span>
+            <span class="news-popup-date">{{ formatDate(selectedArticle.date) }}</span>
+          </div>
+          <h2 class="news-popup-title">{{ selectedArticle.title }}</h2>
+          <div class="news-popup-text-content" v-html="renderPortableText(selectedArticle.body)"></div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, onActivated, onMounted, watch } from 'vue'
+import type { NewsEntry } from '../types'
 import { useFriendsStore }  from '../store/friendsStore'
 import { useAccountStore }  from '../store/accountStore'
 import { useLockerStore }   from '../store/lockerStore'
@@ -214,11 +239,14 @@ const activeSkinModel = computed(() => lockerStore.model    ?? account.value?.sk
 
 const newsList      = computed(() => launcherStore.news)
 const isLoadingNews = ref(false)
+const selectedArticle = ref<NewsEntry | null>(null)
 
-function openNewsLink(url: string) {
-  if (url) {
-    window.api.system.openExternal(url)
-  }
+function openNews(item: NewsEntry) {
+  selectedArticle.value = item
+}
+
+function closeNews() {
+  selectedArticle.value = null
 }
 
 function formatDate(dateStr: string) {
@@ -236,6 +264,39 @@ function formatDate(dateStr: string) {
 function truncateText(text: string, maxLen: number) {
   if (!text) return ''
   return text.length > maxLen ? text.slice(0, maxLen) + '...' : text
+}
+
+function renderPortableText(body: any[] | undefined): string {
+  if (!body || !Array.isArray(body)) return ''
+  return body
+    .map(block => {
+      if (block._type !== 'block') return ''
+      
+      const childrenHtml = (block.children || [])
+        .map((child: any) => {
+          let text = child.text || ''
+          // escape html
+          text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          if (child.marks && Array.isArray(child.marks)) {
+            if (child.marks.includes('strong')) text = `<strong>${text}</strong>`
+            if (child.marks.includes('em')) text = `<em>${text}</em>`
+            if (child.marks.includes('code')) text = `<code>${text}</code>`
+          }
+          return text
+        })
+        .join('')
+
+      const style = block.style || 'normal'
+      if (style === 'h1') return `<h1>${childrenHtml}</h1>`
+      if (style === 'h2') return `<h2>${childrenHtml}</h2>`
+      if (style === 'h3') return `<h3>${childrenHtml}</h3>`
+      if (style === 'h4') return `<h4>${childrenHtml}</h4>`
+      if (style === 'blockquote') return `<blockquote>${childrenHtml}</blockquote>`
+      
+      return `<p>${childrenHtml.replace(/\n/g, '<br>')}</p>`
+    })
+    .filter(Boolean)
+    .join('')
 }
 
 const friends    = computed(() => friendsStore.friends)
@@ -844,5 +905,180 @@ function onVideoError(e: Event) {
   font-size: 12px;
   color: $text-muted;
   letter-spacing: 0.04em;
+}
+
+// ── News Overlay / Popup ──────────────────────────────────────────────────────
+.news-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.news-popup {
+  position: relative;
+  width: 100%;
+  max-width: 680px;
+  max-height: 85vh;
+  background: $surface;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+  animation: slideUp 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.news-popup-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(17, 19, 22, 0.6);
+  color: rgba(255, 255, 255, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: all 0.15s ease;
+
+  &:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.25);
+    transform: scale(1.05);
+  }
+}
+
+.news-popup-image-wrap {
+  position: relative;
+  width: 100%;
+  height: 240px;
+  flex-shrink: 0;
+}
+
+.news-popup-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.news-popup-image-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(26, 28, 30, 0) 50%,
+    $surface 100%
+  );
+}
+
+.news-popup-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+  }
+}
+
+.news-popup-meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  font-size: 11px;
+}
+
+.news-popup-tag {
+  color: $accent;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: rgba(85, 178, 255, 0.12);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.news-popup-date {
+  color: $text-muted;
+}
+
+.news-popup-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: $text-primary;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.news-popup-text-content {
+  font-size: 13.5px;
+  color: $text-secondary;
+  line-height: 1.6;
+  text-align: left;
+
+  p {
+    margin-bottom: 14px;
+    &:last-child { margin-bottom: 0; }
+  }
+
+  h1, h2, h3, h4 {
+    color: $text-primary;
+    margin-top: 20px;
+    margin-bottom: 10px;
+    font-weight: 700;
+  }
+
+  h1 { font-size: 20px; }
+  h2 { font-size: 18px; }
+  h3 { font-size: 16px; }
+
+  blockquote {
+    border-left: 3px solid $accent;
+    padding-left: 12px;
+    margin: 12px 0;
+    color: $text-primary;
+    font-style: italic;
+  }
+
+  code {
+    background: rgba(255, 255, 255, 0.06);
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 12px;
+  }
 }
 </style>

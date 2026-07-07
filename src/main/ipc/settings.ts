@@ -16,7 +16,7 @@ function urlForImage(source: any): string {
 
 function fetchNews(): Promise<unknown[]> {
   return new Promise((resolve, reject) => {
-    const query = encodeURIComponent('*[_type == "newsArticle"] | order(publishedAt desc){title, "slug": slug.current, excerpt, coverImage, publishedAt}')
+    const query = encodeURIComponent('*[_type == "newsArticle"] | order(publishedAt desc){title, "slug": slug.current, excerpt, coverImage, publishedAt, body}')
     const url = `https://${SANITY_PROJECT_ID}.apicdn.sanity.io/v2024-01-01/data/query/${SANITY_DATASET}?query=${query}`
     https
       .get(url, res => {
@@ -40,6 +40,7 @@ function fetchNews(): Promise<unknown[]> {
                   url: coverUrl,
                 },
                 readMoreLink: `https://bejaclient.xyz/article.html?slug=${encodeURIComponent(item.slug || '')}`,
+                body: item.body || [],
               }
             })
             resolve(entries)

@@ -112,6 +112,7 @@ export interface NewsEntry {
   }
   readMoreLink: string
   cardBorder?: boolean
+  body?: any[]
 }
 
 export interface PlayerProfile {
