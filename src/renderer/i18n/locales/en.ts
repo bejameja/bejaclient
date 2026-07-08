@@ -23,6 +23,7 @@ export default {
     retry: 'Retry',
     profile: 'Profile',
     noProfiles: 'No profiles',
+    launch: 'LAUNCH',
   },
 
   console: {
@@ -145,7 +146,7 @@ export default {
   },
 
   settings: {
-    sections: { game: 'Game', launcher: 'Launcher', appearance: 'Appearance' },
+    sections: { game: 'Game', launcher: 'Launcher', appearance: 'Appearance', accounts: 'Accounts' },
     browse: 'BROWSE',
     game: {
       dir: 'Game Directory',
@@ -187,6 +188,111 @@ export default {
       accentColorDesc: 'Primary highlight color across the UI',
       language: 'Language',
       languageDesc: 'UI display language',
+    },
+  },
+
+  locker: {
+    searchPlaceholder: 'Search {tab}...',
+    tabs: {
+      skins: 'Skins',
+      capes: 'Capes',
+      cosmetics: 'Cosmetics',
+    },
+    skins: {
+      addTitle: 'Add new skin',
+      addBtn: 'Add new skin',
+      importOrSearch: 'Import or search by username',
+      remove: 'Remove',
+      placeholder: 'Enter username...',
+      search: 'Search',
+      cancel: 'Cancel',
+      notFound: 'Player "{name}" not found',
+      lookupFailed: 'Lookup failed. Try again.',
+    },
+    capes: {
+      none: 'None',
+      noCapes: 'No capes on this account',
+    },
+    cosmetics: {
+      noCosmetics: 'No cosmetics in your collection',
+    },
+  },
+
+  conflict: {
+    title: 'Mod Conflicts Detected',
+    subtitle: '0 issues found before launch | {count} issue found before launch | {count} issues found before launch',
+    fixFirst: 'Fix First',
+    autoFix: 'Auto Fix & Launch',
+    launchAnyway: 'Launch Anyway',
+  },
+
+  crash: {
+    title: 'Game Crashed',
+    subtitle: 'BejaClient analyzed your crash log',
+    cause: 'Likely Cause',
+    fix: 'Suggested Fix',
+    lines: 'Error Lines',
+    dismiss: 'Dismiss',
+    settings: 'Profile Settings',
+  },
+
+  lobby: {
+    invite: 'Invite',
+    create: 'Create Lobby',
+    createTitle: 'Create a lobby and get a code',
+    joinTitle: 'Join a party by code',
+    refreshTitle: 'Generate a new code',
+    ready: 'Ready',
+    notReady: 'Not Ready',
+  },
+
+  accounts: {
+    heading: 'Accounts',
+    desc: 'Manage your Microsoft / Minecraft accounts.',
+    expired: 'Token expired — click Refresh',
+    active: 'Active',
+    select: 'Select',
+    refresh: 'Refresh',
+    remove: 'Remove',
+    empty: 'No accounts. Add one to get started.',
+    add: 'Add Microsoft Account',
+    import: 'Import from Minecraft Launcher',
+    hint: 'A Microsoft login window will open — or import existing accounts from the official Minecraft Launcher',
+  },
+
+  profiles: {
+    title: 'Profiles',
+    noProfiles: 'No profiles yet.',
+    createFirst: 'Create your first profile',
+    searchPlaceholder: 'Search profile...',
+    refresh: 'Refresh',
+    deleteTitle: 'Delete "{name}"?',
+    deleteBody: 'This cannot be undone.',
+    deleteConfirm: 'Delete',
+    cancel: 'Cancel',
+    modsCount: '0 mods | {count} mod | {count} mods',
+    back: 'Back',
+    playtimeNever: 'never played',
+    playtimeHours: '{hours}h {minutes}m played',
+    playtimeMinutes: '{minutes}m played',
+    launch: 'LAUNCH',
+    profileSettings: 'Profile settings',
+    openFolder: 'Open folder',
+    exportPack: 'Export pack',
+    deleteProfile: 'Delete profile',
+    content: 'CONTENT',
+    searchProjects: 'Search {count} projects...',
+    browseContent: 'BROWSE CONTENT',
+    uploadFiles: 'UPLOAD FILES',
+    noContent: 'No content installed yet...',
+    import: 'Import',
+    browse: 'Browse',
+    noModsMatch: 'No mods match your search...',
+    tabs: {
+      all: 'ALL',
+      server: 'Per-server',
+      recommended: 'Recommended',
+      beja: 'Beja',
     },
   },
 }

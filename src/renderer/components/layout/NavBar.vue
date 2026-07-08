@@ -375,6 +375,11 @@ function openExternal(url: string) {
   color: rgba(255, 255, 255, 0.25);
   transition: color $transition-fast;
   font-family: 'Plus Jakarta Sans', sans-serif;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
 
   &:hover { color: rgba(255, 255, 255, 0.55); }
 }
