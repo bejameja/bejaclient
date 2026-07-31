@@ -1,0 +1,85 @@
+// ── Color foundation — deep blue near-blacks ──────────────────────────────────
+$bg:               #1a1a1a;   // deepest — page shell
+$surface:          #222222;   // primary surface — cards, list rows
+$surface-elevated: #2a2a2a;   // elevated — dropdowns, modals, hover targets
+$surface-panel:    #161616;   // sidebar / panel backgrounds
+
+// ── Borders — ultra-subtle, rgba-based ───────────────────────────────────────
+$border:        rgba(255, 255, 255, 0.06);   // resting card border
+$border-strong: rgba(255, 255, 255, 0.10);   // hover / focus border
+$border-subtle: rgba(255, 255, 255, 0.04);   // barely-visible dividers
+
+// ── Text hierarchy ────────────────────────────────────────────────────────────
+$text:           #f0f0f0;
+$text-primary:   #f0f0f0;
+$text-secondary: #888888;
+$text-nav:       #555555;
+$text-muted:     #555555;
+$muted:          #555555;
+
+// ── Bioluminescent accent ─────────────────────────────────────────────────────
+$primary:       #3159a3;
+$primary-hover: #4571c2;
+$accent:        #3159a3;
+$glow-primary:  rgba(49, 89, 163, 0.22);
+
+// ── Elegant gradients — subtle, additive, never neon ─────────────────────────
+$gradient-primary: linear-gradient(135deg, #3159a3, #17275c);
+$gradient-sheen:   linear-gradient(135deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0) 55%);
+$gradient-fade:    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0) 40%);
+
+// ── Glass — frosted-white overlays for floating surfaces (modals, dropdowns,
+// tooltips, drawers, command palette). Dense in-page card grids stay on the
+// solid $surface system above; glass is reserved for things that float above
+// content, where translucency reads as premium instead of muddying legibility.
+$glass-blur:    18px;
+$glass-blur-sm: 8px;
+$glass-bg:          rgba(255, 255, 255, 0.06);
+$glass-bg-elevated: rgba(255, 255, 255, 0.09);
+$glass-border:      1px solid rgba(255, 255, 255, 0.14);
+$glass-border-soft: 1px solid rgba(255, 255, 255, 0.08);
+$glass-shadow: 0 16px 48px rgba(0, 0, 0, 0.55), 0 1px 0 rgba(255, 255, 255, 0.08) inset;
+
+// ── Semantic ──────────────────────────────────────────────────────────────────
+$success: #30d158;   // vivid green
+$warning: #e8a030;   // cool amber — not orange
+$error:   #e05050;
+
+// ── Typography ────────────────────────────────────────────────────────────────
+$font-family:    'IBM Plex Sans', system-ui, sans-serif;
+$font-condensed: 'Barlow Condensed', system-ui, sans-serif;
+$font-display:   'Plus Jakarta Sans', system-ui, sans-serif;
+
+// ── Layout ────────────────────────────────────────────────────────────────────
+$titlebar-height:   0px;
+$navbar-height:     0px;
+$sidebar-width:     176px;
+$right-panel-width: 64px;
+$radius:    10px;
+$radius-sm: 6px;
+$radius-lg: 14px;
+$radius-xl: 20px;
+
+// ── Spacing ───────────────────────────────────────────────────────────────────
+$sp-1: 4px;   $sp-2: 8px;   $sp-3: 12px;  $sp-4: 16px;
+$sp-5: 20px;  $sp-6: 24px;  $sp-8: 32px;  $sp-10: 40px;
+
+// ── Easing curves ─────────────────────────────────────────────────────────────
+$ease-out:  cubic-bezier(0.2, 0, 0, 1);        // snappy settle
+$ease-in:   cubic-bezier(0.4, 0, 1, 1);        // quick start
+$ease-both: cubic-bezier(0.4, 0, 0.2, 1);      // Material-style
+
+// ── Motion ────────────────────────────────────────────────────────────────────
+$transition:      180ms #{$ease-out};
+$transition-fast: 100ms #{$ease-out};
+$transition-slow: 450ms #{$ease-both};
+
+// ── Shadows — floating card system ───────────────────────────────────────────
+$shadow-xs:    0 1px 3px  rgba(0, 0, 0, 0.40);
+$shadow-sm:    0 2px 8px  rgba(0, 0, 0, 0.45), 0 1px 3px  rgba(0, 0, 0, 0.30);
+$shadow-md:    0 4px 16px rgba(0, 0, 0, 0.50), 0 2px 6px  rgba(0, 0, 0, 0.35);
+$shadow-lg:    0 8px 32px rgba(0, 0, 0, 0.60), 0 4px 12px rgba(0, 0, 0, 0.40);
+$shadow-xl:    0 16px 48px rgba(0, 0, 0, 0.70), 0 8px 24px rgba(0, 0, 0, 0.50);
+$shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.06);  // inner top highlight
+$shadow-inset-strong: inset 0 1px 0 rgba(255, 255, 255, 0.10);
+$shadow-glow: 0 0 0 1px rgba(62, 184, 255, 0.30), 0 4px 20px rgba(62, 184, 255, 0.22);  // ambient accent bloom for primary/active emphasis

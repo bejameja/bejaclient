@@ -1,0 +1,278 @@
+// ── Windows 95 theme ─────────────────────────────────────────────────────────
+// Toggled via Appearance > Theme (settingsStore.appearance.theme === 'win95'),
+// applied as html.theme-win95 by App.vue. Everything here needs !important:
+// scoped component styles compile to `.foo[data-v-xxxx]`, which ties or beats
+// a plain global selector on specificity, so !important is the only reliable way
+// to win regardless of Vite's CSS chunk ordering.
+
+%win95-raised {
+  background: #c0c0c0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow:
+    inset -1px -1px 0 #000,
+    inset  1px  1px 0 #fff,
+    inset -2px -2px 0 #808080,
+    inset  2px  2px 0 #dfdfdf !important;
+  color: #000 !important;
+  text-shadow: none !important;
+}
+
+%win95-sunken {
+  background: #fff !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow:
+    inset  1px  1px 0 #000,
+    inset -1px -1px 0 #fff,
+    inset  2px  2px 0 #808080,
+    inset -2px -2px 0 #dfdfdf !important;
+  color: #000 !important;
+}
+
+%win95-raised-active {
+  box-shadow:
+    inset  1px  1px 0 #000,
+    inset -1px -1px 0 #fff,
+    inset  2px  2px 0 #808080,
+    inset -2px -2px 0 #dfdfdf !important;
+}
+
+html.theme-win95 {
+  &, * {
+    font-family: 'Tahoma', 'Segoe UI', sans-serif !important;
+  }
+
+  // ── Universal resets ──────────────────────────────────────────────────────
+  // Lowest possible specificity (0,0,0) on purpose: any class-level rule below,
+  // regardless of source order, still wins over these — so this is a safe
+  // baseline that strips every rounded corner / glow / blur / glass effect
+  // app-wide, while the targeted rules further down layer the actual bevels
+  // back on top of the specific surfaces that should have them.
+  // (box-shadow is deliberately NOT blanket-reset here — this theme uses box-shadow
+  // to draw every bevel, and a universal kill-switch would need to out-specificity
+  // every single bevel rule below via :not(), which is exactly the kind of thing
+  // that silently breaks the next time a bevel selector is added. Leftover glow
+  // shadows on surfaces this theme doesn't explicitly touch are the accepted gap.)
+  * {
+    border-radius: 0 !important;
+    text-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    color: #000 !important;
+  }
+
+  // ── Desktop backdrop ──────────────────────────────────────────────────────
+  // Flat black — no hex-pattern texture, no video, no gradients.
+  #app { background: #000 !important; }
+  [class$="-page"] { background: #000 !important; }
+  [class$="-page"]::before, [class$="-page"]::after { display: none !important; }
+  .bg-layer { display: none !important; }
+  .app-shell { background: #000 !important; }
+  .app-shell::before { display: none !important; }
+  .splash-maze, .splash-vignette, .splash-grain { display: none !important; }
+  .splash-screen { background: #000 !important; }
+  .video-card, .scene-video { display: none !important; }
+
+  // Title bar text stays white on the blue gradient (overrides the blanket black above).
+  // .win-btn is excluded — it @extends %win95-raised, which Sass hoists to the top of
+  // this file, so without the :not() this descendant rule (compiled later) would win
+  // the tie and turn the minimize/maximize/close glyphs invisible-white-on-gray.
+  .topbar, .topbar *:not(.win-btn):not(.win-btn *),
+  .account-name, .account-pill, .account-pill--guest, .gem-pill, .gem-pill *,
+  .palette-btn, .palette-btn * {
+    color: #fff !important;
+  }
+
+  // ── Classic 3D scrollbar ──────────────────────────────────────────────────
+  ::-webkit-scrollbar { width: 16px !important; height: 16px !important; }
+  ::-webkit-scrollbar-track { background: #dfdfdf !important; }
+  ::-webkit-scrollbar-thumb {
+    @extend %win95-raised;
+    min-height: 24px;
+  }
+  ::-webkit-scrollbar-corner { background: #c0c0c0 !important; }
+
+  // ── Title bar ─────────────────────────────────────────────────────────────
+  .topbar {
+    background: linear-gradient(90deg, #000080, #1084d0) !important;
+    box-shadow: inset 0 -2px 0 #000, inset 0 1px 0 #1084d0 !important;
+  }
+  .palette-btn, .palette-btn kbd, .gem-pill, .account-pill, .account-name,
+  .account-name--guest, .account-pill--guest {
+    color: #fff !important;
+  }
+  .win-controls { gap: 2px !important; }
+  .win-btn {
+    @extend %win95-raised;
+    width: 20px !important;
+    height: 18px !important;
+
+    &:hover { background: #c0c0c0 !important; color: #000 !important; }
+    &:active { @extend %win95-raised-active; }
+    &.win-close:hover { background: #c0c0c0 !important; color: #000 !important; }
+  }
+
+  // ── Sidebar / nav ─────────────────────────────────────────────────────────
+  .sidebar {
+    @extend %win95-raised;
+    border-radius: 0 !important;
+  }
+  .sidebar::after { display: none !important; }
+  .sidebar-divider { background: #808080 !important; box-shadow: 0 1px 0 #fff !important; }
+  .active-rail { display: none !important; }
+  .nav-item::before { display: none !important; }
+  .nav-item.active {
+    @extend %win95-raised-active;
+    background: #c0c0c0 !important;
+  }
+  .nav-icon-img { filter: grayscale(1) contrast(1.2) !important; }
+  .nav-item.active .nav-icon-img { filter: grayscale(1) contrast(1.3) brightness(0.75) !important; }
+  .footer-link { color: #000 !important; &:hover { color: #333 !important; } }
+
+  // ── Generic buttons ───────────────────────────────────────────────────────
+  button:not(.nav-item):not(.win-btn):not(.footer-link),
+  .browse-btn, .seg-btn, .clear-btn, .cat-btn, .tab-btn, .chip, .install-btn,
+  .load-more-btn, .retry-btn, .server-action-btn, .picker-btn, .cat-chip,
+  .cat-close-btn, .dd-item, .dd-signout {
+    @extend %win95-raised;
+
+    &:hover:not(:disabled) { background: #c9c9c9 !important; }
+    &:active:not(:disabled) { @extend %win95-raised-active; }
+    &.active, &.active:hover { @extend %win95-raised-active; }
+    &:disabled { color: #808080 !important; }
+  }
+
+  // ── Text / number / search inputs, selects ───────────────────────────────
+  input[type="text"], input[type="number"], input[type="search"], select,
+  .text-input, .num-input, .select-input, .settings-search-input, .search-input,
+  .search-bar input {
+    @extend %win95-sunken;
+
+    &::placeholder { color: #666 !important; }
+  }
+
+  // ── Toggle switch → classic checkbox ─────────────────────────────────────
+  .toggle {
+    @extend %win95-sunken;
+    width: 18px !important;
+    height: 18px !important;
+    border-radius: 0 !important;
+
+    &::after {
+      border-radius: 0 !important;
+      width: 10px !important;
+      height: 10px !important;
+      top: 3px !important;
+      left: 3px !important;
+      background: transparent !important;
+      transition: none !important;
+      transform: none !important;
+    }
+
+    &--on {
+      @extend %win95-sunken;
+      &::after { background: #000080 !important; transform: none !important; }
+    }
+  }
+
+  // ── Segmented control ─────────────────────────────────────────────────────
+  .seg-control { @extend %win95-sunken; padding: 2px !important; gap: 2px !important; }
+  .seg-btn {
+    box-shadow: none !important;
+    background: transparent !important;
+
+    &.active { @extend %win95-raised; }
+  }
+
+  // ── Settings page cards ───────────────────────────────────────────────────
+  .settings-page, .section-content { background: #000 !important; }
+  .setting-row { @extend %win95-raised; }
+  .setting-icon { @extend %win95-sunken; }
+  .setting-label, .setting-desc, .page-section-title, .group-label, .section-title,
+  .advanced-switch-label, .slider-val, .path-text, .res-x, .color-hex, .page-section-icon {
+    color: #000 !important;
+  }
+  .section-divider { background: #808080 !important; box-shadow: 0 1px 0 #fff !important; }
+  .adv-badge { border-radius: 0 !important; }
+
+  // ── Slider thumb ──────────────────────────────────────────────────────────
+  .slider, input[type="range"] {
+    background: #808080 !important;
+    border-radius: 0 !important;
+    box-shadow: inset 1px 1px 0 #000, inset -1px -1px 0 #dfdfdf !important;
+
+    &::-webkit-slider-thumb {
+      @extend %win95-raised;
+      border-radius: 0 !important;
+    }
+  }
+
+  // ── Account dropdown (TopBar) ─────────────────────────────────────────────
+  .acc-dropdown { @extend %win95-raised; }
+  .dd-label { color: #000 !important; }
+  .dd-sep { background: #808080 !important; box-shadow: 0 1px 0 #fff !important; }
+
+  // ── Tooltip ───────────────────────────────────────────────────────────────
+  .tooltip-bubble { @extend %win95-raised; }
+  .info-tooltip-panel { @extend %win95-raised; }
+
+  // ── Context menu ──────────────────────────────────────────────────────────
+  .ctx-menu { @extend %win95-raised; }
+  .ctx-item {
+    background: transparent !important;
+    box-shadow: none !important;
+    &:hover:not(:disabled) { @extend %win95-raised-active; background: #000080 !important; color: #fff !important; }
+    &.danger { color: #800000 !important; }
+  }
+  .ctx-sep { background: #808080 !important; box-shadow: 0 1px 0 #fff !important; }
+
+  // ── Toast notifications ───────────────────────────────────────────────────
+  .toast-card { @extend %win95-raised; }
+  .toast-title, .toast-body { color: #000 !important; }
+  .toast-close { @extend %win95-raised; }
+  .toast-bar { background: #000080 !important; }
+
+  // ── Command palette (Ctrl+K) ──────────────────────────────────────────────
+  .palette-overlay { background: rgba(0, 0, 0, 0.35) !important; }
+  .palette-panel { @extend %win95-raised; }
+  .palette-search { @extend %win95-sunken; }
+  .kbd-hint, .item-hint { @extend %win95-raised; }
+  .palette-item {
+    background: transparent !important;
+    box-shadow: none !important;
+    &.active, &:hover { background: #000080 !important; color: #fff !important; }
+  }
+
+  // ── bc-* shared component library (Select / Input / Slider / Skeleton) ────
+  .bc-select-trigger, .bc-input, .bc-slider-track { @extend %win95-sunken; }
+  .bc-dropdown { @extend %win95-raised; }
+  .bc-option {
+    background: transparent !important;
+    box-shadow: none !important;
+    &:hover, &.selected { background: #000080 !important; color: #fff !important; }
+  }
+  .bc-label, .bc-hint { color: #000 !important; }
+  .bc-skeleton { background: #dfdfdf !important; }
+  .bc-slider-bubble { @extend %win95-raised; }
+  .bc-slider-input::-webkit-slider-thumb { @extend %win95-raised; }
+
+  // ── Mod/version picker popovers (Mods, Modpacks, Profiles) ────────────────
+  .picker-panel { @extend %win95-raised; }
+  .picker-row {
+    background: transparent !important;
+    box-shadow: none !important;
+    &:hover { background: #000080 !important; color: #fff !important; }
+  }
+
+  // ── Modals / overlays / cards (whatever their own bespoke class name) ─────
+  // Broad-but-bounded catch-all: only matches elements whose class explicitly
+  // reads as a visual surface (…-modal, …-card, …-dialog, .modal itself, or a
+  // …-panel that isn't one of the popovers already themed above).
+  [class*="-modal"], .modal, [class*="-card"], [class*="-dialog"],
+  [class*="-panel"]:not(.picker-panel):not(.palette-panel) {
+    @extend %win95-raised;
+  }
+  .modal-header, .modal-footer, .modal-title, .modal-title-group { color: #000 !important; }
+  .modal-badge { @extend %win95-raised; }
+}

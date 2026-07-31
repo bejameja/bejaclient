@@ -1,0 +1,208 @@
+@import './reset';
+@import './typography';
+@import './motion';
+@import './win95';
+
+// ── Reduced motion ────────────────────────────────────────────────────────────
+// Toggled via composables/useReducedMotion.ts (OS prefers-reduced-motion OR the
+// in-app Appearance > Reduce Motion setting). Collapses all animation/transition
+// timing to effectively instant instead of disabling it outright, since some
+// libraries (e.g. Transition mode="out-in") depend on transitionend/animationend
+// firing to advance state.
+html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+// Toggled via Appearance > Animations > Hover Effects. Kills the transform-based
+// lift/scale micro-interactions on hover specifically, while leaving color/background
+// hover feedback (and unrelated non-hover transforms, e.g. toggle knobs) untouched.
+html.no-hover-fx *:hover {
+  transform: none !important;
+}
+
+@font-face {
+  font-family: 'Mojangles';
+  src: url('../assets/fonts/mojangles.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  background: $bg;
+}
+
+.page-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: $sp-6;
+}
+
+.section-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: $muted;
+  margin-bottom: $sp-3;
+}
+
+// ── Floating card — use @extend %card-depth to apply ─────────────────────────
+%card-depth {
+  background: $surface;
+  border: 1px solid $border;
+  border-radius: $radius-lg;
+  box-shadow:
+    $shadow-inset,
+    $shadow-md;
+  transition:
+    transform    $transition,
+    border-color $transition,
+    box-shadow   $transition;
+
+  &:hover {
+    border-color: $border-strong;
+    transform: translateY(-1px);
+    box-shadow:
+      $shadow-inset-strong,
+      $shadow-lg;
+  }
+}
+
+// %glass-panel and %glow-ring moved to _motion.scss — that's the partial
+// individual scoped components already `@import` for shared @extend-able
+// placeholders (%press-feedback, %focus-ring…), whereas this file is only
+// ever imported once at the app root, so placeholders defined here can't
+// be @extended from component-scoped styles.
+
+// ── Divider ───────────────────────────────────────────────────────────────────
+.divider {
+  border: none;
+  border-top: 1px solid $border;
+  margin: $sp-4 0;
+}
+
+// ── Badges ────────────────────────────────────────────────────────────────────
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: $radius;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  background: $surface-elevated;
+  color: $text-secondary;
+  border: 1px solid $border;
+
+  &-release  { color: $success; border-color: rgba(48, 209, 88, 0.25); background: rgba(48, 209, 88, 0.08); }
+  &-snapshot { color: $warning; border-color: rgba(232, 160, 48, 0.25); background: rgba(232, 160, 48, 0.08); }
+}
+
+// ── Empty state ───────────────────────────────────────────────────────────────
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: $sp-3;
+  padding: $sp-10;
+  color: $muted;
+  text-align: center;
+  animation: empty-state-in 320ms $ease-out both;
+
+  .empty-icon  { font-size: 32px; opacity: 0.35; filter: drop-shadow(0 0 10px rgba(62, 184, 255, 0.15)); }
+  .empty-title { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; color: $text-secondary; }
+  .empty-text  { font-size: 12px; }
+}
+
+@keyframes empty-state-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+// ── Page transitions ──────────────────────────────────────────────────────────
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity $transition;
+}
+.fade-enter-from,
+.fade-leave-to { opacity: 0; }
+
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: opacity $transition-slow, transform $transition-slow;
+}
+.slide-up-enter-from,
+.slide-up-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+// Top-level route switch (NavBar tabs) — used by the main RouterView in App.vue
+.page-fade-enter-active,
+.page-fade-leave-active {
+  transition: opacity 180ms ease, transform 220ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+.page-fade-enter-from {
+  opacity: 0;
+  transform: translateY(10px) scale(0.99);
+}
+.page-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.99);
+}
+
+// In-page tab/section switch (settings sections, locker tabs, explore tabs…)
+.tab-fade-enter-active,
+.tab-fade-leave-active {
+  transition: opacity 140ms ease, transform 160ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+.tab-fade-enter-from { opacity: 0; transform: translateY(6px); }
+.tab-fade-leave-to   { opacity: 0; transform: translateY(-6px); }
+
+// Generic modal open/close — shared by every Teleport-based modal
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: opacity 150ms ease;
+}
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0;
+}
+
+// Generic toast stack pop-in — shared by every toast/notification list
+.toast-pop-enter-active {
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+.toast-pop-leave-active {
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+.toast-pop-enter-from,
+.toast-pop-leave-to {
+  opacity: 0;
+  transform: translateX(24px);
+}
+
+// Tooltip / floating-ui popover fade
+.tooltip-pop-enter-active,
+.tooltip-pop-leave-active {
+  transition: opacity 100ms ease, transform 100ms ease;
+}
+.tooltip-pop-enter-from,
+.tooltip-pop-leave-to {
+  opacity: 0;
+  transform: scale(0.96);
+}
+
+// Context menu pop
+.ctx-pop-enter-active { transition: opacity 100ms ease, transform 120ms cubic-bezier(0.2, 0, 0, 1); }
+.ctx-pop-leave-active { transition: opacity 80ms ease; }
+.ctx-pop-enter-from   { opacity: 0; transform: scale(0.94) translateY(-4px); }
+.ctx-pop-leave-to     { opacity: 0; }

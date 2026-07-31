@@ -1,0 +1,81 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "BejaClient",
+  "version": "2.0.0",
+  "identifier": "com.bejaclient.launcher",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "BejaClient",
+        "width": 1280,
+        "height": 760,
+        "minWidth": 1100,
+        "minHeight": 680,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": false,
+        "backgroundColor": "#090909",
+        "visible": true,
+        "dragDropEnabled": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https: http://textures.minecraft.net http://206.217.141.184:3093 http://127.0.0.1:25588; connect-src 'self' https: ipc: http://ipc.localhost http://textures.minecraft.net http://206.217.141.184:3093 data: blob:; media-src 'self' asset: http://asset.localhost http://127.0.0.1:49217 https://github.com https://objects.githubusercontent.com;",
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["**"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "appimage", "deb"],
+    "createUpdaterArtifacts": true,
+    "publisher": "Beja",
+    "copyright": "Copyright © 2026 BejaClient",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "../resources/beja-libs/beja-bootstrap-*.jar": "beja-libs/",
+      "../resources/beja-libs/beja-v1_21-*.jar": "beja-libs/",
+      "../resources/capes/*.png": "capes/",
+      "../resources/scene.mp4": "scene.mp4"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "displayLanguageSelector": false
+      }
+    },
+    "linux": {
+      "deb": { "depends": [] }
+    }
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["bejaclient"]
+      }
+    },
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://api.bejaclient.xyz/api/updates/{{target}}/{{arch}}/{{current_version}}"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhCQkQ5QjhERjgwRTIwQUYKUldTdklBNzRqWnU5aTl3NE90cm1vL0xnOGVXUUF0VjJlZk12TzlZakM2bEIrTHNDT0Z0YnlrQk4K"
+    }
+  }
+}

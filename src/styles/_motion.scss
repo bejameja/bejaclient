@@ -1,0 +1,70 @@
+// ── Shared animated sweep-border technique ───────────────────────────────────
+// One shared angle property so new premium surfaces can @extend
+// %sweep-border-hover instead of re-deriving the conic-gradient trick from
+// scratch. Existing hand-rolled copies (HomePage/ShopPage/FriendsPage/LockerPage)
+// are untouched and keep using their own local --border-angle/--news-angle/etc.
+@property --sweep-angle {
+  syntax: '<angle>';
+  initial-value: 45deg;
+  inherits: false;
+}
+
+%sweep-border-hover {
+  --sweep-bg: #{$surface};
+  position: relative;
+  border: 1px solid transparent;
+  background-image:
+    linear-gradient(var(--sweep-bg), var(--sweep-bg)),
+    conic-gradient(
+      from var(--sweep-angle),
+      rgba(255, 255, 255, 0.04) 0%,
+      rgba(255, 255, 255, 0.45) 8%,
+      rgba(255, 255, 255, 0.04) 16%,
+      rgba(255, 255, 255, 0.04) 100%
+    );
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  transition: --sweep-angle 2000ms cubic-bezier(0.2, 0, 0, 1);
+
+  &:hover {
+    --sweep-angle: 405deg;
+  }
+}
+
+// ── Press feedback ────────────────────────────────────────────────────────────
+%press-feedback {
+  transition: transform 100ms $ease-out;
+
+  &:active:not(:disabled) {
+    transform: scale(0.96);
+  }
+}
+
+// ── Glass panel — for surfaces that float ABOVE content: modals, dropdowns,
+// tooltips, drawers, command palette, the start-screen shell. Frosted-white
+// blur over the dark backdrop, not a replacement for in-page $surface cards.
+%glass-panel {
+  background: $glass-bg-elevated;
+  backdrop-filter: blur($glass-blur);
+  -webkit-backdrop-filter: blur($glass-blur);
+  border: $glass-border;
+  border-radius: $radius-lg;
+  box-shadow: $glass-shadow;
+}
+
+// ── Ambient glow ring — premium emphasis for the active/focused/primary state
+// of a component, without going neon. @extend to apply.
+%glow-ring {
+  box-shadow: $shadow-glow;
+}
+
+// ── Focus ring ────────────────────────────────────────────────────────────────
+%focus-ring {
+  outline: none;
+  transition: box-shadow $transition, border-color $transition;
+
+  &:focus-visible {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #{$primary}) 25%, transparent);
+    border-color: var(--accent, #{$primary});
+  }
+}
