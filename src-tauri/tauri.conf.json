@@ -31,13 +31,19 @@
       "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https: http://textures.minecraft.net http://206.217.141.184:3093 http://127.0.0.1:25588; connect-src 'self' https: ipc: http://ipc.localhost http://textures.minecraft.net http://206.217.141.184:3093 data: blob:; media-src 'self' asset: http://asset.localhost http://127.0.0.1:49217 https://github.com https://objects.githubusercontent.com;",
       "assetProtocol": {
         "enable": true,
-        "scope": ["**"]
+        "scope": [
+          "**"
+        ]
       }
     }
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "appimage", "deb"],
+    "targets": [
+      "nsis",
+      "appimage",
+      "deb"
+    ],
     "createUpdaterArtifacts": true,
     "publisher": "Beja",
     "copyright": "Copyright © 2026 BejaClient",
@@ -61,13 +67,17 @@
       }
     },
     "linux": {
-      "deb": { "depends": [] }
+      "deb": {
+        "depends": []
+      }
     }
   },
   "plugins": {
     "deep-link": {
       "desktop": {
-        "schemes": ["bejaclient"]
+        "schemes": [
+          "bejaclient"
+        ]
       }
     },
     "updater": {
