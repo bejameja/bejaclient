@@ -1,7 +1,7 @@
 {
   "name": "bejaclient",
   "productName": "BejaClient",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "A Better Minecraft Launcher (Tauri + Rust edition)",
   "author": {
     "name": "Beja",

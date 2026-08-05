@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "BejaClient",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "identifier": "com.bejaclient.launcher",
   "build": {
     "frontendDist": "../dist",
@@ -63,7 +63,8 @@
     "windows": {
       "nsis": {
         "installMode": "currentUser",
-        "displayLanguageSelector": false
+        "displayLanguageSelector": false,
+        "installerHooks": "installer-hooks.nsi.nsh"
       }
     },
     "linux": {
