@@ -339,7 +339,6 @@ onMounted(() => {
 
 // ── Sections ──────────────────────────────────────────────────────────────────
 .shop-section-title {
-  font-family: 'Mojangles', monospace;
   font-size: 18px;
   color: $text-primary;
   margin-bottom: 4px;
@@ -481,7 +480,6 @@ onMounted(() => {
 }
 
 .skin-username {
-  font-family: 'Mojangles', monospace;
   font-size: 9px;
   color: #aaa;
   overflow: hidden;
@@ -491,7 +489,6 @@ onMounted(() => {
 }
 
 .skin-model-tag {
-  font-family: 'Mojangles', monospace;
   font-size: 8px;
   color: #555;
   flex-shrink: 0;
@@ -502,7 +499,6 @@ onMounted(() => {
   position: absolute;
   top: 6px;
   left: 6px;
-  font-family: 'Mojangles', monospace;
   font-size: 7px;
   letter-spacing: 0.1em;
   border: 1px solid;
@@ -556,7 +552,6 @@ onMounted(() => {
   background: #1a1a1a;
   border: 1px solid transparent;
   color: #ddd;
-  font-family: 'Mojangles', monospace;
   font-size: 11px;
   cursor: pointer;
   transition: background 100ms, border-color 100ms;
@@ -585,7 +580,6 @@ onMounted(() => {
 .shop-owned-tag {
   flex: 1;
   text-align: center;
-  font-family: 'Mojangles', monospace;
   font-size: 11px;
   color: #4caf50;
   padding: 7px 0;
@@ -634,7 +628,6 @@ onMounted(() => {
 }
 
 .emote-name {
-  font-family: 'Mojangles', monospace;
   font-size: 11px;
   color: $text-primary;
   text-align: center;
@@ -653,7 +646,6 @@ onMounted(() => {
   background: #1a1a1a;
   border: 1px solid transparent;
   color: #ddd;
-  font-family: 'Mojangles', monospace;
   font-size: 10px;
   cursor: pointer;
   transition: background 100ms, border-color 100ms;
@@ -682,7 +674,6 @@ onMounted(() => {
 .emote-owned-tag {
   flex: 1;
   text-align: center;
-  font-family: 'Mojangles', monospace;
   font-size: 10px;
   color: #4caf50;
   padding: 5px 0;

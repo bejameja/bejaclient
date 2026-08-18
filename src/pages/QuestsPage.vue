@@ -180,7 +180,6 @@ onMounted(() => {
   background: #0d0d0d;
   border: none;
   color: #aaa;
-  font-family: 'Mojangles', monospace;
   font-size: 13px;
   cursor: pointer;
   letter-spacing: 0.02em;
@@ -307,7 +306,6 @@ onMounted(() => {
 .lb-rank {
   width: 32px;
   flex-shrink: 0;
-  font-family: 'Mojangles', monospace;
   font-size: 13px;
   color: $text-secondary;
 }

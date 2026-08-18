@@ -141,7 +141,6 @@ function close() { emit('update:modelValue', false) }
   width: 100%;
   padding: 12px 16px 16px;
   text-align: center;
-  font-family: 'Mojangles', monospace;
   font-size: 13px;
   color: $text-primary;
   border-top: 1px solid $border;

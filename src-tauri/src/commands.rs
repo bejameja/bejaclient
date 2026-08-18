@@ -9,8 +9,8 @@ use tauri::{AppHandle, Emitter};
 use crate::mcinstall::java_discovery;
 use crate::paths;
 use crate::services::{
-    auth_service, beja_api, beja_auth, beja_socket_service, curseforge_service, install_tracker, launch_service, mod_service,
-    modrinth_service, profile_service, server_ping_service, settings_service, version_service,
+    auth_service, beja_api, beja_auth, beja_socket_service, curseforge_service, giphy_service, install_tracker, launch_service,
+    launcher_import_service, mod_service, modrinth_service, profile_service, server_ping_service, settings_service, version_service,
 };
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -132,6 +132,16 @@ pub fn profiles_list() -> Vec<profile_service::LaunchProfile> {
 #[tauri::command]
 pub fn profiles_create(profile: profile_service::NewProfile) -> profile_service::LaunchProfile {
     profile_service::create_profile(profile)
+}
+
+#[tauri::command]
+pub fn detect_external_profiles() -> Vec<launcher_import_service::DetectedProfile> {
+    launcher_import_service::detect_all()
+}
+
+#[tauri::command]
+pub fn import_external_profile(id: String) -> Result<profile_service::LaunchProfile, String> {
+    launcher_import_service::import_profile(&id)
 }
 
 #[tauri::command]
@@ -424,7 +434,7 @@ pub async fn modrinth_search(
     offset: Option<u32>,
     categories: Option<Vec<String>>,
 ) -> Result<Value, String> {
-    modrinth_service::search_modrinth(&query, &r#type, game_version.as_deref(), loader.as_deref(), offset.unwrap_or(0), categories).await
+    modrinth_service::search_modrinth(&query, &r#type, game_version.as_deref(), loader.as_deref(), offset.unwrap_or(0), categories, None).await
 }
 
 #[tauri::command]
@@ -444,6 +454,7 @@ pub async fn explore_search(
     loader: Option<String>,
     offset: Option<u32>,
     categories: Option<Vec<String>>,
+    sort: Option<String>,
 ) -> Result<Value, String> {
     let offset = offset.unwrap_or(0);
     let mut mr_hits: Vec<Value> = Vec::new();
@@ -451,7 +462,7 @@ pub async fn explore_search(
     let mut total: u64 = 0;
 
     if source == "modrinth" || source == "both" {
-        match modrinth_service::search_modrinth(&query, &r#type, game_version.as_deref(), loader.as_deref(), offset, categories.clone()).await {
+        match modrinth_service::search_modrinth(&query, &r#type, game_version.as_deref(), loader.as_deref(), offset, categories.clone(), sort.as_deref()).await {
             Ok(res) => {
                 if let Some(hits) = res["hits"].as_array() {
                     for h in hits {
@@ -465,6 +476,7 @@ pub async fn explore_search(
                             "source": "modrinth",
                             "projectType": h["project_type"],
                             "slug": h["slug"],
+                            "author": h["author"],
                         }));
                     }
                 }
@@ -479,7 +491,7 @@ pub async fn explore_search(
     }
 
     if source == "curseforge" || source == "both" {
-        match curseforge_service::search_curseforge(&query, &r#type, game_version.as_deref(), loader.as_deref(), offset).await {
+        match curseforge_service::search_curseforge(&query, &r#type, game_version.as_deref(), loader.as_deref(), offset, sort.as_deref()).await {
             Ok(res) => {
                 if let Some(hits) = res["hits"].as_array() {
                     for h in hits {
@@ -493,6 +505,7 @@ pub async fn explore_search(
                             "source": "curseforge",
                             "projectType": r#type,
                             "slug": h["slug"],
+                            "author": h["authors"].as_array().and_then(|a| a.first()).map(|a| a["name"].clone()).unwrap_or(Value::Null),
                         }));
                     }
                 }
@@ -534,6 +547,49 @@ pub async fn curseforge_install(mod_id: String, project_type: String, profile_id
     Ok(true)
 }
 
+/// Fetches everything the "view mod" detail panel needs and normalizes Modrinth's and
+/// CurseForge's very differently-shaped project payloads into one common shape.
+#[tauri::command]
+pub async fn mod_details(id: String, source: String) -> Result<Value, String> {
+    if source == "curseforge" {
+        let m = curseforge_service::get_mod_details(&id).await?;
+        Ok(json!({
+            "id": m["id"].as_u64().map(|n| n.to_string()).unwrap_or_default(),
+            "title": m["name"],
+            "author": m["authors"].as_array().and_then(|a| a.first()).map(|a| a["name"].clone()).unwrap_or(Value::Null),
+            "iconUrl": m["logo"]["url"],
+            "downloads": m["downloadCount"],
+            "categories": m["categories"].as_array().map(|a| a.iter().map(|c| c["name"].clone()).collect::<Vec<_>>()).unwrap_or_default(),
+            "description": m["fullDescription"],
+            "descriptionFormat": "html",
+            "gallery": m["screenshots"].as_array().map(|a| a.iter().filter_map(|s| s["url"].as_str()).map(Value::from).collect::<Vec<_>>()).unwrap_or_default(),
+            "sourceUrl": m["links"]["websiteUrl"],
+            "license": Value::Null,
+            "createdAt": m["dateCreated"],
+            "updatedAt": m["dateModified"],
+            "source": "curseforge",
+        }))
+    } else {
+        let p = modrinth_service::get_project(&id).await?;
+        Ok(json!({
+            "id": p["id"],
+            "title": p["title"],
+            "author": Value::Null,
+            "iconUrl": p["icon_url"],
+            "downloads": p["downloads"],
+            "categories": p["categories"],
+            "description": p["body"],
+            "descriptionFormat": "markdown",
+            "gallery": p["gallery"].as_array().map(|a| a.iter().filter_map(|g| g["url"].as_str()).map(Value::from).collect::<Vec<_>>()).unwrap_or_default(),
+            "sourceUrl": Value::String(format!("https://modrinth.com/mod/{}", p["slug"].as_str().unwrap_or(&id))),
+            "license": p["license"]["name"],
+            "createdAt": p["published"],
+            "updatedAt": p["updated"],
+            "source": "modrinth",
+        }))
+    }
+}
+
 #[tauri::command]
 pub async fn modrinth_versions(project_id: String, game_version: Option<String>, loader: Option<String>) -> Result<Vec<modrinth_service::ModrinthVersion>, String> {
     modrinth_service::get_project_versions(&project_id, game_version.as_deref(), loader.as_deref()).await
@@ -568,6 +624,52 @@ pub async fn modrinth_install_shader(project_id: String, profile_id: String) -> 
 pub async fn modrinth_install_datapack(project_id: String, profile_id: String) -> Result<bool, String> {
     modrinth_service::download_datapack(&project_id, &profile_id).await?;
     Ok(true)
+}
+
+/// Best-effort update check for one installed mod — mods aren't installed with a stored
+/// Modrinth project id, so this guesses one from the filename (same slug heuristic as
+/// `mods_auto_fix`) and asks Modrinth for that project's latest version. A miss just means
+/// "couldn't check" (mod not on Modrinth, or the guessed slug didn't resolve to a real
+/// project), not "no update" — the frontend should say so rather than claiming up-to-date.
+/// This is explicitly a manual fallback for when a mod's own auto-updater doesn't run, not a
+/// system meant to be authoritative.
+#[derive(serde::Serialize)]
+pub struct ModUpdateInfo {
+    #[serde(rename = "projectId")]
+    pub project_id: String,
+    #[serde(rename = "versionId")]
+    pub version_id: String,
+    #[serde(rename = "versionNumber")]
+    pub version_number: String,
+}
+
+fn mod_slug_from_filename(file_name: &str) -> String {
+    let base = file_name.trim_end_matches(".disabled").trim_end_matches(".jar");
+    let re = regex::Regex::new(r"[-_]\d.*$").unwrap();
+    re.replace(base, "").to_lowercase()
+}
+
+#[tauri::command]
+pub async fn check_mod_update(profile_id: String, mod_id: String) -> Option<ModUpdateInfo> {
+    let profile = profile_service::get_profile(&profile_id)?;
+    let mods = mod_service::list_mods(&profile_id);
+    let current = mods.iter().find(|m| m.id == mod_id)?;
+    let slug = mod_slug_from_filename(&current.file_name);
+    if slug.is_empty() {
+        return None;
+    }
+
+    let loader = if profile.loader == "vanilla" { None } else { Some(profile.loader.as_str()) };
+    let versions = modrinth_service::get_project_versions(&slug, Some(&profile.version), loader).await.ok()?;
+    let latest = versions.first()?;
+    let latest_file = latest.files.iter().find(|f| f.primary).or_else(|| latest.files.first())?;
+
+    let current_base = current.file_name.trim_end_matches(".disabled");
+    if latest_file.filename == current_base {
+        return None;
+    }
+
+    Some(ModUpdateInfo { project_id: slug, version_id: latest.id.clone(), version_number: latest.version_number.clone() })
 }
 
 #[tauri::command]
@@ -1128,6 +1230,18 @@ pub fn chat_typing(to_uuid: String) {
 pub async fn chat_history(target_uuid: String) -> Vec<Value> {
     let Some(token) = beja_auth::get_beja_token().await else { return Vec::new() };
     beja_api::get(&format!("/api/chat/history/{target_uuid}"), Some(&token)).await.as_array().cloned().unwrap_or_default()
+}
+
+#[tauri::command]
+pub async fn giphy_search(query: Option<String>) -> Result<Vec<giphy_service::GifResult>, String> {
+    giphy_service::search(query).await
+}
+
+// ── Discord Rich Presence ───────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn discord_set_presence(details: String, state: String) {
+    crate::discord_rpc::set_context_presence(&details, &state);
 }
 
 // ── Video ─────────────────────────────────────────────────────────────────────

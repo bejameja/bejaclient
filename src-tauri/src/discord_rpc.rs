@@ -38,6 +38,24 @@ pub fn set_idle_presence() {
     );
 }
 
+/// Frontend-driven presence for whatever the user is doing inside the launcher itself
+/// (Settings, editing a profile, chatting with a friend, browsing a page, …) — kept
+/// separate from set_playing_presence so an actual game session's presence never gets
+/// stomped by launcher navigation (the frontend is responsible for not calling this
+/// while a game is running; see the route watcher in App.vue).
+pub fn set_context_presence(details: &str, state: &str) {
+    let mut guard = CLIENT.lock();
+    let Some(client) = guard.as_mut() else { return };
+    let ts = *START_TIMESTAMP.lock();
+    let _ = client.set_activity(
+        activity::Activity::new()
+            .details(details)
+            .state(state)
+            .assets(activity::Assets::new().large_image("logo").large_text("BejaClient"))
+            .timestamps(activity::Timestamps::new().start(ts)),
+    );
+}
+
 pub fn set_playing_presence(version: Option<&str>) {
     let mut guard = CLIENT.lock();
     let Some(client) = guard.as_mut() else { return };

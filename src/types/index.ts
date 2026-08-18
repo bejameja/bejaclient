@@ -66,6 +66,12 @@ export interface ModInfo {
   iconDataUrl?: string
 }
 
+export interface ModUpdateInfo {
+  projectId: string
+  versionId: string
+  versionNumber: string
+}
+
 export interface GameSettings {
   defaultGameDir: string
   defaultJavaPath: string
@@ -94,7 +100,6 @@ export interface AppearanceSettings {
   language: string
   accentColor: string
   reduceMotion: 'system' | 'on' | 'off'
-  pageTransition: 'fade' | 'instant'
   disableHoverEffects: boolean
   disableSplashScreen: boolean
   theme: 'default' | 'win95'
@@ -210,6 +215,36 @@ export interface ExploreHit {
   source: 'modrinth' | 'curseforge'
   projectType: string
   slug: string
+  author: string | null
+}
+
+export interface DetectedProfile {
+  id: string
+  source: 'curseforge' | 'lunar' | 'modrinth_app'
+  name: string
+  version: string
+  loader: string
+  loaderVersion: string
+  gameDir: string
+  modCount: number
+  iconPath: string | null
+}
+
+export interface ModDetails {
+  id: string
+  title: string
+  author: string | null
+  iconUrl: string | null
+  downloads: number
+  categories: string[]
+  description: string
+  descriptionFormat: 'markdown' | 'html'
+  gallery: string[]
+  sourceUrl: string
+  license: string | null
+  createdAt: string | null
+  updatedAt: string | null
+  source: 'modrinth' | 'curseforge'
 }
 
 export interface ModrinthHit {
@@ -306,6 +341,8 @@ declare global {
           { profile: LaunchProfile; mods: string[]; ownerUsername: string } | { error: string }
         >
         onSharedLink(cb: (shareId: string) => void): void
+        detectExternal(): Promise<DetectedProfile[]>
+        importExternal(id: string): Promise<LaunchProfile>
       }
       mods: {
         list(profileId: string): Promise<ModInfo[]>
@@ -315,6 +352,7 @@ declare global {
         openFolder(profileId: string): Promise<void>
         checkConflicts(profileId: string): Promise<string[]>
         autoFix(profileId: string): Promise<{ fixed: string[] }>
+        checkUpdate(profileId: string, modId: string): Promise<ModUpdateInfo | null>
       }
       settings: {
         get(): Promise<AppSettings>
@@ -327,8 +365,9 @@ declare global {
       modrinth: {
         search(query: string, type: ModrinthProjectType, gameVersion?: string, loader?: string, offset?: number, categories?: string[]): Promise<{ hits: ModrinthHit[]; total_hits: number }>
         categories(): Promise<{ name: string; project_type: string; header: string }[]>
-        exploreSearch(query: string, type: string, source: string, gameVersion?: string, loader?: string, offset?: number, categories?: string[]): Promise<{ hits: ExploreHit[]; total: number }>
+        exploreSearch(query: string, type: string, source: string, gameVersion?: string, loader?: string, offset?: number, categories?: string[], sort?: string): Promise<{ hits: ExploreHit[]; total: number }>
         installCurseforge(modId: string, projectType: string, profileId: string): Promise<boolean>
+        details(id: string, source: string): Promise<ModDetails>
         versions(projectId: string, gameVersion?: string, loader?: string): Promise<ModrinthVersion[]>
         installMod(projectId: string, profileId: string): Promise<boolean>
         installModpack(projectId: string, versionId: string | null): Promise<{ profileId: string; name: string }>
@@ -419,6 +458,12 @@ declare global {
         sendTyping(toUuid: string): Promise<void>
         onMessage(cb: (msg: ChatMessage) => void): void
         onTyping(cb: (d: { fromUuid: string }) => void): void
+      }
+      giphy: {
+        search(query: string): Promise<{ id: string; thumb: string; url: string; title: string }[]>
+      }
+      discord: {
+        setPresence(details: string, state: string): Promise<void>
       }
       updater: {
         check(): Promise<void>

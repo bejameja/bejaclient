@@ -1,17 +1,17 @@
 <template>
   <div class="locker-page">
 
+    <h2 class="locker-heading">Locker</h2>
+
     <!-- Tabs -->
     <div class="tab-row">
       <button
         v-for="t in tabs"
         :key="t"
-        :ref="(el) => setTabBtnRef(t, el as HTMLElement | null)"
-        class="tab-btn"
+        class="tab-pill"
         :class="{ active: activeTab === t }"
         @click="activeTab = t"
       >{{ t }}</button>
-      <span class="tab-indicator" :style="indicatorStyle" />
     </div>
 
     <!-- Search -->
@@ -370,7 +370,6 @@ import { useShopStore } from '../store/shopStore'
 import type { Rarity, PlayerCosmetic } from '../types/cosmetics'
 import type { CommunityCape } from '../types'
 import { RARITIES } from '../types/cosmetics'
-import { useSlidingTabIndicator } from '../composables/useSlidingTabIndicator'
 
 const lockerStore = useLockerStore()
 const lobbyStore  = useLobbyStore()
@@ -423,7 +422,6 @@ async function loadCosmetics() {
 const tabs        = ['Skins', 'Capes', 'Cosmetics', 'Community'] as const
 type Tab          = typeof tabs[number]
 const activeTab   = ref<Tab>('Skins')
-const { setTabBtnRef, indicatorStyle } = useSlidingTabIndicator(activeTab)
 const search      = ref('')
 
 const searchPlaceholder = computed(() => `Search ${activeTab.value.toLowerCase()}...`)
@@ -1016,7 +1014,6 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 @font-face {
-  font-family: 'Mojangles';
   src: url('../assets/fonts/mojangles.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
@@ -1033,41 +1030,47 @@ onMounted(() => {
   position: relative;
 }
 
+.locker-heading {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 17px;
+  font-weight: 800;
+  color: #62E13F;
+  background: #0F230A;
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin: 0;
+  font-family: 'Minecrafter', 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: 0.12em;
+}
+
 // ── Tab row ───────────────────────────────────────────────────────────────────
+// Same pill style as the Explore tab's category row.
 .tab-row {
   position: relative;
   display: flex;
-  gap: 8px;
+  gap: 10px;
   flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
-.tab-btn {
-  padding: 8px 22px;
-  background: #0d0d0d;
+.tab-pill {
+  height: 38px;
+  padding: 0 22px;
+  background: #1a1a1e;
   border: none;
-  color: #aaa;
-  font-family: 'Mojangles', monospace;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.7);
   font-size: 13px;
   cursor: pointer;
   letter-spacing: 0.02em;
-  transition: background 80ms, color 80ms;
-  border-radius: 0;
+  transition: background 120ms, color 120ms;
 
-  &:hover { background: #1a1a1a; color: #ccc; }
-
+  &:hover { background: #232328; color: rgba(255, 255, 255, 0.9); }
   &.active {
-    background: #111;
-    color: #d0d0d0;
+    background: #2a2a30;
+    color: #fff;
   }
-}
-
-.tab-indicator {
-  position: absolute;
-  bottom: 0;
-  height: 2px;
-  background: rgba(255, 255, 255, 0.3);
-  pointer-events: none;
-  transition: left 260ms cubic-bezier(0.16, 1, 0.3, 1), width 260ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 // ── Search bar ────────────────────────────────────────────────────────────────
@@ -1088,7 +1091,6 @@ onMounted(() => {
   background: none;
   border: none;
   outline: none;
-  font-family: 'Mojangles', monospace;
   font-size: 11px;
   color: #aaa;
   letter-spacing: 0.03em;
@@ -1229,7 +1231,6 @@ onMounted(() => {
 }
 
 .add-title {
-  font-family: 'Mojangles', monospace;
   font-size: 10px;
   color: #777;
   text-align: center;
@@ -1237,7 +1238,6 @@ onMounted(() => {
 }
 
 .add-sub {
-  font-family: 'Mojangles', monospace;
   font-size: 8px;
   color: #444;
   text-align: center;
@@ -1297,7 +1297,6 @@ onMounted(() => {
 }
 
 .skin-username {
-  font-family: 'Mojangles', monospace;
   font-size: 9px;
   color: #aaa;
   overflow: hidden;
@@ -1307,7 +1306,6 @@ onMounted(() => {
 }
 
 .skin-model-tag {
-  font-family: 'Mojangles', monospace;
   font-size: 8px;
   color: #555;
   flex-shrink: 0;
@@ -1319,7 +1317,6 @@ onMounted(() => {
   position: absolute;
   top: 6px;
   left: 6px;
-  font-family: 'Mojangles', monospace;
   font-size: 7px;
   letter-spacing: 0.1em;
   color: #fff;
@@ -1345,7 +1342,6 @@ onMounted(() => {
 }
 
 .no-cape-label {
-  font-family: 'Mojangles', monospace;
   font-size: 13px;
   color: #555;
   letter-spacing: 0.06em;
@@ -1429,7 +1425,6 @@ onMounted(() => {
       position: absolute;
       top: 6px;
       left: 6px;
-      font-family: 'Mojangles', monospace;
       font-size: 7px;
       color: #fff;
       background: rgba(74,255,224,0.25);
@@ -1467,7 +1462,6 @@ onMounted(() => {
 }
 
 .cosmetic-rarity {
-  font-family: 'Mojangles', monospace;
   font-size: 7px;
   flex-shrink: 0;
   margin-left: 4px;
@@ -1483,7 +1477,6 @@ onMounted(() => {
 }
 
 .empty-tab-text {
-  font-family: 'Mojangles', monospace;
   font-size: 12px;
   color: #444;
   letter-spacing: 0.04em;
@@ -1513,7 +1506,6 @@ onMounted(() => {
 }
 
 .modal-title {
-  font-family: 'Mojangles', monospace;
   font-size: 13px;
   color: #ccc;
   margin: 0;
@@ -1536,14 +1528,12 @@ onMounted(() => {
   background: none;
   border: none;
   outline: none;
-  font-family: 'Mojangles', monospace;
   font-size: 11px;
   color: #ccc;
   &::placeholder { color: #444; }
 }
 
 .modal-error {
-  font-family: 'Mojangles', monospace;
   font-size: 10px;
   color: #c05050;
   margin: 0;
@@ -1556,7 +1546,6 @@ onMounted(() => {
   align-items: center;
   gap: 10px;
   color: #444;
-  font-family: 'Mojangles', monospace;
   font-size: 9px;
   letter-spacing: 0.06em;
 
@@ -1576,7 +1565,6 @@ onMounted(() => {
   background: #0d0d0d;
   border: 1px dashed #3a3a3a;
   color: #999;
-  font-family: 'Mojangles', monospace;
   font-size: 11px;
   padding: 10px;
   cursor: pointer;
@@ -1597,7 +1585,6 @@ onMounted(() => {
 }
 
 .upload-skin-hint {
-  font-family: 'Mojangles', monospace;
   font-size: 8px;
   color: #444;
   letter-spacing: 0.03em;
@@ -1646,7 +1633,6 @@ onMounted(() => {
     background: #0d0d0d;
     border: 1px solid #3a3a3a;
     color: #777;
-    font-family: 'Mojangles', monospace;
     font-size: 9px;
     letter-spacing: 0.03em;
     cursor: pointer;
@@ -1670,7 +1656,6 @@ onMounted(() => {
 
 .modal-btn {
   padding: 7px 18px;
-  font-family: 'Mojangles', monospace;
   font-size: 11px;
   cursor: pointer;
   border: 1px solid #444;

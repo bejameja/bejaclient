@@ -1,134 +1,217 @@
 <template>
   <header class="topbar">
-    <div class="topbar-drag" />
+    <div class="brand-group">
+      <img :src="logoUrl" class="brand-logo" alt="BC" />
+      <span class="wordmark">
+        <span class="w-beja">Beja</span><span class="w-client">Client</span> <span class="w-launcher">Launcher</span>
+      </span>
+    </div>
 
-    <!-- Quick search -->
-    <button class="palette-btn" title="Search & quick actions" @click="openPalette">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="11" cy="11" r="8"/>
-        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-      </svg>
-      <kbd>Ctrl K</kbd>
-    </button>
+    <div class="nav-center">
+      <nav class="topnav">
+        <RouterLink
+          v-for="item in navItems"
+          :key="item.path"
+          :ref="(el) => setNavBtnRef(item.path, el)"
+          :to="item.path"
+          class="nav-item"
+          :class="{ active: isActive(item.path, item.exact) }"
+        >
+          <span class="nav-label">{{ item.label }}</span>
+          <span v-if="item.badge" class="nav-badge">{{ item.badge }}</span>
+          <span v-if="item.wip" class="nav-wip">
+            <svg class="wip-clock" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.4"/>
+              <line class="clock-min" x1="7" y1="7" x2="10.5" y2="7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+              <line x1="7" y1="7" x2="7" y2="4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            </svg>
+          </span>
+        </RouterLink>
+        <span class="nav-indicator" :style="navIndicatorStyle" />
+      </nav>
+    </div>
 
-    <!-- Currency -->
-    <Tooltip v-if="account" text="Violet Gems" placement="bottom">
-      <div class="gem-pill">
-        <img class="gem-pill-icon" :src="gemIcon" alt="" />
-        <span>{{ gemDisplay.toLocaleString() }}</span>
-      </div>
-    </Tooltip>
-
-    <!-- Account -->
-    <template v-if="account">
-      <div ref="pillRef" class="account-pill" @click="dropdownOpen = !dropdownOpen">
-        <img
-          class="account-head"
-          :src="`https://mc-heads.net/avatar/${account.uuid}/22`"
-          :alt="account.username"
-          @error="(e) => ((e.target as HTMLImageElement).style.display = 'none')"
-        />
-        <span class="account-name">{{ account.username }}</span>
-        <svg class="pill-chevron" :class="{ open: dropdownOpen }" width="12" height="12" viewBox="0 0 12 12" fill="none">
-          <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <div class="right-group">
+      <!-- Quick search -->
+      <button class="palette-btn" title="Search & quick actions" @click="openPalette">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
-      </div>
+        <kbd>Ctrl K</kbd>
+      </button>
 
-      <!-- Dropdown — teleported to body to escape all stacking contexts -->
-      <Teleport to="body">
-        <Transition name="dd">
-          <div v-if="dropdownOpen" ref="dropdownRef" class="acc-dropdown" :style="dropdownStyle" @click.stop>
-            <div class="dd-label">Accounts</div>
+      <!-- Currency -->
+      <Tooltip v-if="account" text="Violet Gems" placement="bottom">
+        <div class="gem-pill">
+          <img class="gem-pill-icon" :src="gemIcon" alt="" />
+          <span>{{ gemDisplay.toLocaleString() }}</span>
+        </div>
+      </Tooltip>
 
-            <div
-              v-for="acc in accountStore.accounts"
-              :key="acc.id"
-              class="dd-item-row"
-            >
-              <button
-                class="dd-item"
-                :class="{ active: acc.selected }"
-                @click="switchAccount(acc.id)"
+      <!-- Account -->
+      <template v-if="account">
+        <div ref="pillRef" class="account-pill" @click="dropdownOpen = !dropdownOpen">
+          <img
+            class="account-head"
+            :src="`https://mc-heads.net/avatar/${account.uuid}/22`"
+            :alt="account.username"
+            @error="(e) => ((e.target as HTMLImageElement).style.display = 'none')"
+          />
+          <span class="account-name">{{ account.username }}</span>
+          <svg class="pill-chevron" :class="{ open: dropdownOpen }" width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+
+        <!-- Dropdown — teleported to body to escape all stacking contexts -->
+        <Teleport to="body">
+          <Transition name="dd">
+            <div v-if="dropdownOpen" ref="dropdownRef" class="acc-dropdown" :style="dropdownStyle" @click.stop>
+              <div class="dd-label">Accounts</div>
+
+              <div
+                v-for="acc in accountStore.accounts"
+                :key="acc.id"
+                class="dd-item-row"
               >
-                <img class="dd-head" :src="`https://mc-heads.net/avatar/${acc.uuid}/18`" :alt="acc.username"
-                  @error="(e) => ((e.target as HTMLImageElement).style.display = 'none')" />
-                <span class="dd-name">{{ acc.username }}</span>
-                <svg v-if="acc.selected" width="10" height="10" viewBox="0 0 10 10" fill="none">
-                  <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <button
+                  class="dd-item"
+                  :class="{ active: acc.selected }"
+                  @click="switchAccount(acc.id)"
+                >
+                  <img class="dd-head" :src="`https://mc-heads.net/avatar/${acc.uuid}/18`" :alt="acc.username"
+                    @error="(e) => ((e.target as HTMLImageElement).style.display = 'none')" />
+                  <span class="dd-name">{{ acc.username }}</span>
+                  <svg v-if="acc.selected" width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+                <button class="dd-signout" title="Sign out" @click.stop="signOut(acc.id)">
+                  <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                    <path d="M5 2H2.5A.5.5 0 002 2.5v8a.5.5 0 00.5.5H5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                    <path d="M8.5 9L11 6.5L8.5 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                    <line x1="11" y1="6.5" x2="5" y2="6.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                  </svg>
+                </button>
+              </div>
+
+              <div class="dd-sep" />
+
+              <button class="dd-item dd-add" :disabled="accountStore.loading" @click="addAccount">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <line x1="7" y1="2" x2="7" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                  <line x1="2" y1="7" x2="12" y2="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                 </svg>
-              </button>
-              <button class="dd-signout" title="Sign out" @click.stop="signOut(acc.id)">
-                <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                  <path d="M5 2H2.5A.5.5 0 002 2.5v8a.5.5 0 00.5.5H5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-                  <path d="M8.5 9L11 6.5L8.5 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
-                  <line x1="11" y1="6.5" x2="5" y2="6.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-                </svg>
+                <span>Add Account</span>
               </button>
             </div>
-
-            <div class="dd-sep" />
-
-            <button class="dd-item dd-add" :disabled="accountStore.loading" @click="addAccount">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <line x1="7" y1="2" x2="7" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                <line x1="2" y1="7" x2="12" y2="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              </svg>
-              <span>Add Account</span>
-            </button>
-          </div>
-        </Transition>
-      </Teleport>
-    </template>
-    <button
-      v-else
-      class="account-pill account-pill--guest"
-      :disabled="accountStore.loading"
-      @click="accountStore.login()"
-    >
-      <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-        <circle cx="6.5" cy="4.5" r="2.5" stroke="currentColor" stroke-width="1.3"/>
-        <path d="M1.5 11.5c0-2.485 2.239-4.5 5-4.5s5 2.015 5 4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-      </svg>
-      <span class="account-name account-name--guest">{{ accountStore.loginStatus ?? (accountStore.loading ? 'Signing in…' : 'Sign in') }}</span>
-    </button>
-
-    <div class="win-controls">
-      <button class="win-btn" title="Minimize" @click="minimize">
-        <svg width="10" height="1" viewBox="0 0 10 1"><rect width="10" height="1" fill="currentColor"/></svg>
-      </button>
-      <button class="win-btn" title="Maximize" @click="toggleMaximize">
-        <svg v-if="!maximized" width="9" height="9" viewBox="0 0 9 9">
-          <rect x="0.5" y="0.5" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1"/>
+          </Transition>
+        </Teleport>
+      </template>
+      <button
+        v-else
+        class="account-pill account-pill--guest"
+        :disabled="accountStore.loading"
+        @click="accountStore.login()"
+      >
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+          <circle cx="6.5" cy="4.5" r="2.5" stroke="currentColor" stroke-width="1.3"/>
+          <path d="M1.5 11.5c0-2.485 2.239-4.5 5-4.5s5 2.015 5 4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
         </svg>
-        <svg v-else width="10" height="10" viewBox="0 0 10 10">
-          <rect x="2" y="0" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1"/>
-          <rect x="0" y="2" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1"/>
-        </svg>
+        <span class="account-name account-name--guest">{{ accountStore.loginStatus ?? (accountStore.loading ? 'Signing in…' : 'Sign in') }}</span>
       </button>
-      <button class="win-btn win-close" title="Close" @click="close">
-        <svg width="10" height="10" viewBox="0 0 10 10">
-          <line x1="0.5" y1="0.5" x2="9.5" y2="9.5" stroke="currentColor" stroke-width="1.3"/>
-          <line x1="9.5" y1="0.5" x2="0.5" y2="9.5" stroke="currentColor" stroke-width="1.3"/>
-        </svg>
-      </button>
+
+      <div class="win-controls">
+        <button class="win-btn" title="Minimize" @click="minimize">
+          <svg width="10" height="1" viewBox="0 0 10 1"><rect width="10" height="1" fill="currentColor"/></svg>
+        </button>
+        <button class="win-btn" title="Maximize" @click="toggleMaximize">
+          <svg v-if="!maximized" width="9" height="9" viewBox="0 0 9 9">
+            <rect x="0.5" y="0.5" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1"/>
+          </svg>
+          <svg v-else width="10" height="10" viewBox="0 0 10 10">
+            <rect x="2" y="0" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1"/>
+            <rect x="0" y="2" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1"/>
+          </svg>
+        </button>
+        <button class="win-btn win-close" title="Close" @click="close">
+          <svg width="10" height="10" viewBox="0 0 10 10">
+            <line x1="0.5" y1="0.5" x2="9.5" y2="9.5" stroke="currentColor" stroke-width="1.3"/>
+            <line x1="9.5" y1="0.5" x2="0.5" y2="9.5" stroke="currentColor" stroke-width="1.3"/>
+          </svg>
+        </button>
+      </div>
     </div>
   </header>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAccountStore } from '../../store/accountStore'
 import { useWalletStore } from '../../store/walletStore'
+import { useFriendsStore } from '../../store/friendsStore'
 import { useCountUp } from '../../composables/useCountUp'
 import { useCommandPalette } from '../../composables/useCommandPalette'
+import { useSlidingTabIndicator } from '../../composables/useSlidingTabIndicator'
 import Tooltip from '../common/Tooltip.vue'
 import gemIcon from '../../assets/violet-gem-pixel.svg'
+import logoUrl from '../../assets/bc-logo-new.png'
+
+import iconPlay      from '../../assets/icons8-spielen-64.png'
+import iconLocker    from '../../assets/icons8-kimono-64.png'
+import iconExplore   from '../../assets/icons8-kompass-48.png'
+import iconProfiles  from '../../assets/icons8-name-50.png'
+import iconFriends   from '../../assets/icons8-freunde-64.png'
+import iconSettings  from '../../assets/icons8-settings-50.png'
 
 const accountStore = useAccountStore()
 const walletStore  = useWalletStore()
+const friendsStore = useFriendsStore()
 const account      = computed(() => accountStore.selectedAccount)
 const gemDisplay   = useCountUp(computed(() => walletStore.balance))
 const { openPalette } = useCommandPalette()
+
+// ── Nav (formerly the left sidebar, now folded into the top bar) ────────────
+const route = useRoute()
+const { t } = useI18n()
+
+interface NavItem {
+  label: string
+  path: string
+  exact: boolean
+  icon: string
+  badge: number | null
+  wip?: boolean
+}
+
+const navItems = computed<NavItem[]>(() => [
+  { label: t('nav.hub'),       path: '/',          exact: true,  icon: iconPlay,     badge: null },
+  { label: t('nav.locker'),    path: '/cosmetics', exact: false, icon: iconLocker,   badge: null },
+  { label: t('nav.explore'),   path: '/mods',      exact: false, icon: iconExplore,  badge: null },
+  { label: t('nav.profiles'),  path: '/profiles',  exact: false, icon: iconProfiles, badge: null },
+  { label: t('nav.friends'),   path: '/friends',   exact: false, icon: iconFriends,  badge: friendsStore.pendingCount || null },
+  { label: t('nav.settings'),  path: '/settings',  exact: false, icon: iconSettings, badge: null },
+])
+
+function isActive(path: string, exact: boolean) {
+  return exact ? route.path === path : route.path.startsWith(path)
+}
+
+const activeNavKey = computed(() => navItems.value.find(item => isActive(item.path, item.exact))?.path ?? '')
+const { setTabBtnRef, indicatorStyle } = useSlidingTabIndicator(activeNavKey)
+
+function setNavBtnRef(key: string, el: unknown) {
+  const domEl = (el as { $el?: HTMLElement } | null)?.$el ?? (el as HTMLElement | null)
+  setTabBtnRef(key, domEl instanceof HTMLElement ? domEl : null)
+}
+
+const navIndicatorStyle = computed(() => ({
+  left: `calc(${indicatorStyle.value.left} + 6px)`,
+  width: `calc(${indicatorStyle.value.width} - 12px)`,
+}))
 
 const maximized    = ref(false)
 const dropdownOpen = ref(false)
@@ -189,20 +272,176 @@ onUnmounted(() => {
 
 <style lang="scss" scoped>
 .topbar {
-  height: 46px;
+  height: 72px;
   flex-shrink: 0;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  padding: 0 12px 0 0;
+  padding: 0 12px 0 14px;
   -webkit-app-region: drag;
 }
 
-.topbar-drag {
-  flex: 1;
+// Middle grid column — centers .topnav within the space between the brand
+// and the right-hand controls, regardless of how wide either side is.
+.nav-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
   height: 100%;
+  min-width: 0;
+}
+
+.right-group {
   display: flex;
   align-items: center;
-  -webkit-app-region: drag;
+  justify-self: end;
+  flex-shrink: 0;
+}
+
+// ── Brand ─────────────────────────────────────────────────────────────────────
+.brand-group {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-shrink: 0;
+  margin-right: 34px;
+  animation: topbar-drop-in 700ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both;
+}
+
+.brand-logo {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+  opacity: 0.9;
+  flex-shrink: 0;
+}
+
+.wordmark {
+  display: flex;
+  align-items: baseline;
+  font-size: 18px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.w-beja     { font-weight: 900; color: #fff; }
+.w-client   { font-weight: 300; color: #fff; }
+.w-launcher { font-weight: 800; color: #fff; }
+
+// ── Top nav (formerly the left sidebar) ──────────────────────────────────────
+.topnav {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  min-width: 0;
+  flex-shrink: 1;
+  overflow: visible;
+  -webkit-app-region: no-drag;
+}
+
+.nav-item {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 100%;
+  padding: 0 26px;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+// Active tab pill — a single shared element that slides between nav items
+// (position/width driven by useSlidingTabIndicator) instead of each button
+// drawing its own static active-state box.
+.nav-indicator {
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  background: linear-gradient(to right, #272628 28%, #1A191B 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0;
+  pointer-events: none;
+  z-index: 0;
+  transition: left 260ms cubic-bezier(0.16, 1, 0.3, 1), width 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+// Plain text, no animation/transition/glow — active adds the static pill
+// above (::before) plus a brighter color.
+.nav-label {
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.nav-item.active .nav-label {
+  color: #fff;
+}
+
+.nav-badge {
+  position: absolute;
+  top: 10px;
+  right: 8px;
+  z-index: 2;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  background: #e0353c;
+  color: #fff;
+  font-size: 8px;
+  font-weight: 700;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.nav-wip {
+  position: relative;
+  z-index: 2;
+  width: 15px;
+  height: 15px;
+  background: rgba(18, 20, 24, 0.85);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.wip-clock {
+  width: 11px;
+  height: 11px;
+  color: #e03535;
+}
+
+.clock-min {
+  transform-origin: 7px 7px;
+  animation: clock-tick 4s linear infinite;
+}
+
+@keyframes clock-tick {
+  0%   { transform: rotate(0deg);   animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+  20%  { transform: rotate(90deg); }
+  25%  { transform: rotate(90deg);  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+  45%  { transform: rotate(180deg); }
+  50%  { transform: rotate(180deg); animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+  70%  { transform: rotate(270deg); }
+  75%  { transform: rotate(270deg); animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+  95%  { transform: rotate(360deg); }
+  100% { transform: rotate(360deg); }
 }
 
 // ── Quick search ──────────────────────────────────────────────────────────────
@@ -223,7 +462,6 @@ onUnmounted(() => {
   transition: color 160ms ease, opacity 160ms ease;
 
   kbd {
-    font-family: 'Mojangles', monospace;
     font-size: 9px;
     font-weight: 400;
     color: #fff;
@@ -246,7 +484,6 @@ onUnmounted(() => {
   margin-right: 8px;
   background: none;
   color: #fff;
-  font-family: 'Mojangles', monospace;
   font-size: 12px;
   line-height: 1;
   flex-shrink: 0;

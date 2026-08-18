@@ -87,6 +87,7 @@ pub async fn search_modrinth(
     loader: Option<&str>,
     offset: u32,
     categories: Option<Vec<String>>,
+    sort: Option<&str>,
 ) -> Result<Value, String> {
     let mut facets: Vec<Vec<String>> = vec![vec![format!("project_type:{project_type}")]];
     if let Some(gv) = game_version {
@@ -103,15 +104,28 @@ pub async fn search_modrinth(
         }
     }
 
+    // Modrinth doesn't expose a raw "views" metric — `index` only accepts
+    // relevance/downloads/follows/newest/updated.
+    let index = match sort.unwrap_or("relevance") {
+        "downloads" => "downloads",
+        "newest" => "newest",
+        "updated" => "updated",
+        _ => "relevance",
+    };
+
     let facets_str = urlencoding::encode(&serde_json::to_string(&facets).unwrap()).to_string();
     let query_str = urlencoding::encode(query).to_string();
-    let url = format!("{API}/search?query={query_str}&facets={facets_str}&limit=20&offset={offset}&index=downloads");
+    let url = format!("{API}/search?query={query_str}&facets={facets_str}&limit=20&offset={offset}&index={index}");
 
     let data = get_json(&url).await?;
     if !data["hits"].is_array() {
         return Err(data["description"].as_str().or(data["error"].as_str()).unwrap_or("Unexpected Modrinth response").to_string());
     }
     Ok(data)
+}
+
+pub async fn get_project(project_id: &str) -> Result<Value, String> {
+    get_json(&format!("{API}/project/{project_id}")).await
 }
 
 pub async fn get_project_versions(project_id: &str, game_version: Option<&str>, loader: Option<&str>) -> Result<Vec<ModrinthVersion>, String> {
@@ -195,6 +209,29 @@ pub async fn install_modpack(project_id: &str, version_id: Option<&str>) -> Resu
     let safe_name: String = profile_name.chars().filter(|c| c.is_alphanumeric() || *c == '_' || *c == '-' || *c == ' ').collect();
     let game_dir = PathBuf::from(&settings.game.default_game_dir).join("modpacks").join(&safe_name);
     fs::create_dir_all(&game_dir).await.map_err(|e| e.to_string())?;
+
+    // Re-installing/updating a pack that's already installed here (same deterministic
+    // game_dir) previously left the PREVIOUS version's mod jars sitting alongside the new
+    // ones — install_modpack only skips a download when the exact filename already exists,
+    // and different mod versions almost always have different filenames, so nothing ever got
+    // removed. That produced a mods/ folder with two Minecraft-version-incompatible copies of
+    // nearly every mod (e.g. both a 1.21.11 and a 26.2 build of Sodium/Iris/etc. installed
+    // together), which Fabric Loader then refuses to boot. Clear stale mods before writing the
+    // new set. Only mods/ is wiped — saves/config/resourcepacks/screenshots are untouched.
+    // NOT gated on an existing profile being found: game_dir is a deterministic path derived
+    // purely from the pack's title, so any mods/ already sitting there — even predating any
+    // profile row (e.g. a stray manual test install) — is guaranteed stale once we're about to
+    // repopulate it fresh from modrinth.index.json below. Confirmed hit in practice: a Fabulously
+    // Optimized profile whose FIRST-ever install (no prior profile row) still failed to boot
+    // because 1.16.5-era jars were already sitting in mods/ from an earlier manual drop.
+    let game_dir_str = game_dir.to_string_lossy().to_string();
+    let existing_profile = profile_service::list_profiles().into_iter().find(|p| p.game_dir == game_dir_str);
+    {
+        let mods_dir = game_dir.join("mods");
+        if fs::metadata(&mods_dir).await.is_ok() {
+            fs::remove_dir_all(&mods_dir).await.map_err(|e| e.to_string())?;
+        }
+    }
 
     let tmp_path_blocking = tmp_path.clone();
     let game_dir_blocking = game_dir.clone();
@@ -286,23 +323,39 @@ pub async fn install_modpack(project_id: &str, version_id: Option<&str>) -> Resu
         .map(|s| s.to_string())
         .or_else(|| icon_url.clone());
 
-    let new_profile = profile_service::create_profile(profile_service::NewProfile {
-        name: profile_name.clone(),
-        description: None,
-        version: mc_version,
-        loader,
-        loader_version,
-        game_dir: game_dir.to_string_lossy().to_string(),
-        min_ram: 1024,
-        max_ram: settings.game.max_ram,
-        java_path: settings.game.default_java_path,
-        jvm_args: String::new(),
-        resolution: settings.game.resolution,
-        use_beja_client: false,
-        image_url: icon_url,
-        background_url: banner_url,
-        isolate_profile: None,
-    });
+    // Update the existing profile in place if this project was already installed here, rather
+    // than inserting a second profile that points at the very same game_dir (create_profile
+    // always mints a fresh id/row — it has no dedup of its own).
+    let profile_id = if let Some(existing) = existing_profile {
+        profile_service::update_profile(&existing.id, serde_json::json!({
+            "version": mc_version,
+            "loader": loader,
+            "loaderVersion": loader_version,
+            "imageUrl": icon_url,
+            "backgroundUrl": banner_url,
+        }))
+        .ok_or("Failed to update existing modpack profile")?
+        .id
+    } else {
+        profile_service::create_profile(profile_service::NewProfile {
+            name: profile_name.clone(),
+            description: None,
+            version: mc_version,
+            loader,
+            loader_version,
+            game_dir: game_dir.to_string_lossy().to_string(),
+            min_ram: 1024,
+            max_ram: settings.game.max_ram,
+            java_path: settings.game.default_java_path,
+            jvm_args: String::new(),
+            resolution: settings.game.resolution,
+            use_beja_client: false,
+            image_url: icon_url,
+            background_url: banner_url,
+            isolate_profile: None,
+        })
+        .id
+    };
 
-    Ok(ModpackInstallResult { profile_id: new_profile.id, name: profile_name })
+    Ok(ModpackInstallResult { profile_id, name: profile_name })
 }

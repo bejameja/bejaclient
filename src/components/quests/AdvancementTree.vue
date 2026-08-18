@@ -678,7 +678,6 @@ onUnmounted(() => {
   border: 2px solid #000;
   color: #ccc;
   cursor: pointer;
-  font-family: 'Mojangles', monospace;
   font-size: 15px;
   box-shadow:
     inset 1px 1px 0 rgba(255,255,255,0.12),
@@ -840,7 +839,6 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Mojangles', monospace;
   font-size: 13px;
   background: #ffb300;
   color: #241c00;
@@ -895,7 +893,6 @@ onUnmounted(() => {
 }
 
 .claim-float-xp {
-  font-family: 'Mojangles', monospace;
   font-size: 12px;
   font-weight: 700;
   color: #7ee787;
@@ -903,7 +900,6 @@ onUnmounted(() => {
 }
 
 .claim-float-coins {
-  font-family: 'Mojangles', monospace;
   font-size: 11px;
   font-weight: 700;
   color: #c084fc;
@@ -949,7 +945,6 @@ onUnmounted(() => {
 .adv-tip-enter-from, .adv-tip-leave-to { opacity: 0; transform: translateX(-50%) translateY(4px); }
 
 .tip-title {
-  font-family: 'Mojangles', monospace;
   font-size: 12px;
   color: $text-primary;
   margin-bottom: 4px;
@@ -971,7 +966,6 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-family: 'Mojangles', monospace;
   font-size: 8.5px;
   padding: 2px 5px;
   border: 1px solid;

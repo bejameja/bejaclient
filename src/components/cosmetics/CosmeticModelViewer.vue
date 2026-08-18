@@ -276,7 +276,6 @@ onUnmounted(() => {
 }
 
 .cmv__label {
-  font-family: 'Mojangles', monospace;
   font-size: 9px;
   letter-spacing: 0.1em;
   text-transform: uppercase;

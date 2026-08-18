@@ -101,7 +101,29 @@ pub async fn install_curseforge_mod(mod_id: &str, project_type: &str, profile_id
     Ok(())
 }
 
-pub async fn search_curseforge(query: &str, project_type: &str, game_version: Option<&str>, loader: Option<&str>, offset: u32) -> Result<Value, String> {
+/// Combines `/mods/{id}` (stats, links, screenshots) with `/mods/{id}/description`
+/// (the full HTML body — not included in the base mod object) into one JSON blob.
+pub async fn get_mod_details(mod_id: &str) -> Result<Value, String> {
+    let settings = settings_service::get_settings();
+    let api_key = settings.launcher.curseforge_api_key.clone();
+    if api_key.is_empty() {
+        return Err("CurseForge API key not configured".to_string());
+    }
+
+    let mod_data = cf_get(&format!("/mods/{mod_id}"), &api_key).await?;
+    let description = cf_get(&format!("/mods/{mod_id}/description"), &api_key).await
+        .ok()
+        .and_then(|d| d["data"].as_str().map(|s| s.to_string()))
+        .unwrap_or_default();
+
+    let mut mod_obj = mod_data["data"].clone();
+    if let Value::Object(ref mut map) = mod_obj {
+        map.insert("fullDescription".to_string(), Value::String(description));
+    }
+    Ok(mod_obj)
+}
+
+pub async fn search_curseforge(query: &str, project_type: &str, game_version: Option<&str>, loader: Option<&str>, offset: u32, sort: Option<&str>) -> Result<Value, String> {
     let settings = settings_service::get_settings();
     let api_key = settings.launcher.curseforge_api_key.clone();
     if api_key.is_empty() {
@@ -110,13 +132,22 @@ pub async fn search_curseforge(query: &str, project_type: &str, game_version: Op
 
     let Some(class_id) = class_id(project_type) else { return Ok(serde_json::json!({ "hits": [], "total": 0 })) };
 
+    // CurseForge doesn't expose a raw "views" metric either — map the shared sort
+    // options onto the closest sortField it does have.
+    let sort_field = match sort.unwrap_or("relevance") {
+        "downloads" => "6", // TotalDownloads
+        "newest" => "11",   // ReleasedDate
+        "updated" => "3",   // LastUpdated
+        _ => "2",           // Popularity
+    };
+
     let mut query_params = vec![
         ("gameId".to_string(), MC_GAME_ID.to_string()),
         ("classId".to_string(), class_id.to_string()),
         ("searchFilter".to_string(), query.to_string()),
         ("pageSize".to_string(), "20".to_string()),
         ("index".to_string(), offset.to_string()),
-        ("sortField".to_string(), "6".to_string()), // total downloads
+        ("sortField".to_string(), sort_field.to_string()),
         ("sortOrder".to_string(), "desc".to_string()),
     ];
     if let Some(gv) = game_version {

@@ -1,5 +1,5 @@
 <template>
-  <div class="home-page">
+  <div class="home-page" :class="{ 'no-intro': !playIntro }">
 
     <!-- Main scrollable column -->
     <div class="main-col">
@@ -182,10 +182,8 @@
         </div>
       </div>
 
-      <EditableRegion id="home.moreSoonEmbed" label="More-Soon-Embed" flex-fill :features="['radius', 'outline', 'color', 'bgColor', 'fontFamily']">
-      <div class="more-soon-embed">
-        <span class="more-soon-text">more soon</span>
-      </div>
+      <EditableRegion id="home.emptyEmbed" label="Leeres Embed" flex-fill :features="['radius', 'outline', 'color', 'bgColor', 'fontFamily']">
+      <div class="empty-embed"></div>
       </EditableRegion>
 
     </div>
@@ -195,9 +193,13 @@
       <EditableRegion id="home.friendsCard" label="Freunde-Karte" flex-fill :features="['radius', 'outline', 'color', 'fontFamily']">
       <div class="friends-card">
         <div class="friends-card-header">
-          <h2 class="friends-heading">
-            {{ $t('home.friends') }} <span class="friends-online-count">({{ $t('home.onlineCount', { count: friendsStore.onlineCount }) }})</span>
-          </h2>
+          <div class="friends-heading-row">
+            <h2 class="friends-heading">{{ $t('home.friends') }}</h2>
+            <span class="friends-online-count">
+              <span class="online-dot" :class="{ lit: friendsStore.onlineCount > 0 }" />
+              {{ $t('home.onlineCount', { count: friendsStore.onlineCount }) }}
+            </span>
+          </div>
           <button class="satellite-link" @click="openFriendChat()">
             {{ $t('home.openSatellite') }}
             <Icon name="external-link" :size="13" />
@@ -262,7 +264,13 @@ import InfoTooltip    from '../components/common/InfoTooltip.vue'
 import Icon           from '../components/common/Icon.vue'
 import EditableRegion from '../components/common/EditableRegion.vue'
 import { useElementStyle } from '../composables/useElementStyle'
+import { consumeHubIntro } from './homePageIntro'
 // ── Video ─────────────────────────────────────────────────────────────────────
+
+// Module-level (see homePageIntro.ts): true only the first time this app
+// session reaches the hub, false on every later tab switch back to it —
+// even if KeepAlive's LRU cache evicts and remounts the component.
+const playIntro = consumeHubIntro()
 
 const sceneVideo = ref('')
 const videoRef   = ref<HTMLVideoElement | null>(null)
@@ -454,6 +462,25 @@ function onVideoError(e: Event) {
   0%   { height: 2px; opacity: 0; }
   8%   { opacity: 1; }
   100% { height: 170px; }
+}
+
+// Tab revisit (not a real app launch) — skip the one-time entrance
+// animations but keep the continuous idle loops (skinFloat, crown-float).
+.home-page.no-intro {
+  .launch-drop, .rope, .video-card, .voice-controls,
+  .friends-card-header, .empty-embed, .friends-card, .friend-row {
+    animation: none;
+  }
+  .skin-wrap {
+    animation: skinFloat 3s ease-in-out infinite alternate;
+  }
+  .flank-slot {
+    animation-name: skinFloat;
+    animation-duration: 3s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+  }
 }
 
 // ── Main column ───────────────────────────────────────────────────────────────
@@ -750,7 +777,6 @@ function onVideoError(e: Event) {
   border-radius: 0;
   padding: 0 14px;
   gap: 6px;
-  font-family: 'Mojangles', monospace;
   font-size: 11px;
   font-weight: 400;
   letter-spacing: 0.02em;
@@ -810,28 +836,6 @@ function onVideoError(e: Event) {
   }
 }
 
-// ── More-soon placeholder embed ──────────────────────────────────────────────
-.more-soon-embed {
-  flex: 1;
-  min-height: 0;
-  border-radius: var(--edr-radius, 10px);
-  outline: var(--edr-outline, none);
-  outline-offset: 3px;
-  background: var(--edr-bg, rgba(0, 0, 0, 0.25));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: hub-fade 900ms ease 1100ms both;
-}
-
-.more-soon-text {
-  font-family: var(--edr-font, 'Mojangles', monospace);
-  color: var(--edr-color, inherit);
-  font-size: 13px;
-  letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.35);
-}
-
 // ── Friends panel ─────────────────────────────────────────────────────────────
 .friends-panel {
   width: 264px;
@@ -844,27 +848,58 @@ function onVideoError(e: Event) {
 
 .friends-card-header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 14px 14px 10px;
+  padding: 14px 14px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
   animation: hub-fade 700ms ease 850ms both;
 }
 
+.friends-heading-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
 .friends-heading {
-  font-size: 20px;
+  display: inline-block;
+  font-size: 17px;
   font-weight: 800;
-  color: $text-primary;
-  margin: 0;
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  color: #4660FE;
+  background: #090C20;
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin: 0 0 0 -6px;
+  font-family: 'Minecrafter', 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: 0.12em;
 }
 
 .friends-online-count {
-  font-size: 14px;
-  font-weight: 600;
-  color: $text-muted;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.online-dot {
+  width: 6px;
+  height: 6px;
+  background: #fff;
+  transform: rotate(45deg);
+  flex-shrink: 0;
+  transition: background 200ms ease, box-shadow 200ms ease;
+
+  &.lit {
+    background: #30d158;
+    box-shadow: 0 0 5px rgba(48, 209, 88, 0.65);
+  }
 }
 
 .satellite-link {
@@ -884,13 +919,20 @@ function onVideoError(e: Event) {
   &:hover { color: $text-primary; }
 }
 
-@property --friends-angle {
-  syntax: '<angle>';
-  initial-value: 45deg;
-  inherits: false;
-}
-
 $friends-embed-bg: #0f0f11;
+
+// ── Empty placeholder embed — same visual language as .friends-card ─────────
+.empty-embed {
+  flex: 1;
+  min-height: 0;
+  border-radius: var(--edr-radius, 8px);
+  outline: var(--edr-outline, none);
+  outline-offset: 3px;
+  box-sizing: border-box;
+  background: var(--edr-bg, $friends-embed-bg);
+  border: 1px solid #262627;
+  animation: hub-fade 900ms ease 1100ms both;
+}
 
 .friends-card {
   flex: 1;
@@ -902,26 +944,10 @@ $friends-embed-bg: #0f0f11;
   color: var(--edr-color, inherit);
   font-family: var(--edr-font, inherit);
   overflow: hidden;
-  border: 1px solid transparent;
-  background-image:
-    linear-gradient($friends-embed-bg, $friends-embed-bg),
-    conic-gradient(
-      from var(--friends-angle),
-      rgba(255, 255, 255, 0.04) 0%,
-      rgba(255, 255, 255, 0.45) 8%,
-      rgba(255, 255, 255, 0.04) 16%,
-      rgba(255, 255, 255, 0.04) 46%,
-      rgba(255, 255, 255, 0.45) 54%,
-      rgba(255, 255, 255, 0.04) 62%,
-      rgba(255, 255, 255, 0.04) 100%
-    );
-  background-origin: border-box;
-  background-clip: padding-box, border-box;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.55);
-  transition: --friends-angle 400ms cubic-bezier(0.2, 0, 0, 1);
+  box-sizing: border-box;
+  background: $friends-embed-bg;
+  border: 1px solid #262627;
   animation: hub-slide-in 1300ms cubic-bezier(0.16, 1, 0.3, 1) 700ms both;
-
-  &:hover { --friends-angle: 135deg; }
 }
 
 .friends-card-list {
@@ -987,8 +1013,8 @@ $friends-embed-bg: #0f0f11;
   width: 15px;
   height: 15px;
   border-radius: 50%;
-  background: $surface;
-  border: 2px solid $surface;
+  background: #1c1c1f;
+  border: 2px solid $friends-embed-bg;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1003,7 +1029,7 @@ $friends-embed-bg: #0f0f11;
   height: 10px;
   border-radius: 50%;
   background: $text-muted;
-  border: 2px solid $surface;
+  border: 2px solid $friends-embed-bg;
   &.online { background: #30d158; box-shadow: 0 0 6px rgba(48, 209, 88, 0.7); }
 }
 

@@ -204,7 +204,6 @@ onMounted(load)
 
 <style lang="scss" scoped>
 @font-face {
-  font-family: 'Mojangles';
   src: url('../assets/fonts/mojangles.ttf') format('truetype');
 }
 
@@ -224,7 +223,6 @@ onMounted(load)
 .fp-header { flex-shrink: 0; }
 
 .fp-title {
-  font-family: 'Mojangles', monospace;
   font-size: 26px;
   font-weight: normal;
   color: #f0f0f0;
@@ -233,7 +231,6 @@ onMounted(load)
 }
 
 .fp-sub {
-  font-family: 'Mojangles', monospace;
   font-size: 9px;
   color: #444;
   margin: 0;
@@ -303,7 +300,6 @@ onMounted(load)
 .fp-slot-svg { width: 55%; height: 55%; }
 
 .fp-count {
-  font-family: 'Mojangles', monospace;
   font-size: 8px;
   letter-spacing: 0.05em;
   position: absolute;
@@ -332,7 +328,6 @@ onMounted(load)
 }
 
 .fp-out-label {
-  font-family: 'Mojangles', monospace;
   font-size: 8px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -343,7 +338,6 @@ onMounted(load)
 .fp-btn {
   margin-left: auto;
   padding: 9px 24px;
-  font-family: 'Mojangles', monospace;
   font-size: 11px;
   background: #111;
   border: 1px solid #2a2a2a;
@@ -406,7 +400,6 @@ onMounted(load)
 }
 
 .fp-result-title {
-  font-family: 'Mojangles', monospace;
   font-size: 14px;
   color: #f0f0f0;
   margin: 0;
@@ -427,14 +420,12 @@ onMounted(load)
 }
 
 .fp-result-rarity {
-  font-family: 'Mojangles', monospace;
   font-size: 9px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
 .fp-result-name {
-  font-family: 'Mojangles', monospace;
   font-size: 16px;
   color: #f0f0f0;
   letter-spacing: 0.03em;
@@ -443,7 +434,6 @@ onMounted(load)
 .fp-result-close {
   margin-top: 6px;
   padding: 8px 28px;
-  font-family: 'Mojangles', monospace;
   font-size: 11px;
   background: #1a1a1a;
   border: none;

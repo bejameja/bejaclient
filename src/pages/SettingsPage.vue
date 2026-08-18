@@ -22,7 +22,7 @@
       <div class="page-section">
         <h3 class="page-section-title">
           <component :is="IconGame" class="page-section-icon" />
-          Game
+          <span class="accent-green">Game</span>
         </h3>
 
         <span class="group-label">Paths</span>
@@ -512,22 +512,6 @@
         <div class="setting-group">
           <div class="setting-row">
             <div class="setting-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="16" rx="1" opacity="0.4"/></svg>
-            </div>
-            <div class="setting-info">
-              <span class="setting-label">Page Transitions</span>
-              <span class="setting-desc">How the main view crossfades when you switch pages.</span>
-            </div>
-            <div class="setting-control">
-              <div class="seg-control">
-                <button class="seg-btn" :class="{ active: s.appearance.pageTransition === 'fade' }" @click="s.appearance.pageTransition = 'fade'; save()">Fade</button>
-                <button class="seg-btn" :class="{ active: s.appearance.pageTransition === 'instant' }" @click="s.appearance.pageTransition = 'instant'; save()">Instant</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="setting-row">
-            <div class="setting-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12l3 3 5-6"/><circle cx="12" cy="12" r="9"/></svg>
             </div>
             <div class="setting-info">
@@ -562,6 +546,21 @@
           Accounts
         </h3>
         <AccountsSettings />
+      </div>
+
+      <!-- ── ABOUT ────────────────────────────────────────────────────────── -->
+      <div class="page-section">
+        <h3 class="page-section-title">
+          <component :is="IconAbout" class="page-section-icon" />
+          About
+        </h3>
+        <div class="setting-group">
+          <div class="setting-row about-links">
+            <button class="about-link" @click="openExternal('https://bejaclient.com/terms')">{{ $t('nav.footer.terms') }}</button>
+            <button class="about-link" @click="openExternal('https://bejaclient.com/privacy')">{{ $t('nav.footer.privacy') }}</button>
+            <button class="about-link" @click="openExternal('https://bejaclient.com/support')">{{ $t('nav.footer.support') }}</button>
+          </div>
+        </div>
       </div>
 
       </div>
@@ -647,6 +646,18 @@ const IconAnimations = {
   ])
 }
 
+const IconAbout = {
+  render: () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
+    h('circle', { cx: 12, cy: 12, r: 10 }),
+    h('line', { x1: 12, y1: 16, x2: 12, y2: 11 }),
+    h('line', { x1: 12, y1: 8, x2: 12.01, y2: 8 }),
+  ])
+}
+
+function openExternal(url: string) {
+  window.open(url, '_blank')
+}
+
 // ── Settings search ────────────────────────────────────────────────────────────
 // Rows are hand-authored template blocks, not a data model, so filtering works
 // directly against the rendered DOM text rather than requiring a full
@@ -700,7 +711,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
 .section-title {
   font-family: $font-family;
   font-weight: 600;
-  font-size: 20px;
+  font-size: 30px;
   color: #e2e2e2;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -724,7 +735,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
 .advanced-switch-label {
   font-family: $font-family;
   font-weight: 600;
-  font-size: 9px;
+  font-size: 14px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #666;
@@ -742,7 +753,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
   color: #aaa;
   font-family: $font-family;
   font-weight: 600;
-  font-size: 9px;
+  font-size: 14px;
   letter-spacing: 0.03em;
   padding: 0 10px;
   outline: none;
@@ -780,7 +791,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
   gap: 8px;
   font-family: $font-family;
   font-weight: 600;
-  font-size: 15px;
+  font-size: 23px;
   color: #d9d9d9;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -797,7 +808,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
 .group-label {
   font-family: $font-family;
   font-weight: 600;
-  font-size: 10px;
+  font-size: 15px;
   color: #555;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -836,7 +847,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
   display: inline-block;
   font-family: $font-family;
   font-weight: 700;
-  font-size: 7px;
+  font-size: 11px;
   letter-spacing: 0.08em;
   color: #fff;
   background: #cc0000;
@@ -876,6 +887,25 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
   &--hidden { display: none; }
 }
 
+.about-links {
+  gap: 22px;
+}
+
+.about-link {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: $font-family;
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.5);
+  transition: color 160ms $ease-out;
+
+  &:hover { color: rgba(255, 255, 255, 0.9); }
+}
+
 // ── Row leading icon ──────────────────────────────────────────────────────────
 .setting-icon {
   width: 32px;
@@ -904,7 +934,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
 .setting-label {
   font-family: $font-family;
   font-weight: 600;
-  font-size: 11px;
+  font-size: 17px;
   color: #d9d9d9;
   letter-spacing: 0.02em;
 }
@@ -912,7 +942,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
 .setting-desc {
   font-family: $font-family;
   font-weight: 600;
-  font-size: 8px;
+  font-size: 12px;
   color: #444;
   letter-spacing: 0.03em;
   line-height: 1.5;
@@ -971,7 +1001,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
 .slider-val {
   font-family: $font-family;
   font-weight: 600;
-  font-size: 9px;
+  font-size: 14px;
   color: #555;
   letter-spacing: 0.04em;
   min-width: 32px;
@@ -1014,7 +1044,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
   color: #aaa;
   font-family: $font-family;
   font-weight: 600;
-  font-size: 10px;
+  font-size: 15px;
   letter-spacing: 0.02em;
   padding: 0 10px;
   outline: none;
@@ -1036,7 +1066,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
   color: #aaa;
   font-family: $font-family;
   font-weight: 600;
-  font-size: 10px;
+  font-size: 15px;
   letter-spacing: 0.02em;
   padding: 0 8px;
   outline: none;
@@ -1051,7 +1081,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
 .res-x {
   font-family: $font-family;
   font-weight: 600;
-  font-size: 11px;
+  font-size: 17px;
   color: #333;
 }
 
@@ -1064,7 +1094,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
 .path-text {
   font-family: $font-family;
   font-weight: 600;
-  font-size: 9px;
+  font-size: 14px;
   color: #555;
   letter-spacing: 0.02em;
   white-space: nowrap;
@@ -1078,7 +1108,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
 .browse-btn {
   font-family: $font-family;
   font-weight: 600;
-  font-size: 8px;
+  font-size: 12px;
   letter-spacing: 0.08em;
   padding: 5px 12px;
   background: #0d0d0d;
@@ -1097,7 +1127,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
   background: transparent;
   border: 1px solid transparent;
   color: #333;
-  font-size: 9px;
+  font-size: 14px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1116,7 +1146,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
   color: #aaa;
   font-family: $font-family;
   font-weight: 600;
-  font-size: 10px;
+  font-size: 15px;
   letter-spacing: 0.03em;
   padding: 0 8px;
   outline: none;
@@ -1141,7 +1171,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
 .seg-btn {
   font-family: $font-family;
   font-weight: 600;
-  font-size: 9px;
+  font-size: 14px;
   letter-spacing: 0.07em;
   padding: 6px 14px;
   background: none;
@@ -1210,7 +1240,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
 .color-hex {
   font-family: $font-family;
   font-weight: 600;
-  font-size: 9px;
+  font-size: 14px;
   color: #666;
   letter-spacing: 0.04em;
 }

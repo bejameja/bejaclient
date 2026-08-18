@@ -277,7 +277,6 @@ onUnmounted(() => {
   font-weight: 400;
   color: $text-primary;
   line-height: 1;
-  font-family: 'Mojangles', sans-serif;
 }
 
 .beta-badge {
@@ -339,9 +338,8 @@ onUnmounted(() => {
   background: #0d0d0d;
   border: 1px solid rgba(255, 255, 255, 0.55);
   color: #fff;
-  font-family: 'Mojangles', monospace;
   font-size: 13px;
-  line-height: 1; // Mojangles' baked-in glyph metrics sit off-center otherwise
+  line-height: 1;
   flex-shrink: 0;
 }
 
@@ -391,7 +389,6 @@ onUnmounted(() => {
   color: $text-primary;
   font-size: 13px;
   font-weight: 400;
-  font-family: 'Mojangles', sans-serif;
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
@@ -444,7 +441,6 @@ onUnmounted(() => {
     color: #e05555;
     font-weight: 400;
     font-style: normal;
-    font-family: 'Mojangles', sans-serif;
   }
 }
 

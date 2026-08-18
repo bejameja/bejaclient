@@ -256,8 +256,13 @@ pub async fn launch_game(app: AppHandle, profile_id: &str) -> Result<(), String>
     options_service::patch_options_file(&game_dir);
 
     // Remove conflicting manually-installed mods before launching (BejaClient bundles native
-    // equivalents of Sodium/Lithium/FerriteCore/etc.).
-    crate::services::mod_compatibility_checker::enforce_mod_compatibility(&mods_dir, &on_log);
+    // equivalents of Sodium/Lithium/FerriteCore/etc.) — only relevant when BejaClient's adapter
+    // is actually being staged into this launch below. Profiles with use_beja_client=false (e.g.
+    // a plain modpack install) have no bundled Sodium/Lithium/etc. to conflict with, so running
+    // this against them only strips the pack's own legitimate copies of those mods.
+    if profile.use_beja_client {
+        crate::services::mod_compatibility_checker::enforce_mod_compatibility(&mods_dir, &on_log);
+    }
 
     on_status("starting");
 

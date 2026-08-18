@@ -92,6 +92,8 @@ export const api = {
     onSharedLink: (cb: (shareId: string) => void) => {
       listen<string>('profiles:shared-link', (e) => cb(e.payload))
     },
+    detectExternal: () => invoke('detect_external_profiles'),
+    importExternal: (id: string) => invoke('import_external_profile', { id }),
   },
 
   mods: {
@@ -102,6 +104,7 @@ export const api = {
     delete: (profileId: string, modId: string) => invoke('mods_delete', { profileId, modId }),
     openFolder: (profileId: string) => invoke('mods_open_folder', { profileId }),
     autoFix: (profileId: string) => invoke('mods_auto_fix', { profileId }),
+    checkUpdate: (profileId: string, modId: string) => invoke('check_mod_update', { profileId, modId }),
   },
 
   settings: {
@@ -125,9 +128,11 @@ export const api = {
       loader?: string,
       offset?: number,
       categories?: string[],
-    ) => invoke('explore_search', { query, type, source, gameVersion, loader, offset, categories }),
+      sort?: string,
+    ) => invoke('explore_search', { query, type, source, gameVersion, loader, offset, categories, sort }),
     installCurseforge: (modId: string, projectType: string, profileId: string) =>
       invoke('curseforge_install', { modId, projectType, profileId }),
+    details: (id: string, source: string) => invoke('mod_details', { id, source }),
     versions: (projectId: string, gameVersion?: string, loader?: string) =>
       invoke('modrinth_versions', { projectId, gameVersion, loader }),
     installMod: (projectId: string, profileId: string) => invoke('modrinth_install_mod', { projectId, profileId }),
@@ -291,6 +296,16 @@ export const api = {
     sendTyping: (toUuid: string) => invoke('chat_typing', { toUuid }),
     onMessage: (cb: (msg: unknown) => void) => listen('chat:message', (e) => cb(e.payload)),
     onTyping: (cb: (d: { fromUuid: string }) => void) => listen<{ fromUuid: string }>('chat:typing', (e) => cb(e.payload)),
+  },
+
+  giphy: {
+    // Runs through Rust (see giphy_service.rs) so the API key stays out of the
+    // shipped webview bundle — same reasoning as the CurseForge key.
+    search: (query: string) => invoke<{ id: string; thumb: string; url: string; title: string }[]>('giphy_search', { query: query || null }),
+  },
+
+  discord: {
+    setPresence: (details: string, state: string) => invoke('discord_set_presence', { details, state }),
   },
 
   video: {

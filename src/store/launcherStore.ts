@@ -85,6 +85,9 @@ export const useLauncherStore = defineStore('launcher', () => {
   const crashInfo = ref<CrashInfo | null>(null)
   const conflictWarning = ref<{ conflicts: string[]; profileId: string } | null>(null)
   const wizardOpen = ref(false)
+  // Set by ProfilesSettings.vue while its detail/edit view is open — read by
+  // App.vue's Discord presence watcher to show "Editing profile <name>".
+  const editingProfileName = ref<string | null>(null)
 
   const isRunning = computed(() => status.value === 'running')
   const isLaunching = computed(() => status.value === 'starting')
@@ -239,6 +242,7 @@ export const useLauncherStore = defineStore('launcher', () => {
     crashInfo,
     conflictWarning,
     wizardOpen,
+    editingProfileName,
     isRunning,
     isLaunching,
     isBejaMaintenance,

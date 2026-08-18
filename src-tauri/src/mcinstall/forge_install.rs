@@ -52,11 +52,37 @@ fn list_version_dirs(game_dir: &Path) -> HashSet<String> {
         .collect()
 }
 
+/// The Forge/NeoForge installer's client-install mode refuses to run unless `game_dir` already
+/// has a `launcher_profiles.json` — a leftover check from when it patched the vanilla launcher's
+/// own profile list. Fails with "There is no minecraft launcher profile in ... you need to run
+/// the launcher first!" and exits 0 new version folders. BejaClient never writes this file
+/// itself (nor does the CurseForge App / Modrinth App / Lunar Client, whose instance folders get
+/// reused in place for imported profiles), so every fresh `game_dir` hits this — write a minimal
+/// stub the installer accepts if one isn't already there.
+fn ensure_launcher_profiles_stub(game_dir: &Path) {
+    let path = game_dir.join("launcher_profiles.json");
+    if path.exists() {
+        return;
+    }
+    let stub = serde_json::json!({
+        "profiles": {},
+        "selectedProfile": null,
+        "authenticationDatabase": {},
+        "clientToken": uuid::Uuid::new_v4().to_string(),
+        "launcherVersion": { "name": "BejaClient", "format": 21 },
+    });
+    if let Ok(json) = serde_json::to_string_pretty(&stub) {
+        let _ = std::fs::write(&path, json);
+    }
+}
+
 async fn run_installer_jar(installer_jar_path: &Path, game_dir: &Path, java_path: &str, on_log: &impl Fn(String)) -> Result<String, String> {
     if !has_valid_zip_end(installer_jar_path) {
         let _ = std::fs::remove_file(installer_jar_path);
         return Err("Downloaded installer jar is corrupted (truncated download) — retry the install.".to_string());
     }
+
+    ensure_launcher_profiles_stub(game_dir);
 
     let before = list_version_dirs(game_dir);
 

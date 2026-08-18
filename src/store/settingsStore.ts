@@ -29,7 +29,6 @@ const defaultSettings: AppSettings = {
     language: 'en',
     accentColor: '#27ade0',
     reduceMotion: 'system',
-    pageTransition: 'fade',
     disableHoverEffects: false,
     disableSplashScreen: false,
     theme: 'default',

@@ -139,6 +139,8 @@ pub fn run() {
             // profiles
             commands::profiles_list,
             commands::profiles_create,
+            commands::detect_external_profiles,
+            commands::import_external_profile,
             commands::profiles_update,
             commands::profiles_delete,
             commands::profiles_get_active,
@@ -168,6 +170,7 @@ pub fn run() {
             commands::modrinth_categories,
             commands::explore_search,
             commands::curseforge_install,
+            commands::mod_details,
             commands::modrinth_versions,
             commands::modrinth_install_mod,
             commands::modrinth_install_modpack,
@@ -175,6 +178,7 @@ pub fn run() {
             commands::modrinth_install_shader,
             commands::modrinth_install_datapack,
             commands::modrinth_swap_mod,
+            commands::check_mod_update,
             // system
             commands::system_get_version,
             commands::system_java_versions,
@@ -244,6 +248,8 @@ pub fn run() {
             commands::chat_send,
             commands::chat_typing,
             commands::chat_history,
+            commands::giphy_search,
+            commands::discord_set_presence,
             // video
             commands::video_get_scene,
             commands::video_pick_custom_bg,

@@ -360,7 +360,6 @@ async function addFriend() {
 }
 
 .xp-unit {
-  font-family: 'Mojangles', monospace;
   font-size: 8px;
   letter-spacing: 0.1em;
 }

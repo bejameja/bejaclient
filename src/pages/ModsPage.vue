@@ -1,21 +1,9 @@
 <template>
-  <div class="explore-page">
+  <div class="explore-page" :class="{ 'explore-page--split': !!modpackPickerHit }">
+  <div class="explore-main">
 
-    <!-- Tabs -->
-    <div class="tab-row">
-      <button
-        v-for="tab in tabs"
-        :key="tab.key"
-        :ref="(el) => setTabBtnRef(tab.key, el as HTMLElement | null)"
-        class="tab-btn"
-        :class="{ active: activeTab === tab.key }"
-        @click="switchTab(tab.key)"
-      >{{ tab.label }}</button>
-      <span class="tab-indicator" :style="indicatorStyle" />
-    </div>
-
-    <!-- Search + filters (hidden on Servers tab) -->
-    <div v-if="activeTab !== 'servers'" class="controls-row">
+    <!-- Search + category pills -->
+    <div class="search-tab-row">
       <div class="search-bar">
         <input
           v-model="searchInput"
@@ -23,8 +11,29 @@
           :placeholder="$t('mods.searchPlaceholder', { tab: tabs.find(tab => tab.key === activeTab)?.label?.toLowerCase() ?? activeTab })"
           @keyup.enter="triggerSearch"
         />
-        <img :src="searchIcon" class="search-icon" alt="" />
       </div>
+
+      <button
+        v-for="tab in visibleTabs"
+        :key="tab.key"
+        class="tab-pill"
+        :class="{ active: activeTab === tab.key }"
+        @click="switchTab(tab.key)"
+      >{{ tab.label }}</button>
+    </div>
+
+    <!-- Filters (hidden on Servers tab) -->
+    <div v-if="activeTab !== 'servers'" class="controls-row">
+      <select
+        v-if="activeTab !== 'modpacks'"
+        v-model="filterSource"
+        class="filter-select"
+        @change="doSearch"
+      >
+        <option value="modrinth">Modrinth</option>
+        <option value="curseforge">CurseForge</option>
+        <option value="both">Modrinth + CurseForge</option>
+      </select>
 
       <select v-model="filterVersion" class="filter-select" @change="doSearch">
         <option value="">{{ $t('mods.filters.allVersions') }}</option>
@@ -44,13 +53,40 @@
         <option value="quilt">{{ $t('mods.loaders.quilt') }}</option>
       </select>
 
-      <button
-        class="filter-select cat-btn"
-        :class="{ active: filterCategories.length > 0 }"
-        @click="catPanelOpen = !catPanelOpen"
-      >
-        {{ $t('mods.categories') }}{{ filterCategories.length ? ` (${filterCategories.length})` : '' }}
-      </button>
+      <select v-model="filterSort" class="filter-select" @change="doSearch">
+        <option value="relevance">Relevance</option>
+        <option value="downloads">Most downloads</option>
+        <option value="newest">Newest</option>
+        <option value="updated">Recently updated</option>
+      </select>
+
+      <div class="view-toggle">
+        <button
+          class="view-toggle-btn"
+          :class="{ active: viewMode === 'list' }"
+          title="List view"
+          @click="viewMode = 'list'"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <rect x="1" y="2" width="12" height="2" fill="currentColor"/>
+            <rect x="1" y="6" width="12" height="2" fill="currentColor"/>
+            <rect x="1" y="10" width="12" height="2" fill="currentColor"/>
+          </svg>
+        </button>
+        <button
+          class="view-toggle-btn"
+          :class="{ active: viewMode === 'grid' }"
+          title="Grid view"
+          @click="viewMode = 'grid'"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <rect x="1" y="1" width="5" height="5" fill="currentColor"/>
+            <rect x="8" y="1" width="5" height="5" fill="currentColor"/>
+            <rect x="1" y="8" width="5" height="5" fill="currentColor"/>
+            <rect x="8" y="8" width="5" height="5" fill="currentColor"/>
+          </svg>
+        </button>
+      </div>
     </div>
 
     <!-- Active category chips -->
@@ -58,6 +94,20 @@
       <button v-for="c in filterCategories" :key="c" class="chip" @click="removeCategory(c)">{{ c }} ×</button>
       <button key="__clear" class="chip chip--clear" @click="clearCategories">{{ $t('mods.clearAll') }}</button>
     </TransitionGroup>
+
+    <div class="explore-body">
+
+    <!-- Categories sidebar (pixel-sampled from Figma, 2026-08-14) -->
+    <aside v-if="activeTab !== 'servers'" class="categories-sidebar">
+      <p class="categories-title">{{ $t('mods.categories') }}</p>
+      <button
+        v-for="cat in visibleCategories"
+        :key="cat.name"
+        class="category-row"
+        :class="{ active: filterCategories.includes(cat.name) }"
+        @click="toggleCategory(cat.name); doSearch()"
+      >{{ cat.name }}</button>
+    </aside>
 
     <Transition name="tab-fade" mode="out-in">
     <!-- ── Servers tab ──────────────────────────────────────────────────────── -->
@@ -185,7 +235,7 @@
       :key="activeTab"
       ref="listEl"
       class="content-list"
-      :class="{ 'drag-over': contentDragOver }"
+      :class="{ 'drag-over': contentDragOver, 'content-list--grid': viewMode === 'grid' }"
       @dragover.prevent="contentDragOver = true"
       @dragleave="contentDragOver = false"
       @drop.prevent="onContentDrop"
@@ -229,6 +279,14 @@
           @contextmenu="openModMenu($event, hit)"
         >
 
+          <span
+            class="mod-on-pill"
+            :class="{ 'mod-on-pill--on': installedMap.get(`${hit.source}-${hit.id}`)?.size }"
+          >
+            <span class="mod-on-dot" />
+            {{ installedMap.get(`${hit.source}-${hit.id}`)?.size ? $t('mods.on') : $t('mods.off') }}
+          </span>
+
           <div class="mod-icon-wrap">
             <img v-if="hit.iconUrl" :src="hit.iconUrl" class="mod-icon" :alt="hit.title" />
             <div v-else class="mod-icon-fallback">{{ hit.title[0] }}</div>
@@ -236,9 +294,12 @@
 
           <div class="mod-info">
             <div class="mod-name-row">
-              <span class="mod-name">{{ hit.title }}</span>
+              <button class="mod-name mod-name-btn" @click="openDetails(hit)">{{ hit.title }}</button>
               <span class="mod-stat">{{ formatNum(hit.downloads) }} ↓</span>
             </div>
+            <span v-if="hit.author" class="mod-author">
+              by {{ hit.author }}
+            </span>
             <p class="mod-desc">{{ hit.description }}</p>
             <div class="mod-tags">
               <span v-for="c in hit.categories.slice(0, 4)" :key="c" class="mod-tag">{{ c }}</span>
@@ -246,14 +307,15 @@
           </div>
 
           <div class="install-area">
-            <Transition name="tick">
-              <span v-if="installedMap.get(`${hit.source}-${hit.id}`)?.size" class="installed-tick">✓</span>
-            </Transition>
+            <span class="mod-stat mod-stat--footer">{{ formatNum(hit.downloads) }} ↓</span>
+            <button class="details-btn" title="View details" @mouseenter="playHover" @click="openDetails(hit)">
+              <Icon name="eye" :size="14" />
+            </button>
             <button
               class="install-btn"
               :disabled="installingSet.has(`${hit.source}-${hit.id}`)"
               @mouseenter="playHover"
-              @click="hit.projectType === 'modpack' ? openModpackPicker(hit, $event) : openModPicker(hit, $event)"
+              @click="hit.projectType === 'modpack' ? openModpackPicker(hit) : openModPicker(hit, $event)"
             >
               <span v-if="installingSet.has(`${hit.source}-${hit.id}`)" class="spinner sm" />
               <template v-else>{{ $t('mods.install') }}</template>
@@ -274,24 +336,59 @@
     </div>
     </Transition>
 
-    <!-- Category panel -->
-    <Transition name="cat">
-      <div v-if="catPanelOpen" class="cat-panel">
-        <p class="cat-panel-title">Categories</p>
-        <div class="cat-grid">
-          <button
-            v-for="cat in visibleCategories"
-            :key="cat.name"
-            class="cat-chip"
-            :class="{ active: filterCategories.includes(cat.name) }"
-            @click="toggleCategory(cat.name)"
-          >{{ cat.name }}</button>
+    </div>
+
+  </div>
+
+  <!-- ── Modpack version panel — slides in beside the explorer instead of a
+       floating popover, pushing it left into the freed-up space. ──────────── -->
+  <Transition name="side-panel">
+    <div v-if="modpackPickerHit" class="version-side-panel">
+      <div class="version-panel-header">
+        <div class="mod-icon-wrap version-panel-icon-wrap">
+          <img v-if="modpackPickerHit.iconUrl" :src="modpackPickerHit.iconUrl" class="mod-icon" :alt="modpackPickerHit.title" />
+          <div v-else class="mod-icon-fallback">{{ modpackPickerHit.title[0] }}</div>
         </div>
-        <div class="cat-panel-footer">
-          <button class="cat-close-btn" @click="catPanelOpen = false; doSearch()">{{ $t('mods.apply') }}</button>
+        <div class="version-panel-header-text">
+          <span class="version-panel-name">{{ modpackPickerHit.title }}</span>
+          <span class="version-panel-sub">Choose a version</span>
         </div>
       </div>
-    </Transition>
+
+      <!-- One project can have several pack releases for the same Minecraft
+           version (e.g. multiple Fabulously Optimized builds all on 1.21.11) —
+           filter by MC version first instead of scrolling through everything. -->
+      <div v-if="modpackGameVersions.length > 1" class="version-filter-row">
+        <select v-model="modpackVersionFilter" class="version-filter-select">
+          <option value="">All versions ({{ modpackVersions.length }})</option>
+          <option v-for="gv in modpackGameVersions" :key="gv" :value="gv">{{ gv }}</option>
+        </select>
+      </div>
+
+      <div v-if="modpackVerLoading" class="picker-empty">Loading versions…</div>
+      <div v-else-if="!filteredModpackVersions.length" class="picker-empty">No versions found</div>
+
+      <div class="version-side-list">
+        <button
+          v-for="v in filteredModpackVersions"
+          :key="v.id"
+          class="picker-row picker-row--version"
+          :disabled="modpackInstalling"
+          @click="confirmModpackInstall(v.id)"
+        >
+          <div class="picker-profile-info">
+            <span class="picker-profile-name">{{ v.name || v.version_number }}</span>
+            <span class="picker-profile-meta">{{ v.game_versions[0] }} · {{ v.loaders.join(', ') || 'vanilla' }}</span>
+          </div>
+          <span v-if="modpackInstalling" class="spinner sm" />
+        </button>
+      </div>
+
+      <div class="picker-footer">
+        <button class="picker-btn picker-btn--cancel" @click="closeModpackPicker">{{ $t('mods.picker.cancel') }}</button>
+      </div>
+    </div>
+  </Transition>
 
   <!-- ── Mod profile picker (portal) ────────────────────────────────────────── -->
   <Teleport to="body">
@@ -313,10 +410,7 @@
               installed: pickerHit && installedMap.get(`${pickerHit.source}-${pickerHit.id}`)?.has(p.id),
             }"
           >
-            <template v-if="pickerHit && installedMap.get(`${pickerHit.source}-${pickerHit.id}`)?.has(p.id)">
-              <span class="picker-already-tick">✓</span>
-            </template>
-            <template v-else>
+            <template v-if="!(pickerHit && installedMap.get(`${pickerHit.source}-${pickerHit.id}`)?.has(p.id))">
               <input type="checkbox" :value="p.id" v-model="pickerSelected" class="picker-check" />
             </template>
             <div class="picker-profile-info">
@@ -336,41 +430,6 @@
               <span v-if="pickerInstalling" class="spinner sm" />
               <template v-else>{{ $t('mods.picker.installBtn', { count: pickerSelected.length }) }}</template>
             </button>
-          </div>
-
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
-
-  <!-- ── Modpack version picker (portal) — a modpack becomes its own new profile ── -->
-  <Teleport to="body">
-    <Transition name="picker">
-      <div v-if="modpackPickerHit" class="picker-overlay" @click.self="closeModpackPicker">
-        <div class="picker-panel" :style="modpackPickerPos">
-
-          <p class="picker-title">Choose a version</p>
-          <p class="picker-sub">{{ modpackPickerHit.title }}</p>
-
-          <div v-if="modpackVerLoading" class="picker-empty">Loading versions…</div>
-          <div v-else-if="!modpackVersions.length" class="picker-empty">No versions found</div>
-
-          <button
-            v-for="v in modpackVersions"
-            :key="v.id"
-            class="picker-row picker-row--version"
-            :disabled="modpackInstalling"
-            @click="confirmModpackInstall(v.id)"
-          >
-            <div class="picker-profile-info">
-              <span class="picker-profile-name">{{ v.name || v.version_number }}</span>
-              <span class="picker-profile-meta">{{ v.game_versions[0] }} · {{ v.loaders.join(', ') || 'vanilla' }}</span>
-            </div>
-            <span v-if="modpackInstalling" class="spinner sm" />
-          </button>
-
-          <div class="picker-footer">
-            <button class="picker-btn picker-btn--cancel" @click="closeModpackPicker">{{ $t('mods.picker.cancel') }}</button>
           </div>
 
         </div>
@@ -398,10 +457,7 @@
               installed: serverPickerServer && serverAddedMap.get(serverKey(serverPickerServer))?.has(p.id),
             }"
           >
-            <template v-if="serverPickerServer && serverAddedMap.get(serverKey(serverPickerServer))?.has(p.id)">
-              <span class="picker-already-tick">✓</span>
-            </template>
-            <template v-else>
+            <template v-if="!(serverPickerServer && serverAddedMap.get(serverKey(serverPickerServer))?.has(p.id))">
               <input type="checkbox" :value="p.id" v-model="serverPickerSelected" class="picker-check" />
             </template>
             <div class="picker-profile-info">
@@ -428,20 +484,87 @@
     </Transition>
   </Teleport>
 
+  <!-- ── Mod details panel ────────────────────────────────────────────────── -->
+  <Teleport to="body">
+    <Transition name="modal-fade">
+      <div v-if="detailsHit" class="details-overlay" @click.self="closeDetails">
+        <div class="details-modal">
+
+          <button class="details-close" title="Close" @click="closeDetails">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <line x1="1" y1="1" x2="13" y2="13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="13" y1="1" x2="1" y2="13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+          </button>
+
+          <div class="details-header">
+            <div class="mod-icon-wrap details-icon-wrap">
+              <img v-if="detailsHit.iconUrl" :src="detailsHit.iconUrl" class="mod-icon" :alt="detailsHit.title" />
+              <div v-else class="mod-icon-fallback">{{ detailsHit.title[0] }}</div>
+            </div>
+            <div class="details-header-text">
+              <span class="details-title">{{ detailsHit.title }}</span>
+              <span class="details-sub">
+                <span v-if="detailsData?.author">by {{ detailsData.author }}</span>
+                <span v-if="detailsData?.author" class="sep">&middot;</span>
+                <span class="details-source-badge">{{ detailsHit.source === 'modrinth' ? 'Modrinth' : 'CurseForge' }}</span>
+              </span>
+            </div>
+          </div>
+
+          <div class="details-body">
+            <div v-if="detailsLoading" class="picker-empty">Loading…</div>
+            <div v-else-if="detailsError" class="state-stack">
+              <Icon name="warning" :size="24" class="state-icon" />
+              <span class="state-text error-text">{{ detailsError }}</span>
+            </div>
+            <template v-else-if="detailsData">
+              <div class="details-stats-row">
+                <span class="details-stat">{{ formatNum(detailsData.downloads) }} downloads</span>
+                <span v-if="detailsData.license" class="details-stat">{{ detailsData.license }}</span>
+                <span v-if="detailsData.updatedAt" class="details-stat">Updated {{ new Date(detailsData.updatedAt).toLocaleDateString() }}</span>
+              </div>
+
+              <div v-if="detailsData.categories.length" class="mod-tags details-tags">
+                <span v-for="c in detailsData.categories" :key="c" class="mod-tag">{{ c }}</span>
+              </div>
+
+              <div v-if="detailsData.gallery.length" class="details-gallery">
+                <img v-for="(g, i) in detailsData.gallery" :key="i" :src="g" class="details-gallery-img" loading="lazy" />
+              </div>
+
+              <div v-if="detailsHtml" class="details-description" v-html="detailsHtml" />
+              <p v-else class="mod-desc details-no-desc">No description provided.</p>
+            </template>
+          </div>
+
+          <div class="details-footer">
+            <button class="picker-btn picker-btn--cancel" @click="openSourceUrl(detailsHit)">Open on {{ detailsHit.source === 'modrinth' ? 'Modrinth' : 'CurseForge' }}</button>
+            <button
+              class="picker-btn picker-btn--confirm"
+              @click="installFromDetails(detailsHit, $event)"
+            >{{ $t('mods.install') }}</button>
+          </div>
+
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { ExploreHit, ModrinthProjectType, LaunchProfile, ServerStatus, ModrinthVersion } from '../types/index'
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
+import type { ExploreHit, ExploreSource, ModDetails, ModrinthProjectType, LaunchProfile, ServerStatus, ModrinthVersion } from '../types/index'
 import { showToast } from '../composables/useToasts'
 import { openContextMenu } from '../composables/useContextMenu'
 import { playHover } from '../composables/useSounds'
 import Skeleton from '../components/common/Skeleton.vue'
 import Icon from '../components/common/Icon.vue'
-import searchIcon from '../assets/icons8-search-50.png'
-import { useSlidingTabIndicator } from '../composables/useSlidingTabIndicator'
 
 // ── Tab config ────────────────────────────────────────────────────────────────
 
@@ -456,12 +579,22 @@ const tabs = computed(() => [
   { key: 'datapacks',     label: t('mods.tabs.datapacks'),     type: 'datapack'     as ModrinthProjectType },
 ])
 
+// Figma redesign (2026-08-14): Servers moves to the end of the pill row
+// (design order is Mods/Modpacks/Shaders/Resourcepacks/Datapacks/Servers,
+// not the tabs array's original order).
+const visibleTabs = computed(() => {
+  const servers = tabs.value.filter(tab => tab.key === 'servers')
+  const rest    = tabs.value.filter(tab => tab.key !== 'servers')
+  return [...rest, ...servers]
+})
+
 const activeTab  = ref<string>('mods')
 const activeType = computed(() => tabs.value.find(t => t.key === activeTab.value)?.type ?? null)
 
-// ── Sliding tab indicator ────────────────────────────────────────────────────
-const { setTabBtnRef, indicatorStyle, updateIndicator } = useSlidingTabIndicator(activeTab)
-watch(tabs, () => nextTick(updateIndicator))
+// ── List / grid view toggle ──────────────────────────────────────────────────
+const VIEW_MODE_KEY = 'mods.viewMode'
+const viewMode = ref<'list' | 'grid'>(localStorage.getItem(VIEW_MODE_KEY) === 'grid' ? 'grid' : 'list')
+watch(viewMode, v => localStorage.setItem(VIEW_MODE_KEY, v))
 
 const showLoaderFilter = computed(() =>
   ['mods', 'modpacks', 'datapacks'].includes(activeTab.value)
@@ -472,16 +605,37 @@ const showLoaderFilter = computed(() =>
 const filterVersion    = ref('')
 const filterLoader     = ref('')
 const filterCategories = ref<string[]>([])
+const filterSource     = ref<ExploreSource>('modrinth')
+const filterSort       = ref('relevance')
+
+// CurseForge modpacks download as a plain .zip with a different install pipeline
+// (overrides folder, no mrpack unpacking) that the backend doesn't implement — the
+// modpack tab's install flow (openModpackPicker → modrinth.versions) is Modrinth-only,
+// so force that source regardless of the picker to avoid a broken install.
+const effectiveSource = computed<ExploreSource>(() => activeType.value === 'modpack' ? 'modrinth' : filterSource.value)
 
 const releaseVersions     = ref<string[]>([])
 const availableCategories = ref<{ name: string; project_type: string }[]>([])
-const catPanelOpen        = ref(false)
 
 const visibleCategories = computed(() => {
   const type = activeType.value
   if (!type) return []
-  return availableCategories.value.filter(c => c.project_type === type)
+  // Modrinth's "cursed" category (joke/broken mods) isn't what most people mean by
+  // "browse horror mods" — swap it for a synthetic entry that runs a keyword search
+  // for "horror" instead of a category facet (Modrinth has no real "horror" tag).
+  const real = availableCategories.value.filter(c => c.project_type === type && c.name !== 'cursed')
+  return type === 'mod' ? [...real, { name: 'horror', project_type: type }] : real
 })
+
+// Modrinth/CurseForge don't expose real "categories:horror" or "categories:cursed"
+// facets that mean what a user expects — build the actual search query/facets sent
+// to the backend, folding the synthetic "horror" pseudo-category into a keyword search.
+function buildSearchParams() {
+  const isHorror = filterCategories.value.includes('horror')
+  const realCats = filterCategories.value.filter(c => c !== 'horror')
+  const query = isHorror ? [searchInput.value.trim(), 'horror'].filter(Boolean).join(' ') : searchInput.value
+  return { query, cats: realCats.length ? realCats : undefined }
+}
 
 function toggleCategory(name: string) {
   const idx = filterCategories.value.indexOf(name)
@@ -540,22 +694,22 @@ watch(searchInput, () => {
 async function doSearch() {
   const type = activeType.value
   if (!type) return
-  catPanelOpen.value = false
   results.value   = []
   offset.value    = 0
   totalHits.value = 0
   error.value     = null
   loading.value   = true
   try {
-    const cats = filterCategories.value.length ? filterCategories.value : undefined
+    const { query, cats } = buildSearchParams()
     const res = await window.api.modrinth.exploreSearch(
-      searchInput.value,
+      query,
       type,
-      'modrinth',
+      effectiveSource.value,
       filterVersion.value || undefined,
       filterLoader.value  || undefined,
       0,
       cats,
+      filterSort.value,
     )
     results.value   = res.hits
     totalHits.value = res.total
@@ -572,15 +726,16 @@ async function loadMore() {
   if (!type || loading.value) return
   loading.value = true
   try {
-    const cats = filterCategories.value.length ? filterCategories.value : undefined
+    const { query, cats } = buildSearchParams()
     const res = await window.api.modrinth.exploreSearch(
-      searchInput.value,
+      query,
       type,
-      'modrinth',
+      effectiveSource.value,
       filterVersion.value || undefined,
       filterLoader.value  || undefined,
       offset.value,
       cats,
+      filterSort.value,
     )
     results.value.push(...res.hits)
     offset.value += res.hits.length
@@ -599,7 +754,6 @@ function switchTab(key: string) {
   filterCategories.value = []
   results.value          = []
   error.value            = null
-  catPanelOpen.value     = false
   if (key === 'servers') {
     refreshServers()
   } else {
@@ -673,21 +827,35 @@ function closePicker() {
 
 // ── Modpack version picker — a modpack installs as its own new profile,
 // so instead of asking "which existing profile(s)" it asks "which version". ──
-const modpackPickerHit  = ref<ExploreHit | null>(null)
-const modpackVersions   = ref<ModrinthVersion[]>([])
-const modpackVerLoading = ref(false)
-const modpackInstalling = ref(false)
-const modpackPickerPos  = ref<Record<string, string>>({})
+const modpackPickerHit     = ref<ExploreHit | null>(null)
+const modpackVersions      = ref<ModrinthVersion[]>([])
+const modpackVerLoading    = ref(false)
+const modpackInstalling    = ref(false)
+const modpackVersionFilter = ref('')
 
-async function openModpackPicker(hit: ExploreHit, event: MouseEvent) {
-  const btn  = event.currentTarget as HTMLElement
-  const rect = btn.getBoundingClientRect()
-  const panelW = 280
-  let left = rect.right - panelW
-  if (left < 8) left = 8
-  modpackPickerPos.value = { top: `${rect.bottom + 6}px`, left: `${left}px` }
+// Distinct MC versions across all releases, newest-looking first (Modrinth
+// already returns versions newest-published-first, so preserving that order
+// here means the dropdown lists newer game versions before older ones too).
+const modpackGameVersions = computed(() => {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const v of modpackVersions.value) {
+    for (const gv of v.game_versions) {
+      if (!seen.has(gv)) { seen.add(gv); out.push(gv) }
+    }
+  }
+  return out
+})
+
+const filteredModpackVersions = computed(() => {
+  if (!modpackVersionFilter.value) return modpackVersions.value
+  return modpackVersions.value.filter(v => v.game_versions.includes(modpackVersionFilter.value))
+})
+
+async function openModpackPicker(hit: ExploreHit) {
   modpackPickerHit.value = hit
   modpackVersions.value  = []
+  modpackVersionFilter.value = ''
   modpackVerLoading.value = true
   try {
     modpackVersions.value = await window.api.modrinth.versions(hit.id)
@@ -782,6 +950,10 @@ async function onContentDrop(e: DragEvent) {
 // Modpacks never reach here — they route through openModpackPicker/confirmModpackInstall
 // instead, since a modpack installs as its own new profile rather than into one.
 async function runModInstall(hit: ExploreHit, profileId: string) {
+  if (hit.source === 'curseforge') {
+    await window.api.modrinth.installCurseforge(hit.id, hit.projectType, profileId)
+    return
+  }
   if (hit.projectType === 'mod')          await window.api.modrinth.installMod(hit.id, profileId)
   else if (hit.projectType === 'resourcepack') await window.api.modrinth.installResourcePack(hit.id, profileId)
   else if (hit.projectType === 'shader')  await window.api.modrinth.installShader(hit.id, profileId)
@@ -929,12 +1101,57 @@ function sourceUrl(hit: ExploreHit): string {
 
 function openModMenu(event: MouseEvent, hit: ExploreHit): void {
   openContextMenu(event, [
+    { label: 'View details', icon: 'eye', onClick: () => openDetails(hit) },
     { label: 'Open on source website', icon: 'external-link', onClick: () => window.open(sourceUrl(hit), '_blank') },
     { label: 'Copy project link', icon: 'link', onClick: () => {
       navigator.clipboard.writeText(sourceUrl(hit))
       showToast({ title: 'Link copied', variant: 'success', duration: 2500 })
     } },
   ])
+}
+
+// ── Mod details panel ────────────────────────────────────────────────────────
+
+const detailsHit     = ref<ExploreHit | null>(null)
+const detailsData    = ref<ModDetails | null>(null)
+const detailsLoading = ref(false)
+const detailsError   = ref<string | null>(null)
+
+const detailsHtml = computed(() => {
+  if (!detailsData.value?.description) return ''
+  const raw = detailsData.value.descriptionFormat === 'markdown'
+    ? (marked.parse(detailsData.value.description, { async: false }) as string)
+    : detailsData.value.description
+  return DOMPurify.sanitize(raw, { ADD_ATTR: ['target'] })
+})
+
+async function openDetails(hit: ExploreHit) {
+  detailsHit.value     = hit
+  detailsData.value    = null
+  detailsError.value   = null
+  detailsLoading.value = true
+  try {
+    detailsData.value = await window.api.modrinth.details(hit.id, hit.source)
+  } catch (e) {
+    detailsError.value = String(e)
+  } finally {
+    detailsLoading.value = false
+  }
+}
+
+function closeDetails() {
+  detailsHit.value  = null
+  detailsData.value = null
+}
+
+function openSourceUrl(hit: ExploreHit) {
+  window.open(sourceUrl(hit), '_blank')
+}
+
+function installFromDetails(hit: ExploreHit, event: MouseEvent) {
+  if (hit.projectType === 'modpack') openModpackPicker(hit)
+  else openModPicker(hit, event)
+  closeDetails()
 }
 
 function formatNum(n: number): string {
@@ -961,7 +1178,6 @@ onUnmounted(() => {
 
 <style lang="scss" scoped>
 @font-face {
-  font-family: 'Mojangles';
   src: url('../assets/fonts/mojangles.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
@@ -970,49 +1186,109 @@ onUnmounted(() => {
 // ── Page shell ────────────────────────────────────────────────────────────────
 .explore-page {
   height: 100%;
+  display: grid;
+  grid-template-columns: 1fr 0px;
+  overflow: hidden;
+  position: relative;
+  // Smooth "push the explorer aside, reveal the panel" — animating grid-template-columns
+  // (not just the panel's own width) is what makes the explorer itself visibly slide/shrink
+  // rather than the panel just appearing on top of unchanged content.
+  transition: grid-template-columns 420ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  &--split {
+    grid-template-columns: 1fr 380px;
+  }
+}
+
+.explore-main {
   display: flex;
   flex-direction: column;
   padding: 16px 20px;
   gap: 8px;
   overflow: hidden;
+  min-width: 0;
   position: relative;
 }
 
-// ── Tab row ───────────────────────────────────────────────────────────────────
-.tab-row {
+// ── Modpack version side panel ───────────────────────────────────────────────
+.version-side-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  background: #0d0d0d;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.version-side-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #282828 transparent;
+  &::-webkit-scrollbar { width: 4px; }
+  &::-webkit-scrollbar-thumb { background: #282828; }
+}
+
+.side-panel-enter-active,
+.side-panel-leave-active {
+  transition: opacity 260ms ease;
+}
+.side-panel-enter-from,
+.side-panel-leave-to {
+  opacity: 0;
+}
+
+// ── Search + tab pill row (Figma redesign, 2026-08-14 — pixel-sampled: flat
+// #1A1A1E fill, no border, fully-rounded pill shape) ────────────────────────
+.search-tab-row {
   position: relative;
   display: flex;
-  gap: 8px;
+  gap: 10px;
   flex-shrink: 0;
   flex-wrap: wrap;
 }
 
-.tab-btn {
-  padding: 8px 22px;
-  background: #0d0d0d;
+.tab-pill {
+  height: 38px;
+  padding: 0 22px;
+  background: #1a1a1e;
   border: none;
-  color: #aaa;
-  font-family: 'Mojangles', monospace;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.7);
   font-size: 13px;
   cursor: pointer;
   letter-spacing: 0.02em;
-  transition: background 80ms, color 80ms;
-  border-radius: 0;
+  transition: background 120ms, color 120ms;
 
-  &:hover { background: #1a1a1a; color: #ccc; }
+  &:hover { background: #232328; color: rgba(255, 255, 255, 0.9); }
   &.active {
-    background: #111;
-    color: #d9d9d9;
+    background: #2a2a30;
+    color: #fff;
   }
 }
 
-.tab-indicator {
-  position: absolute;
-  bottom: 0;
-  height: 2px;
-  background: rgba(255, 255, 255, 0.3);
-  pointer-events: none;
-  transition: left 260ms cubic-bezier(0.16, 1, 0.3, 1), width 260ms cubic-bezier(0.16, 1, 0.3, 1);
+.search-bar {
+  display: flex;
+  align-items: center;
+  background: #1a1a1e;
+  border: none;
+  border-radius: 999px;
+  height: 38px;
+  padding: 0 22px;
+  flex: 1 1 320px;
+  min-width: 200px;
+}
+
+.search-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: 0.03em;
+  &::placeholder { color: #666; }
 }
 
 // ── Controls row ──────────────────────────────────────────────────────────────
@@ -1024,43 +1300,11 @@ onUnmounted(() => {
   flex-wrap: wrap;
 }
 
-.search-bar {
-  display: flex;
-  align-items: center;
-  background: none;
-  border: none;
-  height: 32px;
-  padding: 0 4px;
-  flex: 0 0 200px;
-  gap: 8px;
-}
-
-.search-input {
-  flex: 1;
-  background: none;
-  border: none;
-  outline: none;
-  font-family: 'Mojangles', monospace;
-  font-size: 11px;
-  color: #aaa;
-  letter-spacing: 0.03em;
-  &::placeholder { color: #555; }
-}
-
-.search-icon {
-  width: 14px;
-  height: 14px;
-  opacity: 0.5;
-  flex-shrink: 0;
-  filter: brightness(0) invert(1);
-}
-
 .filter-select {
   height: 32px;
   background: none;
   border: none;
   color: #888;
-  font-family: 'Mojangles', monospace;
   font-size: 10px;
   letter-spacing: 0.03em;
   padding: 0 8px;
@@ -1074,13 +1318,6 @@ onUnmounted(() => {
   option { background: #111; color: #aaa; }
 }
 
-.cat-btn {
-  cursor: pointer;
-  background: none;
-  border: none;
-  &.active { color: #d9d9d9; box-shadow: inset 0 -2px 0 rgba(255,255,255,0.3); }
-}
-
 // ── Chip row ──────────────────────────────────────────────────────────────────
 .chip-row {
   display: flex;
@@ -1090,7 +1327,6 @@ onUnmounted(() => {
 }
 
 .chip {
-  font-family: 'Mojangles', monospace;
   font-size: 9px;
   color: #aaa;
   background: rgba(255,255,255,0.06);
@@ -1125,7 +1361,6 @@ onUnmounted(() => {
   background: #0a0a0b;
   border: none;
   color: #888;
-  font-family: 'Mojangles', monospace;
   font-size: 10px;
   letter-spacing: 0.04em;
   cursor: pointer;
@@ -1155,7 +1390,6 @@ onUnmounted(() => {
   background: #0d0d0d;
   border: 1px solid rgba(118,119,120,0.5);
   color: #aaa;
-  font-family: 'Mojangles', monospace;
   font-size: 10px;
   letter-spacing: 0.03em;
   padding: 0 8px;
@@ -1175,7 +1409,6 @@ onUnmounted(() => {
   background: #111;
   border: none;
   color: #ccc;
-  font-family: 'Mojangles', monospace;
   font-size: 10px;
   letter-spacing: 0.06em;
   cursor: pointer;
@@ -1208,12 +1441,14 @@ onUnmounted(() => {
   align-items: center;
   gap: 20px;
   padding: 18px 20px;
-  background: rgba(10,10,11,0.78);
-  border: 1px solid rgba(255,255,255,0.05);
+  background: #0f0f11;
+  border: 1px solid #262627;
+  border-radius: 16px;
+  box-sizing: border-box;
   transition: background 80ms, border-color 80ms;
   flex-shrink: 0;
 
-  &:hover { background: rgba(20,20,22,0.9); border-color: rgba(255,255,255,0.1); }
+  &:hover { background: #141416; border-color: #333335; }
   &.offline { opacity: 0.5; }
 }
 
@@ -1240,7 +1475,6 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Mojangles', monospace;
   font-size: 30px;
   color: #444;
   text-transform: uppercase;
@@ -1261,14 +1495,12 @@ onUnmounted(() => {
 }
 
 .server-name {
-  font-family: 'Mojangles', monospace;
   font-size: 15px;
   color: #d9d9d9;
   letter-spacing: 0.02em;
 }
 
 .server-badge {
-  font-family: 'Mojangles', monospace;
   font-size: 8px;
   color: #7aad7a;
   background: rgba(76,175,80,0.1);
@@ -1278,7 +1510,6 @@ onUnmounted(() => {
 }
 
 .server-pinging-badge {
-  font-family: 'Mojangles', monospace;
   font-size: 8px;
   color: #666;
   background: rgba(255,255,255,0.04);
@@ -1291,7 +1522,6 @@ onUnmounted(() => {
 @keyframes pulse { 0%, 100% { opacity: 0.4 } 50% { opacity: 1 } }
 
 .server-offline-badge {
-  font-family: 'Mojangles', monospace;
   font-size: 8px;
   color: #8b3333;
   background: rgba(139,51,51,0.1);
@@ -1301,7 +1531,6 @@ onUnmounted(() => {
 }
 
 .server-motd {
-  font-family: 'Mojangles', monospace;
   font-size: 11px;
   color: #666;
   letter-spacing: 0.02em;
@@ -1312,7 +1541,6 @@ onUnmounted(() => {
 }
 
 .server-ip {
-  font-family: 'Mojangles', monospace;
   font-size: 10px;
   color: #444;
   letter-spacing: 0.03em;
@@ -1333,7 +1561,6 @@ onUnmounted(() => {
 }
 
 .stat-label {
-  font-family: 'Mojangles', monospace;
   font-size: 9px;
   color: #444;
   letter-spacing: 0.06em;
@@ -1341,7 +1568,6 @@ onUnmounted(() => {
 }
 
 .stat-value {
-  font-family: 'Mojangles', monospace;
   font-size: 11px;
   color: #888;
   letter-spacing: 0.02em;
@@ -1389,6 +1615,46 @@ onUnmounted(() => {
   &::-webkit-scrollbar-thumb { background: #333; }
 
   &.drag-over { outline: 2px dashed $accent; outline-offset: -2px; }
+}
+
+.content-list--grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-content: start;
+  gap: 28px;
+  // The mod icon overlaps above each card's top edge — without this the
+  // top row's icons get clipped by the scroll container's edge.
+  padding-top: 22px;
+
+  .load-more-row,
+  .state-area {
+    grid-column: 1 / -1;
+  }
+}
+
+// ── View toggle ───────────────────────────────────────────────────────────────
+.view-toggle {
+  display: flex;
+  flex-shrink: 0;
+  background: #0a0a0b;
+  border: 1px solid $border;
+}
+
+.view-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: none;
+  border: none;
+  color: #555;
+  cursor: pointer;
+  transition: background 80ms, color 80ms;
+
+  & + & { border-left: 1px solid $border; }
+  &:hover { background: #1a1a1a; color: #aaa; }
+  &.active { background: rgba(255,255,255,0.07); color: #d9d9d9; }
 }
 
 .drop-hint {
@@ -1439,7 +1705,6 @@ onUnmounted(() => {
 }
 
 .state-text {
-  font-family: 'Mojangles', monospace;
   font-size: 12px;
   color: #333;
   letter-spacing: 0.12em;
@@ -1456,7 +1721,6 @@ onUnmounted(() => {
 
 .retry-btn {
   padding: 6px 20px;
-  font-family: 'Mojangles', monospace;
   font-size: 10px;
   color: #888;
   background: #0d0d0d;
@@ -1470,17 +1734,105 @@ onUnmounted(() => {
 }
 
 // ── Mod row ───────────────────────────────────────────────────────────────────
+// Same card look as the Hub's friends embed (.friends-card in HomePage.vue) —
+// #0f0f11 fill, #262627 border, rounded — applied per-row here instead of once
+// around the whole list, so each mod reads as its own embed.
 .mod-row {
   display: flex;
   align-items: center;
   gap: 18px;
   padding: 16px 18px;
-  background: rgba(10,10,11,0.72);
-  box-shadow: $shadow-xs;
-  transition: background 80ms, box-shadow 80ms;
+  background: #0f0f11;
+  border: 1px solid #262627;
+  border-radius: 16px;
+  box-sizing: border-box;
+  transition: background 80ms, border-color 80ms;
   flex-shrink: 0;
 
-  &:hover { background: rgba(20,20,22,0.85); box-shadow: $shadow-sm; }
+  &:hover { background: #141416; border-color: #333335; }
+}
+
+// Icon-grid layout: taller cards with the icon elevated over the top-right
+// corner and an "ON" pill over the top-left when the mod is installed.
+.content-list--grid .mod-row {
+  position: relative;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 20px 18px 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 90px), #1c1c1f;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 20px;
+  overflow: visible;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
+
+  &:hover { background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 90px), #202023; border-color: rgba(255, 255, 255, 0.22); }
+}
+
+.content-list--grid .mod-on-pill {
+  display: inline-flex;
+  position: absolute;
+  top: 14px;
+  left: 14px;
+}
+
+.content-list--grid .mod-icon-wrap {
+  position: absolute;
+  top: -18px;
+  right: 16px;
+  width: 72px;
+  height: 72px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #1a1a1c;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.5);
+}
+
+.content-list--grid .mod-icon,
+.content-list--grid .mod-icon-fallback {
+  width: 100%;
+  height: 100%;
+}
+
+.content-list--grid .mod-info {
+  width: 100%;
+  margin-top: 46px;
+}
+
+.content-list--grid .mod-name-row {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.content-list--grid .mod-name {
+  white-space: normal;
+  font-size: 14px;
+}
+
+.content-list--grid .mod-tags {
+  display: none;
+}
+
+.content-list--grid .mod-name-row .mod-stat {
+  display: none;
+}
+
+.content-list--grid .install-area {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.content-list--grid .mod-stat--footer {
+  display: inline-flex;
+  align-items: center;
+}
+
+.content-list--grid .install-btn {
+  min-width: 0;
+  padding: 8px 16px;
+  font-size: 10px;
 }
 
 .mod-icon-wrap { width: 72px; height: 72px; flex-shrink: 0; }
@@ -1500,7 +1852,6 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Mojangles', monospace;
   font-size: 26px;
   color: #555;
   text-transform: uppercase;
@@ -1522,7 +1873,6 @@ onUnmounted(() => {
 }
 
 .mod-name {
-  font-family: 'Mojangles', monospace;
   font-size: 15px;
   color: #d9d9d9;
   letter-spacing: 0.03em;
@@ -1531,16 +1881,71 @@ onUnmounted(() => {
   text-overflow: ellipsis;
 }
 
+.mod-name-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  max-width: 100%;
+  transition: color 120ms $ease-out;
+
+  &:hover { color: #fff; text-decoration: underline; }
+}
+
 .mod-stat {
-  font-family: 'Mojangles', monospace;
   font-size: 10px;
   color: #555;
   letter-spacing: 0.02em;
   flex-shrink: 0;
 }
 
+.mod-stat--footer {
+  display: none;
+}
+
+.mod-author {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+  color: #666;
+  letter-spacing: 0.02em;
+}
+
+.mod-on-pill {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #ccc;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.mod-on-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #666;
+}
+
+.mod-on-pill--on {
+  color: #d9d9d9;
+}
+
+.mod-on-pill--on .mod-on-dot {
+  background: #4caf50;
+  box-shadow: 0 0 6px rgba(76, 175, 80, 0.7);
+}
+
 .mod-desc {
-  font-family: 'Mojangles', monospace;
   font-size: 10px;
   color: #666;
   letter-spacing: 0.02em;
@@ -1559,7 +1964,6 @@ onUnmounted(() => {
 }
 
 .mod-tag {
-  font-family: 'Mojangles', monospace;
   font-size: 9px;
   color: #555;
   background: rgba(255,255,255,0.04);
@@ -1576,19 +1980,26 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-.installed-tick {
-  font-family: 'Mojangles', monospace;
-  font-size: 13px;
-  color: #4caf50;
-  line-height: 1;
-  text-shadow: 0 0 8px rgba(76,175,80,0.5);
+.details-btn {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #777;
+  cursor: pointer;
+  transition: background 120ms $ease-out, color 120ms $ease-out, border-color 120ms $ease-out;
+
+  &:hover { background: #1a1a1a; color: #ccc; border-color: rgba(255, 255, 255, 0.2); }
 }
 
 .install-btn {
   position: relative;
   flex-shrink: 0;
   padding: 10px 22px;
-  font-family: 'Mojangles', monospace;
   font-size: 11px;
   color: #ccc;
   background: #111;
@@ -1637,7 +2048,6 @@ onUnmounted(() => {
 
 .load-more-btn {
   padding: 8px 32px;
-  font-family: 'Mojangles', monospace;
   font-size: 10px;
   color: #888;
   background: #0d0d0d;
@@ -1654,79 +2064,54 @@ onUnmounted(() => {
   &:disabled { opacity: 0.35; cursor: not-allowed; }
 }
 
-// ── Category panel ────────────────────────────────────────────────────────────
-.cat-panel {
-  position: absolute;
-  top: 104px;
-  left: 20px;
-  right: 20px;
-  background: #0d0d0d;
-  border: 1px solid rgba(255,255,255,0.18);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.85);
-  z-index: 10;
-  padding: 14px 16px;
+// ── Explore body (sidebar + content, side by side) ───────────────────────────
+.explore-body {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-height: 300px;
-}
-
-.cat-panel-title {
-  font-family: 'Mojangles', monospace;
-  font-size: 11px;
-  color: #aaa;
-  letter-spacing: 0.06em;
-  margin: 0;
-  flex-shrink: 0;
-}
-
-.cat-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  overflow-y: auto;
+  gap: 16px;
   flex: 1;
   min-height: 0;
+}
+
+// Categories sidebar (pixel-sampled from Figma, 2026-08-14): flat #1A1A1E
+// fill, no border, generously rounded, plain list — no chips/apply-button,
+// filtering applies immediately on click.
+.categories-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: #1a1a1e;
+  border-radius: 18px;
+  padding: 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: #333 transparent;
 }
 
-.cat-chip {
-  font-family: 'Mojangles', monospace;
-  font-size: 10px;
-  color: #777;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid transparent;
-  padding: 4px 10px;
-  cursor: pointer;
-  letter-spacing: 0.03em;
-  transition: background 60ms, color 60ms, border-color 60ms;
-  border-radius: 0;
-
-  &:hover { background: rgba(255,255,255,0.08); color: #bbb; }
-  &.active { background: rgba(76,175,80,0.12); border-color: rgba(76,175,80,0.5); color: #81c784; }
-}
-
-.cat-panel-footer {
-  display: flex;
-  justify-content: flex-end;
-  flex-shrink: 0;
-  padding-top: 4px;
-  border-top: 1px solid rgba(255,255,255,0.06);
-}
-
-.cat-close-btn {
-  font-family: 'Mojangles', monospace;
-  font-size: 10px;
-  color: #ccc;
-  background: #111;
-  border: none;
-  padding: 6px 20px;
-  cursor: pointer;
+.categories-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #F6AE35;
   letter-spacing: 0.06em;
-  transition: background 80ms;
+  font-family: 'Minecrafter', 'Mojangles', monospace;
+  margin: 0 0 10px;
+  padding: 0 10px;
+}
 
-  &:hover { background: #1e1e1e; }
+.category-row {
+  text-align: left;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12.5px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 100ms, color 100ms;
+
+  &:hover { background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.9); }
+  &.active { background: rgba(255, 255, 255, 0.08); color: #fff; }
 }
 
 // ── Spinners ──────────────────────────────────────────────────────────────────
@@ -1758,23 +2143,211 @@ onUnmounted(() => {
 .chip-pop-enter-from, .chip-pop-leave-to { opacity: 0; transform: scale(0.9); }
 .chip-pop-move { transition: transform 160ms ease; }
 
-.tick-enter-active { transition: opacity 250ms, transform 250ms; }
-.tick-enter-from   { opacity: 0; transform: scale(0.5); }
-
-.cat-enter-active { transition: opacity 120ms, transform 120ms; }
-.cat-leave-active { transition: opacity 80ms; }
-.cat-enter-from   { opacity: 0; transform: translateY(-4px); }
-.cat-leave-to     { opacity: 0; }
-
 .add-form-enter-active { transition: opacity 120ms, transform 120ms; }
 .add-form-leave-active { transition: opacity 80ms; }
 .add-form-enter-from   { opacity: 0; transform: translateY(-4px); }
 .add-form-leave-to     { opacity: 0; }
+
+// ── Mod details modal ────────────────────────────────────────────────────────
+.details-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3500;
+  backdrop-filter: blur(4px);
+}
+
+.details-modal {
+  position: relative;
+  width: 560px;
+  max-width: 92vw;
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  background: #121212;
+  border: 1px solid $border;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+
+.details-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: #777;
+  cursor: pointer;
+  z-index: 1;
+  transition: color 120ms $ease-out;
+
+  &:hover { color: #fff; }
+}
+
+.details-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 44px 16px 20px;
+  border-bottom: 1px solid $border;
+  flex-shrink: 0;
+}
+
+.details-icon-wrap {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+}
+
+.details-header-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.details-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.details-sub {
+  font-size: 11px;
+  color: #777;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  .sep { opacity: 0.5; }
+}
+
+.details-source-badge {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #999;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 2px 7px;
+}
+
+.details-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.details-stats-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+
+.details-stat {
+  font-size: 10.5px;
+  color: #888;
+  letter-spacing: 0.02em;
+}
+
+.details-tags { margin: 0; }
+
+.details-gallery {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.details-gallery-img {
+  height: 96px;
+  width: auto;
+  flex-shrink: 0;
+  object-fit: cover;
+  border: 1px solid $border;
+}
+
+.details-no-desc {
+  -webkit-line-clamp: unset;
+}
+
+.details-description {
+  font-size: 12px;
+  line-height: 1.7;
+  color: #bbb;
+
+  :deep(h1), :deep(h2), :deep(h3), :deep(h4) {
+    color: #eee;
+    font-weight: 700;
+    margin: 16px 0 8px;
+    &:first-child { margin-top: 0; }
+  }
+  :deep(h1) { font-size: 16px; }
+  :deep(h2) { font-size: 14.5px; }
+  :deep(h3), :deep(h4) { font-size: 13px; }
+
+  :deep(p) { margin: 0 0 10px; }
+  :deep(a) { color: var(--accent, #{$primary}); text-decoration: underline; }
+  :deep(ul), :deep(ol) { margin: 0 0 10px; padding-left: 20px; }
+  :deep(li) { margin: 3px 0; }
+  :deep(img) { max-width: 100%; height: auto; }
+  :deep(code) {
+    background: rgba(255, 255, 255, 0.08);
+    padding: 1px 5px;
+    font-size: 11px;
+  }
+  :deep(pre) {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid $border;
+    padding: 10px;
+    overflow-x: auto;
+    code { background: none; padding: 0; }
+  }
+  :deep(blockquote) {
+    margin: 0 0 10px;
+    padding-left: 12px;
+    border-left: 2px solid $border;
+    color: #999;
+  }
+  :deep(hr) { border: none; border-top: 1px solid $border; margin: 14px 0; }
+  :deep(table) { border-collapse: collapse; margin-bottom: 10px; }
+  :deep(th), :deep(td) { border: 1px solid $border; padding: 4px 8px; font-size: 11px; }
+}
+
+.details-footer {
+  display: flex;
+  gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid $border;
+  flex-shrink: 0;
+}
+
+.modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 160ms ease; }
+.modal-fade-enter-from, .modal-fade-leave-to { opacity: 0; }
+.modal-fade-enter-active .details-modal { animation: details-pop 180ms cubic-bezier(0.16, 1, 0.3, 1); }
+
+@keyframes details-pop {
+  from { opacity: 0; transform: scale(0.96) translateY(6px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
 </style>
 
 <style lang="scss">
 @font-face {
-  font-family: 'Mojangles';
   src: url('../assets/fonts/mojangles.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
@@ -1795,7 +2368,6 @@ onUnmounted(() => {
 }
 
 .picker-title {
-  font-family: 'Mojangles', monospace;
   font-size: 11px;
   color: #d9d9d9;
   letter-spacing: 0.06em;
@@ -1803,8 +2375,69 @@ onUnmounted(() => {
   padding: 12px 14px 4px;
 }
 
+// ── Version side panel header (icon + name, mirrors the mod row it came from) ──
+.version-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.version-panel-icon-wrap.mod-icon-wrap {
+  width: 48px;
+  height: 48px;
+
+  .mod-icon, .mod-icon-fallback { width: 48px; height: 48px; font-size: 18px; }
+}
+
+.version-panel-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.version-panel-name {
+  font-size: 13px;
+  color: #f0f0f0;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.version-panel-sub {
+  font-size: 9px;
+  color: #666;
+  letter-spacing: 0.05em;
+}
+
+.version-filter-row {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.version-filter-select {
+  width: 100%;
+  height: 32px;
+  background: #131313;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ccc;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  padding: 0 10px;
+  cursor: pointer;
+  outline: none;
+  border-radius: 0;
+  transition: border-color 80ms;
+
+  &:hover, &:focus { border-color: rgba(255, 255, 255, 0.3); }
+}
+
 .picker-sub {
-  font-family: 'Mojangles', monospace;
   font-size: 9px;
   color: #555;
   letter-spacing: 0.03em;
@@ -1817,7 +2450,6 @@ onUnmounted(() => {
 }
 
 .picker-empty {
-  font-family: 'Mojangles', monospace;
   font-size: 10px;
   color: #444;
   padding: 14px;
@@ -1852,21 +2484,11 @@ onUnmounted(() => {
   }
 }
 
-.picker-check { width: 13px; height: 13px; accent-color: #4caf50; flex-shrink: 0; cursor: pointer; }
-
-.picker-already-tick {
-  font-family: 'Mojangles', monospace;
-  font-size: 12px;
-  color: #4caf50;
-  flex-shrink: 0;
-  width: 13px;
-  text-align: center;
-}
+.picker-check { width: 13px; height: 13px; accent-color: #fff; flex-shrink: 0; cursor: pointer; }
 
 .picker-profile-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 
 .picker-profile-name {
-  font-family: 'Mojangles', monospace;
   font-size: 10px;
   color: #ccc;
   letter-spacing: 0.03em;
@@ -1876,14 +2498,12 @@ onUnmounted(() => {
 }
 
 .picker-profile-meta {
-  font-family: 'Mojangles', monospace;
   font-size: 8px;
   color: #555;
   letter-spacing: 0.02em;
 }
 
 .picker-installed-label {
-  font-family: 'Mojangles', monospace;
   font-size: 8px;
   color: #4caf50;
   letter-spacing: 0.04em;
@@ -1902,7 +2522,6 @@ onUnmounted(() => {
 
 .picker-btn {
   padding: 6px 14px;
-  font-family: 'Mojangles', monospace;
   font-size: 10px;
   cursor: pointer;
   letter-spacing: 0.04em;

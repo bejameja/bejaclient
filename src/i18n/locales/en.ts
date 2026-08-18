@@ -4,7 +4,7 @@ export default {
     locker: 'Locker',
     explore: 'Explore',
     profiles: 'Profiles',
-    friends: 'Friends',
+    friends: 'Social',
     store: 'Store',
     quests: 'Quests',
     settings: 'Settings',
@@ -92,6 +92,8 @@ export default {
     noResults: 'No results',
     retry: 'RETRY',
     install: 'INSTALL',
+    on: 'ON',
+    off: 'OFF',
     loadMore: 'LOAD MORE',
     apply: 'Apply',
     picker: {

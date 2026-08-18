@@ -466,7 +466,6 @@ watch(dims, () => {
   gap: 5px;
   padding: 4px 10px;
   background: rgba(80, 80, 80, 0.4);
-  font-family: 'Mojangles', monospace;
   font-size: 11px;
   color: #b0b0b0;
   white-space: nowrap;

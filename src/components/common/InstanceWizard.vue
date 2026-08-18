@@ -659,7 +659,6 @@ function reset() {
 
 <style lang="scss" scoped>
 @font-face {
-  font-family: 'Mojangles';
   src: url('../../assets/fonts/mojangles.ttf') format('truetype');
   font-weight: normal;
   font-display: swap;
@@ -753,7 +752,6 @@ $red: #ef4444;
 }
 
 .wiz-slabel {
-  font-family: 'Mojangles', monospace;
   font-size: 12px;
   color: rgba(255, 255, 255, 0.38);
   letter-spacing: 0.04em;
@@ -790,7 +788,6 @@ $red: #ef4444;
 }
 
 .wiz-title {
-  font-family: 'Mojangles', monospace;
   font-size: 26px;
   font-weight: 400;
   color: #fff;
@@ -1468,7 +1465,6 @@ $red: #ef4444;
 }
 
 .wiz-final-name {
-  font-family: 'Mojangles', monospace;
   font-size: 19px;
   color: #fff;
   white-space: nowrap;
@@ -1614,7 +1610,6 @@ $red: #ef4444;
 }
 
 .wiz-success-text {
-  font-family: 'Mojangles', monospace;
   font-size: 18px;
   color: #fff;
   opacity: 0;

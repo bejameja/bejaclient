@@ -2,6 +2,10 @@
   <div class="launch-wrap" ref="rootEl">
   <div class="launch-split" :class="status">
 
+    <!-- Apex-style hover notch: dim at rest, snaps to bright white on hover
+         (see the reference clip — this reads as the "fun" part of hovering). -->
+    <div class="launch-notch" aria-hidden="true"></div>
+
     <!-- Main launch area -->
     <button
       class="launch-main"
@@ -11,7 +15,7 @@
     >
       <!-- Idle + BejaClient profile selected: blocked, maintenance clock -->
       <template v-if="status === 'idle' && isMaintenance">
-        <svg class="launch-rocket" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="launch-rocket" width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="9" />
           <polyline points="12 7 12 12 15.5 13.8" />
         </svg>
@@ -23,7 +27,7 @@
 
       <!-- Idle: rocket icon + title/subtitle text block, left-aligned row -->
       <template v-else-if="status === 'idle'">
-        <svg class="launch-rocket" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="launch-rocket" width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
           <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/>
           <path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/>
           <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/>
@@ -38,7 +42,7 @@
       <!-- Starting -->
       <template v-else-if="status === 'starting'">
         <div class="launch-state-overlay">
-          <svg class="launch-icon spin" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg class="launch-icon spin" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
           </svg>
           <span class="launch-label launch-label--status">{{ store.statusMsg || $t('launch.starting') }}</span>
@@ -62,7 +66,7 @@
 
     <!-- Dropdown chevron -->
     <button class="launch-chevron" @click.stop="toggleDropdown" :disabled="status === 'starting' || status === 'stopping'">
-      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="6 9 12 15 18 9"/>
       </svg>
     </button>
@@ -217,8 +221,8 @@ $btn-error:  #ff453a;
   position: relative;
   display: flex;
   align-items: stretch;
-  width: 300px;
-  height: 80px;
+  width: 360px;
+  height: 96px;
   border-radius: 0;
   overflow: hidden;
   border: 1px solid transparent;
@@ -254,6 +258,27 @@ $btn-error:  #ff453a;
         rgba(255, 69, 58, 0.08) 100%
       );
   }
+}
+
+// Dim salmon at rest → snaps to bright glowing white on hover, fast (~240ms),
+// matching the reference's quick reactive flash rather than a slow fade.
+.launch-notch {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 46%;
+  height: 6px;
+  background: rgba(255, 190, 180, 0.4);
+  clip-path: polygon(10% 0, 90% 0, 76% 100%, 24% 100%);
+  transition: background 240ms cubic-bezier(0.2, 0, 0, 1), box-shadow 240ms cubic-bezier(0.2, 0, 0, 1);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.launch-split:hover .launch-notch {
+  background: #fff;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.7);
 }
 
 .launch-main {

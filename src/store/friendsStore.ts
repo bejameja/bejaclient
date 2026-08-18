@@ -20,6 +20,9 @@ export const useFriendsStore = defineStore('friends', () => {
   const requests       = ref<FriendRequest[]>([])
   const panelHidden    = ref(false)
   const socketStatus   = ref<'connecting' | 'connected' | 'disconnected' | 'error'>('connecting')
+  // Set by FriendsPage.vue while a chat is open — read by App.vue's Discord
+  // presence watcher to show "Chatting with <username>".
+  const activeChatUsername = ref<string | null>(null)
 
   const incomingRequests = computed(() => requests.value.filter(r => r.direction === 'incoming'))
   const outgoingRequests = computed(() => requests.value.filter(r => r.direction === 'outgoing'))
@@ -118,7 +121,7 @@ export const useFriendsStore = defineStore('friends', () => {
   }
 
   return {
-    friends, requests, panelHidden, socketStatus,
+    friends, requests, panelHidden, socketStatus, activeChatUsername,
     incomingRequests, outgoingRequests, pendingCount, onlineCount,
     connect, refresh,
     sendRequest, acceptRequest, declineRequest, cancelRequest, removeFriend, togglePanel,

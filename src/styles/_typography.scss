@@ -26,6 +26,13 @@
 .text-warning   { color: $warning; }
 .text-error     { color: $error; }
 
+// ── Playful word accents — apply to individual standout words/text only,
+// never to UI chrome (buttons, borders, backgrounds, icons). Sprinkle sparingly.
+.accent-pink   { color: #F999E6; }
+.accent-orange { color: #F6AE35; }
+.accent-blue   { color: #4660FE; background: #090C20; border-radius: 4px; padding: 1px 6px; }
+.accent-green  { color: #62E13F; }
+
 // ── Transform utilities ───────────────────────────────────────────────────────
 .uppercase      { text-transform: uppercase; }
 .tracking-tight { letter-spacing: -0.02em; }

@@ -347,7 +347,6 @@ async function doJoin(): Promise<void> {
   cursor: pointer;
   white-space: nowrap;
   transition: background 80ms, color 80ms;
-  font-family: 'Mojangles', monospace;
 
   &:not(:disabled):hover {
     background: #1a1a1a;
@@ -416,7 +415,6 @@ async function doJoin(): Promise<void> {
   border: none;
   background: #0d0d0d;
   color: #aaa;
-  font-family: 'Mojangles', monospace;
   font-size: 12px;
   font-weight: 400;
   letter-spacing: 0.08em;

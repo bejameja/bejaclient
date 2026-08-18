@@ -1,80 +1,37 @@
 <template>
   <div class="profile-detail">
-    <!-- Back + prev/next paging -->
-    <div class="detail-nav">
-      <button class="back-btn" @click="$emit('back')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <input ref="imageInputRef" type="file" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" @change="onImageSelected" />
+
+    <!-- Header: back + title + search + browse ────────────────── -->
+    <div class="detail-header-row">
+      <button class="back-chevron" title="Back" @click="$emit('back')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="15 18 9 12 15 6" />
         </svg>
-        Back
       </button>
-      <div class="page-arrows">
-        <button class="page-arrow-btn" title="Previous profile" :disabled="!hasPrev" @click="$emit('prev')">
-          <Icon name="chevron-left" :size="18" />
-        </button>
-        <button class="page-arrow-btn" title="Next profile" :disabled="!hasNext" @click="$emit('next')">
-          <Icon name="chevron-right" :size="18" />
-        </button>
-      </div>
-    </div>
 
-    <!-- Header ─────────────────────────────────────────────── -->
-    <div class="detail-header">
-      <div class="profile-thumb" title="Click to change image" @click="pickImage">
-        <img v-if="localImageUrl" :src="localImageUrl" class="thumb-img" />
-        <img v-else :src="iconBlocks" class="thumb-placeholder" />
-        <div class="thumb-hover">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>
-          </svg>
-        </div>
-      </div>
-      <input ref="imageInputRef" type="file" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" @change="onImageSelected" />
-
-      <div class="profile-info">
-        <div class="profile-name">„{{ profile.name }}"</div>
-        <div class="profile-meta">
-          <span class="meta-primary">„{{ profile.loader }}" „{{ profile.version }}"</span>
-          <span class="meta-sep" />
-          <span class="meta-secondary">{{ playtimeLabel }}</span>
-        </div>
+      <div class="detail-title">
+        <span class="detail-title-name">{{ profile.name }}</span>
+        <span class="detail-title-sub">Content</span>
       </div>
 
-      <div class="header-actions">
-        <button
-          class="launch-btn"
-          :disabled="store.isLaunching || store.isRunning || profile.useBejaClient"
-          :title="profile.useBejaClient ? 'BejaClient versions are under maintenance. We\'re working at full speed to bring them back. Sorry!' : ''"
-          @click="launchProfile"
-        >
-          {{ profile.useBejaClient ? 'MAINTENANCE' : 'LAUNCH' }}
-          <img v-if="!profile.useBejaClient" :src="iconPlay" class="launch-icon" />
-        </button>
-        <button class="action-sq-btn" title="Profile settings" @click="$emit('settings', profile.id)">
-          <img :src="iconSettings" class="sq-icon" />
-        </button>
-        <div class="dots-btn-wrap" ref="dotsWrapRef">
-          <button class="action-sq-btn dots-btn" @click="menuOpen = !menuOpen">
-            <span class="dot" /><span class="dot" /><span class="dot" />
-          </button>
-          <Transition name="menu-pop">
-            <div v-if="menuOpen" class="context-menu">
-              <button class="ctx-item" @click="shareProfile">Share profile</button>
-              <button class="ctx-item" @click="exportPack">Export pack</button>
-              <button class="ctx-item ctx-item--danger" @click="requestDelete">Delete profile</button>
-            </div>
-          </Transition>
-        </div>
+      <button class="detail-edit-btn" title="Profile settings" @click="$emit('settings', profile.id)">
+        <Icon name="pencil" :size="16" />
+      </button>
+
+      <div class="toolbar-search detail-search">
+        <input v-model="modSearch" class="toolbar-search-input" placeholder="Search mod / shader / resourcepack..." />
       </div>
-    </div>
 
-    <div class="detail-divider" />
+      <button class="detail-compass-btn" title="Import external .jar" @click="importMod">
+        <img :src="iconFile" class="btn-icon" />
+      </button>
 
-    <!-- Content tabs ────────────────────────────────────────── -->
-    <div class="content-tabs">
-      <button class="content-tab active">
-        CONTENT
-        <img :src="iconPuzzle" class="tab-icon" />
+      <button class="detail-compass-btn" title="Browse content" @click="browseMods">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+        </svg>
       </button>
     </div>
 
@@ -84,7 +41,7 @@
         <div class="spinner" />
       </div>
 
-      <template v-else-if="enabledMods.length === 0">
+      <template v-else-if="mods.length === 0">
         <div class="empty-state">
           <img :src="iconNotFound" class="empty-icon" />
           <p class="empty-text">No content installed yet...</p>
@@ -102,9 +59,17 @@
       </template>
 
       <template v-else>
+        <button class="update-all-link" :disabled="updatingAll" @click="updateAllMods">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" :class="{ spinning: updatingAll }">
+            <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+          update all
+        </button>
+
         <TransitionGroup tag="div" name="row-stagger" class="mods-list">
           <div
-            v-for="mod in enabledMods"
+            v-for="mod in filteredMods"
             :key="mod.id"
             class="mod-row"
           >
@@ -114,16 +79,20 @@
             </div>
 
             <div class="mod-info">
-              <div class="mod-name-row">
-                <span class="mod-name">{{ mod.name }}</span>
-                <span class="mod-stat">{{ formatSize(mod.fileSize) }}</span>
-              </div>
+              <span class="mod-name">{{ mod.name }}</span>
               <p class="mod-desc">{{ mod.fileName }}</p>
             </div>
 
-            <div class="install-area">
-              <button class="install-btn" title="Remove" @click="deleteMod(mod.id)">Remove</button>
-            </div>
+            <button class="mod-enabled-toggle" :class="{ on: mod.enabled }" @click="toggleMod(mod.id)">
+              <span class="toggle-check">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              {{ mod.enabled ? 'Enabled' : 'Disabled' }}
+            </button>
+
+            <button class="update-btn" :disabled="updatingIds.has(mod.id)" @click="updateOneMod(mod)">
+              {{ updatingIds.has(mod.id) ? '…' : 'update' }}
+            </button>
           </div>
         </TransitionGroup>
       </template>
@@ -138,14 +107,9 @@ import type { LaunchProfile, ModInfo } from '../../types'
 import Icon from '../common/Icon.vue'
 import { showToast } from '../../composables/useToasts'
 
-import iconBlocks   from '../../assets/icons8-blocks-middle.png'
-import iconPlay     from '../../assets/icons8-spielen-64.png'
-import iconSettings from '../../assets/icons8-settings-50.png'
-import iconPuzzle   from '../../assets/icons8-puzzle-64.png'
 import iconNotFound from '../../assets/icons8-not-found-50.png'
 import iconFile     from '../../assets/icons8-file-64.png'
 import iconModrinth from '../../assets/modrinth.png'
-import iconRemove   from '../../assets/icons8-remove-24.png'
 
 const props = withDefaults(
   defineProps<{ profile: LaunchProfile; hasPrev?: boolean; hasNext?: boolean }>(),
@@ -198,8 +162,15 @@ const mods       = ref<ModInfo[]>([])
 const modsLoading = ref(false)
 const menuOpen   = ref(false)
 const dotsWrapRef = ref<HTMLElement | null>(null)
+const modSearch  = ref('')
+const updatingIds = ref<Set<string>>(new Set())
+const updatingAll = ref(false)
 
-const enabledMods = computed(() => mods.value.filter(m => m.enabled))
+const filteredMods = computed(() => {
+  const q = modSearch.value.trim().toLowerCase()
+  if (!q) return mods.value
+  return mods.value.filter(m => m.name.toLowerCase().includes(q) || m.fileName.toLowerCase().includes(q))
+})
 
 const playtimeLabel = computed(() => {
   const ms = props.profile.playtimeMs ?? 0
@@ -239,6 +210,38 @@ async function deleteMod(modId: string): Promise<void> {
 
 async function importMod(): Promise<void> {
   mods.value = await window.api.mods.install(props.profile.id)
+}
+
+// Manual fallback for mods whose own auto-updater didn't run — best-effort: guesses a
+// Modrinth project from the filename, so a miss just means "couldn't check", not "current".
+async function updateOneMod(mod: ModInfo): Promise<void> {
+  if (updatingIds.value.has(mod.id)) return
+  updatingIds.value = new Set([...updatingIds.value, mod.id])
+  try {
+    const info = await window.api.mods.checkUpdate(props.profile.id, mod.id)
+    if (!info) {
+      showToast({ title: `"${mod.name}" is already up to date`, body: 'Or it isn\'t on Modrinth under a name we could match.', variant: 'info' })
+      return
+    }
+    mods.value = await window.api.modrinth.swapMod(props.profile.id, mod.id, info.projectId, info.versionId)
+    showToast({ title: `Updated "${mod.name}"`, body: `to ${info.versionNumber}`, variant: 'success' })
+  } catch (e) {
+    showToast({ title: `Failed to update "${mod.name}"`, body: String(e), variant: 'error' })
+  } finally {
+    updatingIds.value = new Set([...updatingIds.value].filter(id => id !== mod.id))
+  }
+}
+
+async function updateAllMods(): Promise<void> {
+  if (updatingAll.value) return
+  updatingAll.value = true
+  try {
+    for (const mod of [...filteredMods.value]) {
+      await updateOneMod(mod)
+    }
+  } finally {
+    updatingAll.value = false
+  }
 }
 
 function browseMods(): void {
@@ -306,315 +309,135 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside))
   overflow: hidden;
 }
 
-// ── Back + paging ─────────────────────────────────────────────────────────────
-.detail-nav {
+// ── Header: back + title + search + browse ─────────────────────────────────────
+.detail-header-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding-bottom: 10px;
+  gap: 16px;
+  flex-shrink: 0;
+  // The outer .profiles-page wrapper only has 2px of top padding, so the pixel-font
+  // title's tall glyphs were getting clipped by its overflow-y:auto — pad here instead
+  // of relying on the parent.
+  padding-top: 8px;
+  padding-bottom: 22px;
 }
 
-.back-btn {
+.back-chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: $text-primary;
+  cursor: pointer;
+  transition: opacity $transition;
+  &:hover { opacity: 0.7; }
+}
+
+.detail-title {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+  flex-shrink: 0;
+  font-family: 'Minecrafter', 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.detail-title-name {
+  font-size: 24px;
+  // The Minecrafter pixel font's glyph bounding box is taller than its line-height:1
+  // metrics suggest, so at line-height:1 the ascenders get clipped by .profile-detail's
+  // overflow:hidden — give it breathing room.
+  line-height: 1.4;
+  color: #fff;
+}
+
+.detail-title-sub {
+  font-size: 13px;
+  color: #F6AE35;
+  margin-top: 3px;
+}
+
+.detail-edit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: background $transition, color $transition;
+  &:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+}
+
+.toolbar-search {
+  display: flex;
+  align-items: center;
+  background: #16161a;
+  border-radius: 999px;
+  height: 42px;
+  padding: 0 20px;
+}
+
+.toolbar-search-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 0.02em;
+  &::placeholder { color: rgba(255, 255, 255, 0.35); }
+}
+
+.detail-search {
+  flex: 1;
+  min-width: 200px;
+  margin-left: 8px;
+}
+
+.detail-compass-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  background: #16161a;
+  border: none;
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: background $transition, color $transition;
+  &:hover { background: #232328; color: #fff; }
+}
+
+// ── "update all" link ────────────────────────────────────────────────────────
+.update-all-link {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  background: transparent;
+  gap: 7px;
+  background: none;
   border: none;
-  color: $muted;
+  color: rgba(255, 255, 255, 0.6);
   font-size: 12px;
   cursor: pointer;
   padding: 0;
+  margin-bottom: 14px;
   transition: color $transition;
 
-  &:hover { color: $text-primary; }
-}
+  &:hover:not(:disabled) { color: #fff; }
+  &:disabled { opacity: 0.5; cursor: wait; }
 
-.page-arrows {
-  display: flex;
-  gap: 6px;
-}
-
-.page-arrow-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  background: #1c2127;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 4px;
-  color: $text-primary;
-  cursor: pointer;
-  transition: background $transition, border-color $transition, opacity $transition;
-
-  &:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.35);
-  }
-
-  &:disabled {
-    opacity: 0.3;
-    cursor: default;
-  }
-}
-
-// ── Header ────────────────────────────────────────────────────────────────────
-.detail-header {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-shrink: 0;
-}
-
-.profile-thumb {
-  width: 72px;
-  height: 72px;
-  background: #1c2127;
-  border: 2px solid rgba(255, 255, 255, 0.14);
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  overflow: hidden;
-  position: relative;
-  cursor: pointer;
-
-  &:hover .thumb-hover { opacity: 1; }
-}
-
-.thumb-hover {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 150ms;
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.thumb-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.thumb-placeholder {
-  width: 48px;
-  height: 48px;
-  object-fit: contain;
-}
-
-.profile-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.profile-name {
-  font-family: 'Mojangles', monospace;
-  font-size: 14px;
-  color: #fff;
-  margin-bottom: 4px;
-}
-
-.profile-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.meta-primary {
-  font-family: 'Mojangles', monospace;
-  font-size: 10px;
-  color: #8f8f8f;
-}
-
-.meta-sep {
-  width: 1px;
-  height: 12px;
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.meta-secondary {
-  font-family: 'Mojangles', monospace;
-  font-size: 10px;
-  color: #959595;
-}
-
-// ── Header actions ────────────────────────────────────────────────────────────
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.launch-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: #1c2127;
-  border: 2px solid rgba(255, 255, 255, 0.5);
-  border-radius: 6px;
-  color: #fff;
-  font-family: 'Mojangles', monospace;
-  font-size: 11px;
-  padding: 9px 16px;
-  cursor: pointer;
-  transition: background $transition, border-color $transition, opacity $transition;
-
-  &:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.75);
-  }
-
-  &:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-}
-
-.launch-icon {
-  width: 14px;
-  height: 14px;
-  object-fit: contain;
-  filter: brightness(0) invert(1);
-}
-
-.action-sq-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  background: #1c2127;
-  border: 2px solid rgba(255, 255, 255, 0.18);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background $transition, border-color $transition;
-
-  &:hover {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.35);
-  }
-}
-
-.sq-icon {
-  width: 18px;
-  height: 18px;
-  object-fit: contain;
-  filter: brightness(0) invert(1);
-  opacity: 0.8;
-}
-
-.dots-btn-wrap {
-  position: relative;
-}
-
-.dots-btn {
-  gap: 3px;
-  width: 48px;
-}
-
-.dot {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.7);
-  flex-shrink: 0;
-}
-
-// ── Context menu ──────────────────────────────────────────────────────────────
-.context-menu {
-  @extend %glass-panel;
-  position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
-  background: rgba(28, 33, 39, 0.75);
-  overflow: hidden;
-  z-index: 100;
-  min-width: 140px;
-}
-
-.ctx-item {
-  display: block;
-  width: 100%;
-  padding: 9px 14px;
-  background: transparent;
-  border: none;
-  text-align: left;
-  font-size: 12px;
-  color: $text-primary;
-  cursor: pointer;
-  transition: background $transition;
-
-  &:hover { background: rgba(255, 255, 255, 0.07); }
-
-  &--danger {
-    color: $error;
-    &:hover { background: rgba(224, 80, 80, 0.1); }
-  }
-}
-
-.menu-pop-enter-active,
-.menu-pop-leave-active { transition: opacity 120ms ease, transform 120ms ease; }
-.menu-pop-enter-from,
-.menu-pop-leave-to { opacity: 0; transform: translateY(-4px); }
-
-// ── Divider ───────────────────────────────────────────────────────────────────
-.detail-divider {
-  height: 1px;
-  background: rgba(255, 255, 255, 0.08);
-  margin: 14px 0;
-  flex-shrink: 0;
-}
-
-// ── Content tabs ──────────────────────────────────────────────────────────────
-.content-tabs {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-  margin-bottom: 14px;
-}
-
-.content-tab {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  background: rgba(48, 57, 68, 0.6);
-  border: 2px solid rgba(255, 255, 255, 0.14);
-  border-radius: 6px;
-  color: #939393;
-  font-family: 'Mojangles', monospace;
-  font-size: 10px;
-  cursor: pointer;
-  transition: background $transition, color $transition, border-color $transition;
-
-  &.active {
-    background: rgba(48, 57, 68, 0.9);
-    border-color: rgba(255, 255, 255, 0.28);
-    color: $text-primary;
-  }
-
-  &:hover:not(.active) {
-    background: rgba(48, 57, 68, 0.8);
-    color: $text-secondary;
-  }
-}
-
-.tab-icon {
-  width: 14px;
-  height: 14px;
-  object-fit: contain;
-  filter: brightness(0) invert(0.6);
-}
-
-.content-tab.active .tab-icon {
-  filter: brightness(0) invert(0.85);
+  svg.spinning { animation: spin 0.8s linear infinite; }
 }
 
 // ── Mods area ─────────────────────────────────────────────────────────────────
@@ -665,7 +488,6 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside))
   border: 2px solid rgba(255, 255, 255, 0.18);
   border-radius: 20px;
   color: #d6d6d6;
-  font-family: 'Mojangles', monospace;
   font-size: 10px;
   cursor: pointer;
   transition: background $transition, border-color $transition;
@@ -685,7 +507,6 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside))
   border: 2px solid rgba(255, 255, 255, 0.18);
   border-radius: 20px;
   color: #46d66d;
-  font-family: 'Mojangles', monospace;
   font-size: 10px;
   cursor: pointer;
   transition: background $transition, border-color $transition;
@@ -744,7 +565,6 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside))
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Mojangles', monospace;
   font-size: 26px;
   color: #555;
   text-transform: uppercase;
@@ -758,34 +578,17 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside))
   gap: 6px;
 }
 
-.mod-name-row {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
 .mod-name {
-  font-family: 'Mojangles', monospace;
-  font-size: 15px;
+  font-size: 18px;
   color: #d9d9d9;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.mod-stat {
-  font-family: 'Mojangles', monospace;
-  font-size: 10px;
-  color: #555;
-  letter-spacing: 0.02em;
-  flex-shrink: 0;
-}
-
 .mod-desc {
-  font-family: 'Mojangles', monospace;
-  font-size: 10px;
+  font-size: 11px;
   color: #666;
   letter-spacing: 0.02em;
   line-height: 1.6;
@@ -795,24 +598,50 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside))
   text-overflow: ellipsis;
 }
 
-.install-area {
+.mod-enabled-toggle {
   display: flex;
   align-items: center;
+  gap: 9px;
   flex-shrink: 0;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
 }
 
-.install-btn {
-  padding: 10px 22px;
-  font-family: 'Mojangles', monospace;
+.toggle-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: transparent;
+  transition: background $transition, color $transition;
+
+  .mod-enabled-toggle.on & {
+    background: #46d66d;
+    color: #06210f;
+  }
+}
+
+.update-btn {
+  flex-shrink: 0;
+  padding: 10px 24px;
   font-size: 11px;
   color: #ccc;
-  background: #111;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: #1c1c20;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
   cursor: pointer;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   transition: background 80ms, border-color 80ms, color 80ms;
 
-  &:hover { background: #1e1e1e; border-color: rgba(255, 255, 255, 0.55); color: #fff; }
+  &:hover:not(:disabled) { background: #26262c; border-color: rgba(255, 255, 255, 0.28); color: #fff; }
+  &:disabled { opacity: 0.5; cursor: wait; }
 }
 
 // ── Spinner ───────────────────────────────────────────────────────────────────

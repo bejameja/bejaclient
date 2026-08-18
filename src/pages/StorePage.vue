@@ -75,7 +75,6 @@ onMounted(() => {
   background: #0d0d0d;
   border: none;
   color: #aaa;
-  font-family: 'Mojangles', monospace;
   font-size: 13px;
   cursor: pointer;
   letter-spacing: 0.02em;

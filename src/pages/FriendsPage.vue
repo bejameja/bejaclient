@@ -1,313 +1,261 @@
 <template>
-  <div class="friends-page" :class="{ 'has-chat': !!chatFriend }">
+  <div class="friends-page">
 
-    <!-- Tabs -->
-    <div class="tab-row">
-      <button
-        v-for="t in tabs"
-        :key="t.key"
-        :ref="(el) => setTabBtnRef(t.key, el as HTMLElement | null)"
-        class="tab-btn"
-        :class="{ active: activeTab === t.key }"
-        @click="activeTab = t.key"
-      >
-        {{ t.label }}
-        <span v-if="t.key === 'requests' && friendsStore.pendingCount" class="tab-badge">
-          {{ friendsStore.pendingCount }}
-        </span>
-      </button>
-      <span class="tab-indicator" :style="indicatorStyle" />
-    </div>
+    <!-- ── Left sidebar ─────────────────────────────────────────────────────── -->
+    <div class="fp-sidebar">
 
-    <!-- ── Friends tab ──────────────────────────────────────────────────────── -->
-    <template v-if="activeTab === 'friends'">
-
-      <!-- Add friend bar -->
-      <div class="add-bar">
-        <div class="add-input-wrap" :class="{ focused: addFocused }">
-          <input
-            v-model="addInput"
-            class="add-input"
-            :placeholder="$t('friends.addPlaceholder')"
-            spellcheck="false"
-            @focus="addFocused = true"
-            @blur="addFocused = false"
-            @input="onAddInput"
-            @keyup.enter="sendRequest"
-          />
-
-          <!-- Username suggestions -->
-          <div v-if="addFocused && suggestions.length" class="suggest-drop" @mousedown.prevent>
-            <div v-for="s in suggestions" :key="s.uuid" class="suggest-row">
-              <img
-                class="suggest-head"
-                :src="`https://mc-heads.net/head/${s.uuid}/64`"
-                :alt="s.username"
-                @error="(e: Event) => ((e.target as HTMLImageElement).src = 'https://mc-heads.net/head/MHF_Steve/64')"
-              />
-              <div class="suggest-info">
-                <span class="suggest-name">{{ s.username }}</span>
-                <span class="suggest-tag" :class="`suggest-tag--${s.source}`">
-                  {{ s.source === 'beja' ? 'BEJACLIENT' : 'MINECRAFT' }}
-                </span>
-              </div>
-              <button class="suggest-btn suggest-btn--primary" @click="addSuggestion(s)">Add Friend</button>
-              <button class="suggest-btn" @click="viewSuggestionProfile(s)">View Profile</button>
-            </div>
-          </div>
-        </div>
-        <button class="add-btn" :disabled="!addInput.trim() || adding" @click="sendRequest">
-          <span v-if="adding" class="spinner sm" />
-          <template v-else>{{ $t('friends.add') }}</template>
+      <div class="fp-toggle-row">
+        <button class="fp-toggle-btn" :class="{ active: sideTab === 'friends' }" @click="sideTab = 'friends'">
+          <span class="fp-friends-word">{{ $t('friends.tabs.friends') }}</span>
+        </button>
+        <button class="fp-toggle-btn" :class="{ active: sideTab === 'groups' }" @click="sideTab = 'groups'">
+          <span class="fp-groups-word">Groups</span>
         </button>
       </div>
 
-      <!-- Search -->
-      <div class="search-bar">
-        <input v-model="search" class="search-input" :placeholder="$t('friends.searchPlaceholder')" spellcheck="false" />
-        <img :src="searchIcon" class="search-icon" alt="" />
-      </div>
+      <div class="fp-search-wrap" :class="{ focused: searchFocused }">
+        <input
+          v-model="search"
+          class="fp-search-input"
+          :placeholder="$t('friends.searchPlaceholder')"
+          spellcheck="false"
+          @focus="searchFocused = true"
+          @blur="onSearchBlur"
+          @input="onAddInput"
+          @keyup.enter="sendRequest"
+        />
+        <img :src="findFriendIcon" class="fp-search-icon" alt="" />
 
-      <!-- Friends list -->
-      <div class="list-area">
-
-        <div v-if="loading" class="state-area">
-          <span class="spinner lg" />
-        </div>
-
-        <div v-else-if="!filteredFriends.length" class="state-area">
-          <WipPage
-            :label="search ? $t('friends.noResults') : $t('friends.noFriends')"
-            :sub="search ? '' : $t('friends.noFriendsSub')"
-          >
-            <svg class="empty-icon" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="30" cy="32" r="11" stroke="currentColor" stroke-width="3" opacity="0.35"/>
-              <path d="M12 62c0-12 8-20 18-20s18 8 18 20" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.35"/>
-              <circle cx="55" cy="36" r="9" stroke="currentColor" stroke-width="3" opacity="0.2"/>
-              <path d="M42 62c1-10 7-17 14-17s14 6 15 16" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.2"/>
-            </svg>
-          </WipPage>
-        </div>
-
-        <template v-else>
-          <!-- Online section -->
-          <template v-if="onlineFriends.length">
-            <div class="section-label">{{ $t('friends.sections.online', { count: onlineFriends.length }) }}</div>
-            <TransitionGroup tag="div" name="friend-pop" class="friends-grid">
-              <EditableRegion
-                v-for="f in onlineFriends"
-                :key="f.uuid"
-                id="friends.friendCard"
-                label="Freunde-Karte"
-                :features="['radius', 'outline', 'color', 'fontFamily']"
-              >
-              <div
-                class="friend-card"
-                @click="openChat(f)"
-              >
-                <div class="friend-head-wrap">
-                  <img
-                    class="friend-head"
-                    :src="`https://mc-heads.net/head/${f.uuid}/128`"
-                  @error="(e: Event) => ((e.target as HTMLImageElement).src = `https://mc-heads.net/head/MHF_Steve/128`)"
-                    :alt="f.username"
-                  />
-                  <span class="friend-status-dot dot-online" />
-                  <button class="card-remove-btn" @click.stop="removeFriend(f.uuid)" title="Remove friend">✕</button>
-                </div>
-                <div class="friend-card-label">
-                  <span class="friend-card-name">{{ f.username }}</span>
-                  <span class="friend-card-status online-text">{{ $t('friends.status.online') }}</span>
-                </div>
-              </div>
-              </EditableRegion>
-            </TransitionGroup>
-          </template>
-
-          <!-- No one online, but some offline friends exist -->
-          <div v-else class="all-offline-note">
-            <svg class="all-offline-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="8" cy="8" r="6.3" stroke="currentColor" stroke-width="1.4" opacity="0.4"/>
-              <circle cx="8" cy="8" r="1.6" fill="currentColor" opacity="0.5"/>
-            </svg>
-            <span>{{ $t('friends.allOffline') }}</span>
+        <!-- Add-friend suggestions — same lookup/add flow as before, now living in the sidebar search box -->
+        <div v-if="searchFocused && suggestions.length" class="fp-suggest-drop" @mousedown.prevent>
+          <div v-for="s in suggestions" :key="s.uuid" class="fp-suggest-row">
+            <img
+              class="fp-suggest-head"
+              :src="`https://mc-heads.net/head/${s.uuid}/64`"
+              :alt="s.username"
+              @error="(e: Event) => ((e.target as HTMLImageElement).src = 'https://mc-heads.net/head/MHF_Steve/64')"
+            />
+            <div class="fp-suggest-info">
+              <span class="fp-suggest-name">{{ s.username }}</span>
+              <span class="fp-suggest-tag" :class="`fp-suggest-tag--${s.source}`">
+                {{ s.source === 'beja' ? 'BEJACLIENT' : 'MINECRAFT' }}
+              </span>
+            </div>
+            <button class="fp-suggest-btn fp-suggest-btn--primary" @click="addSuggestion(s)">{{ $t('friends.add') }}</button>
           </div>
-
-          <!-- Offline section -->
-          <template v-if="offlineFriends.length">
-            <div class="section-label">{{ $t('friends.sections.offline', { count: offlineFriends.length }) }}</div>
-            <TransitionGroup tag="div" name="friend-pop" class="friends-grid">
-              <div
-                v-for="f in offlineFriends"
-                :key="f.uuid"
-                class="friend-card friend-card--offline"
-                @click="openChat(f)"
-              >
-                <div class="friend-head-wrap">
-                  <img
-                    class="friend-head"
-                    :src="`https://mc-heads.net/head/${f.uuid}/128`"
-                  @error="(e: Event) => ((e.target as HTMLImageElement).src = `https://mc-heads.net/head/MHF_Steve/128`)"
-                    :alt="f.username"
-                  />
-                  <span class="friend-status-dot dot-offline" />
-                  <button class="card-remove-btn" @click.stop="removeFriend(f.uuid)" title="Remove friend">✕</button>
-                </div>
-                <div class="friend-card-label">
-                  <span class="friend-card-name">{{ f.username }}</span>
-                  <span class="friend-card-status offline-text">{{ $t('friends.status.offline') }}</span>
-                </div>
-              </div>
-            </TransitionGroup>
-          </template>
-        </template>
-
+        </div>
       </div>
-    </template>
 
-    <!-- ── Requests tab ─────────────────────────────────────────────────────── -->
-    <template v-else>
-      <div class="list-area">
+      <template v-if="sideTab === 'friends'">
 
-        <!-- Incoming -->
+        <!-- Pending requests — compact, kept alongside the list rather than a separate tab -->
         <template v-if="friendsStore.incomingRequests.length">
-          <div class="section-label">{{ $t('friends.sections.incoming', { count: friendsStore.incomingRequests.length }) }}</div>
-          <TransitionGroup tag="div" name="friend-pop" class="friends-grid">
-            <div
-              v-for="r in friendsStore.incomingRequests"
-              :key="r.uuid"
-              class="friend-card"
-            >
-              <div class="friend-head-wrap">
-                <img
-                  class="friend-head"
-                  :src="`https://mc-heads.net/head/${r.uuid}/128`"
-                  @error="(e: Event) => ((e.target as HTMLImageElement).src = `https://mc-heads.net/head/MHF_Steve/128`)"
-                  :alt="r.username"
-                />
-                <span class="friend-status-dot dot-pending" />
-              </div>
-              <div class="friend-card-label">
-                <span class="friend-card-name">{{ r.username }}</span>
-                <span class="friend-card-status pending-text">{{ $t('friends.status.incoming') }}</span>
-              </div>
-              <div class="card-request-actions">
-                <button class="action-btn action-btn--accept" @click="acceptRequest(r.uuid)">✓</button>
-                <button class="action-btn action-btn--decline" @click="declineRequest(r.uuid)">✕</button>
+          <div class="fp-section-label">{{ $t('friends.sections.incoming', { count: friendsStore.incomingRequests.length }) }}</div>
+          <div class="fp-list fp-list--requests">
+            <div v-for="r in friendsStore.incomingRequests" :key="r.uuid" class="fp-request-row">
+              <img
+                class="fp-avatar fp-avatar--sm"
+                :src="`https://mc-heads.net/head/${r.uuid}/64`"
+                :alt="r.username"
+                @error="(e: Event) => ((e.target as HTMLImageElement).src = 'https://mc-heads.net/head/MHF_Steve/64')"
+              />
+              <span class="fp-friend-name">{{ r.username }}</span>
+              <div class="fp-request-actions">
+                <button class="fp-req-btn fp-req-btn--accept" title="Accept" @click="acceptRequest(r.uuid)">✓</button>
+                <button class="fp-req-btn fp-req-btn--decline" title="Decline" @click="declineRequest(r.uuid)">✕</button>
               </div>
             </div>
-          </TransitionGroup>
+          </div>
         </template>
 
-        <!-- Outgoing -->
-        <template v-if="friendsStore.outgoingRequests.length">
-          <div class="section-label">{{ $t('friends.sections.sent', { count: friendsStore.outgoingRequests.length }) }}</div>
-          <TransitionGroup tag="div" name="friend-pop" class="friends-grid">
-            <div
-              v-for="r in friendsStore.outgoingRequests"
-              :key="r.uuid"
-              class="friend-card friend-card--offline"
-            >
-              <div class="friend-head-wrap">
-                <img
-                  class="friend-head"
-                  :src="`https://mc-heads.net/head/${r.uuid}/128`"
-                  @error="(e: Event) => ((e.target as HTMLImageElement).src = `https://mc-heads.net/head/MHF_Steve/128`)"
-                  :alt="r.username"
-                />
-                <span class="friend-status-dot dot-pending" />
-              </div>
-              <div class="friend-card-label">
-                <span class="friend-card-name">{{ r.username }}</span>
-                <span class="friend-card-status pending-text">{{ $t('friends.status.pending') }}</span>
-              </div>
-              <div class="card-request-actions">
-                <button class="action-btn action-btn--decline" @click="cancelRequest(r.uuid)">{{ $t('friends.cancel') }}</button>
-              </div>
+        <div class="fp-list">
+          <div
+            v-for="f in filteredFriends"
+            :key="f.uuid"
+            class="fp-friend-row"
+            :class="{ active: chatFriend?.uuid === f.uuid }"
+            @click="openChat(f)"
+          >
+            <div class="fp-avatar-wrap">
+              <img
+                class="fp-avatar"
+                :src="`https://mc-heads.net/head/${f.uuid}/64`"
+                :alt="f.username"
+                @error="(e: Event) => ((e.target as HTMLImageElement).src = 'https://mc-heads.net/head/MHF_Steve/64')"
+              />
+              <span class="fp-status-dot" :class="{ online: f.online }" />
             </div>
-          </TransitionGroup>
-        </template>
+            <span class="fp-friend-name">{{ f.username }}</span>
+          </div>
 
-        <!-- Empty -->
-        <div
-          v-if="!friendsStore.incomingRequests.length && !friendsStore.outgoingRequests.length"
-          class="state-area"
-        >
-          <span class="state-text">{{ $t('friends.noPendingRequests') }}</span>
+          <p v-if="!loading && !filteredFriends.length" class="fp-empty">
+            {{ search ? $t('friends.noResults') : $t('friends.noFriends') }}
+          </p>
         </div>
+      </template>
 
+      <template v-else>
+        <div class="fp-groups-empty">
+          <span class="fp-groups-empty-text">Groups — coming soon</span>
+        </div>
+      </template>
+
+    </div>
+
+    <!-- ── Right: chat pane (always present, not a slide-over) ─────────────── -->
+    <div class="fp-chat" v-if="chatFriend">
+
+      <div class="fp-chat-header">
+        <img
+          class="fp-chat-avatar"
+          :src="`https://mc-heads.net/head/${chatFriend.uuid}/64`"
+          @error="(e: Event) => ((e.target as HTMLImageElement).src = `https://mc-heads.net/head/MHF_Steve/64`)"
+        />
+        <span class="fp-chat-name">{{ chatFriend.username }}</span>
+        <span v-if="friendTyping" class="fp-chat-typing">{{ $t('friends.chat.typing') }}</span>
+
+        <div class="fp-chat-header-actions">
+          <button class="fp-header-icon-btn" title="Call" disabled><img :src="callIcon" alt="" /></button>
+          <div class="fp-popover-anchor">
+            <button
+              class="fp-header-icon-btn"
+              :class="{ active: pinnedOpen }"
+              title="Pinned messages"
+              @click="pinnedOpen = !pinnedOpen; searchOpen = false"
+            >
+              <img :src="pinIcon" alt="" />
+              <span v-if="pinnedForFriend.length" class="fp-header-badge">{{ pinnedForFriend.length }}</span>
+            </button>
+            <div v-if="pinnedOpen" class="fp-popover fp-pinned-popover" @mousedown.stop>
+              <div class="fp-popover-title">Pinned messages <span class="fp-popover-hint">(only visible on this device)</span></div>
+              <div v-if="!pinnedForFriend.length" class="fp-popover-empty">No pinned messages yet — hover a message and click the pin icon.</div>
+              <div v-else class="fp-pinned-list">
+                <div v-for="msg in pinnedForFriend" :key="msg.id" class="fp-pinned-item">
+                  <span class="fp-pinned-text">{{ msg.content }}</span>
+                  <button class="fp-pinned-unpin" title="Unpin" @click="togglePin(msg)">✕</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="fp-popover-anchor">
+            <button
+              class="fp-header-icon-btn"
+              :class="{ active: searchOpen }"
+              title="Search messages"
+              @click="searchOpen = !searchOpen; pinnedOpen = false; if (searchOpen) nextTick(() => searchInputEl?.focus())"
+            >
+              <img :src="moreIcon" alt="" />
+            </button>
+          </div>
+        </div>
       </div>
-    </template>
 
-    <!-- ── Chat panel ───────────────────────────────────────────────────────── -->
-    <Transition name="chat-slide">
-      <div v-if="chatFriend" class="chat-panel">
+      <div v-if="searchOpen" class="fp-msg-search-row">
+        <input
+          ref="searchInputEl"
+          v-model="msgSearch"
+          class="fp-msg-search-input"
+          placeholder="Search this conversation…"
+        />
+        <span v-if="msgSearch" class="fp-msg-search-count">{{ visibleMessages.length }} found</span>
+      </div>
 
-        <!-- Chat header -->
-        <div class="chat-header">
-          <img
-            class="chat-avatar"
-            :src="`https://mc-heads.net/head/${chatFriend.uuid}/64`"
-            @error="(e: Event) => ((e.target as HTMLImageElement).src = `https://mc-heads.net/head/MHF_Steve/64`)"
-          />
-          <div class="chat-header-info">
-            <span class="chat-header-name">{{ chatFriend.username }}</span>
-            <span v-if="friendTyping" class="chat-header-status typing-text">{{ $t('friends.chat.typing') }}</span>
-            <span v-else class="chat-header-status" :class="chatFriend.online ? 'online-text' : 'offline-text'">
-              {{ chatFriend.online ? $t('friends.status.online') : $t('friends.status.offline') }}
-            </span>
-          </div>
-          <button class="chat-close-btn" @click="closeChat">✕</button>
+      <div class="fp-chat-messages" ref="chatScrollEl">
+        <div v-if="chatLoading" class="fp-chat-state">
+          <span class="fp-spinner" />
         </div>
-
-        <!-- Messages -->
-        <div class="chat-messages" ref="chatScrollEl">
-          <div v-if="chatLoading" class="chat-empty">
-            <span class="spinner sm" />
-          </div>
-          <div v-else-if="!chatMessages.length" class="chat-empty">
-            <span class="chat-empty-text">{{ $t('friends.chat.noMessages') }}</span>
-          </div>
-          <template v-else>
-            <div
-              v-for="msg in chatMessages"
-              :key="msg.id"
-              class="chat-msg"
-              :class="{ 'chat-msg--mine': msg.fromUuid === myUuid }"
-            >
-              <span class="chat-msg-bubble">
+        <div v-else-if="!visibleMessages.length" class="fp-chat-state">
+          <span class="fp-chat-empty-text">{{ msgSearch ? 'No messages match your search' : $t('friends.chat.noMessages') }}</span>
+        </div>
+        <template v-else>
+          <div
+            v-for="msg in visibleMessages"
+            :key="msg.id"
+            class="fp-msg"
+            :class="{ 'fp-msg--mine': msg.fromUuid === myUuid }"
+          >
+            <div class="fp-msg-row">
+              <button
+                class="fp-pin-toggle"
+                :class="{ pinned: isPinned(msg) }"
+                title="Pin message"
+                @click="togglePin(msg)"
+              >📌</button>
+              <span class="fp-msg-bubble" @contextmenu="onMsgContextMenu($event, msg)">
                 <template v-for="(part, i) in parseChatContent(msg.content)" :key="i">
+                  <img v-if="part.type === 'image'" :src="part.value" class="fp-msg-image" alt="" />
                   <a
-                    v-if="part.type === 'link'"
+                    v-else-if="part.type === 'link'"
                     :href="part.value"
-                    class="chat-link"
+                    class="fp-chat-link"
                     :title="$t('friends.chat.linkHint')"
                     @click="onChatLinkClick($event, part.value)"
                   >{{ part.value }}</a>
                   <template v-else>{{ part.value }}</template>
                 </template>
               </span>
-              <span class="chat-msg-time">{{ formatTime(msg.sentAt) }}</span>
             </div>
-          </template>
-        </div>
-
-        <!-- Input -->
-        <div class="chat-input-row">
-          <input
-            v-model="chatInput"
-            class="chat-input"
-            :placeholder="$t('friends.chat.messagePlaceholder', { name: chatFriend.username })"
-            spellcheck="false"
-            maxlength="2000"
-            @keyup.enter="sendChat"
-            @input="onChatInput"
-          />
-          <button class="chat-send-btn" :disabled="!chatInput.trim()" @click="sendChat">▶</button>
-        </div>
-
+            <span class="fp-msg-time">{{ formatTime(msg.sentAt) }}</span>
+          </div>
+        </template>
       </div>
-    </Transition>
+
+      <div class="fp-chat-input-row">
+        <input ref="fileInputEl" type="file" accept="image/*" class="fp-file-input" @change="onFilePicked" />
+        <button class="fp-attach-btn" title="Send an image" @click="fileInputEl?.click()">+</button>
+        <input
+          v-model="chatInput"
+          class="fp-chat-input"
+          :placeholder="$t('friends.chat.messagePlaceholder', { name: chatFriend.username })"
+          spellcheck="false"
+          maxlength="2000"
+          @keyup.enter="sendChat"
+          @input="onChatInput"
+        />
+        <div class="fp-popover-anchor">
+          <button class="fp-icon-btn" :class="{ active: gifOpen }" title="GIF" @click="toggleGifPopover">
+            <img :src="gifIcon" alt="" />
+          </button>
+          <div v-if="gifOpen" class="fp-popover fp-gif-popover" @mousedown.stop>
+            <input
+              ref="gifSearchEl"
+              v-model="gifQuery"
+              class="fp-gif-search-input"
+              placeholder="Search GIFs…"
+              @input="onGifQueryInput"
+            />
+            <div class="fp-gif-grid">
+              <span v-if="gifLoading" class="fp-gif-status">Loading…</span>
+              <span v-else-if="gifError" class="fp-gif-status">{{ gifError }}</span>
+              <span v-else-if="!gifResults.length" class="fp-gif-status">No GIFs found.</span>
+              <button
+                v-for="g in gifResults"
+                :key="g.id"
+                class="fp-gif-thumb"
+                :title="g.title"
+                @click="sendGif(g)"
+              >
+                <img :src="g.thumb" :alt="g.title" loading="lazy" />
+              </button>
+            </div>
+            <div class="fp-popover-hint fp-gif-credit">Powered by GIPHY</div>
+          </div>
+        </div>
+        <div class="fp-popover-anchor">
+          <button class="fp-icon-btn" :class="{ active: emojiOpen }" title="Emoji" @click="emojiOpen = !emojiOpen; gifOpen = false">
+            <img :src="emojiIcon" alt="" />
+          </button>
+          <div v-if="emojiOpen" class="fp-popover fp-emoji-popover" @mousedown.stop>
+            <button v-for="e in EMOJI_SET" :key="e" class="fp-emoji-btn" @click="insertEmoji(e)">{{ e }}</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div v-else class="fp-chat fp-chat--empty">
+      <span class="fp-chat-empty-hint">{{ $t('friends.noFriendsSub') }}</span>
+    </div>
 
     <!-- Toast -->
     <Transition name="toast">
@@ -320,17 +268,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useFriendsStore } from '../store/friendsStore'
 import { useAccountStore } from '../store/accountStore'
 import type { ChatMessage, PlayerProfile } from '../types'
-import searchIcon from '../assets/icons8-search-50.png'
-import { useSlidingTabIndicator } from '../composables/useSlidingTabIndicator'
+import findFriendIcon from '../assets/icons8-find-friend-50.png'
+import callIcon from '../assets/icons8-call-50.png'
+import pinIcon from '../assets/icons8-pin-50.png'
+import moreIcon from '../assets/icons8-more-50.png'
+import gifIcon from '../assets/icons8-gif-50.png'
+import emojiIcon from '../assets/icons8-emoji-50.png'
 import PlayerProfileModal from '../components/friends/PlayerProfileModal.vue'
-import WipPage from '../components/common/WipPage.vue'
-import EditableRegion from '../components/common/EditableRegion.vue'
+import { openContextMenu, type ContextMenuItem } from '../composables/useContextMenu'
 
 const friendsStore  = useFriendsStore()
 const accountStore  = useAccountStore()
@@ -338,28 +289,16 @@ const route         = useRoute()
 const myUuid        = computed(() => accountStore.selectedAccount?.uuid ?? '')
 const { t } = useI18n()
 
-const activeTab = ref('friends')
-const search    = ref('')
-const addInput  = ref('')
-const addFocused = ref(false)
-const adding    = ref(false)
-const loading   = ref(false)
-
-const tabs = computed(() => [
-  { key: 'friends',  label: t('friends.tabs.friends')  },
-  { key: 'requests', label: t('friends.tabs.requests') },
-])
-
-const { setTabBtnRef, indicatorStyle } = useSlidingTabIndicator(activeTab)
+const sideTab       = ref<'friends' | 'groups'>('friends')
+const search        = ref('')
+const searchFocused = ref(false)
+const loading       = ref(false)
 
 const filteredFriends = computed(() => {
   const q = search.value.trim().toLowerCase()
   if (!q) return friendsStore.friends
   return friendsStore.friends.filter(f => f.username.toLowerCase().includes(q))
 })
-
-const onlineFriends  = computed(() => filteredFriends.value.filter(f => f.online))
-const offlineFriends = computed(() => filteredFriends.value.filter(f => !f.online))
 
 // ── Toast ──────────────────────────────────────────────────────────────────────
 interface Toast { msg: string; type: 'ok' | 'err' | 'info' }
@@ -372,7 +311,7 @@ function showToast(msg: string, type: Toast['type'] = 'info') {
   toastTimer = setTimeout(() => { toast.value = null }, 3000)
 }
 
-// ── Username suggestions ───────────────────────────────────────────────────────
+// ── Username suggestions (search box doubles as add-friend input) ──────────────
 interface Suggestion { uuid: string; username: string; source: 'beja' | 'mojang' }
 
 const suggestions = ref<Suggestion[]>([])
@@ -384,12 +323,12 @@ const profilePlayer = ref<PlayerProfile | null>(null)
 
 function onAddInput() {
   if (suggestTimer) clearTimeout(suggestTimer)
-  const q = addInput.value.trim()
+  const q = search.value.trim()
   if (q.length < 2) { suggestions.value = []; return }
   suggestTimer = setTimeout(async () => {
     const seq = ++suggestSeq
     const results = await window.api.players.search(q)
-    if (seq !== suggestSeq) return // newer query in flight
+    if (seq !== suggestSeq) return
     const bare = (u: string) => u.replace(/-/g, '').toLowerCase()
     suggestions.value = results.filter(s =>
       bare(s.uuid) !== bare(myUuid.value) &&
@@ -398,39 +337,23 @@ function onAddInput() {
   }, 300)
 }
 
-function addSuggestion(s: Suggestion) {
-  addInput.value     = s.username
-  suggestions.value  = []
-  sendRequest()
+function onSearchBlur() {
+  searchFocused.value = false
 }
 
-async function viewSuggestionProfile(s: Suggestion) {
+async function addSuggestion(s: Suggestion) {
   suggestions.value = []
-  // Mojang lookup fills skin/cape for the modal; cracked accounts fall back to basics
-  const profile = await window.api.players.lookup(s.username)
-  profilePlayer.value = profile ?? {
-    uuid:      s.uuid,
-    username:  s.username,
-    skinUrl:   null,
-    capeUrl:   null,
-    skinModel: 'default',
-  }
-  profileOpen.value = true
-}
-
-// ── Actions ────────────────────────────────────────────────────────────────────
-async function sendRequest() {
-  const name = addInput.value.trim()
-  if (!name || adding.value) return
-  suggestions.value = []
-  adding.value = true
-  const result = await friendsStore.sendRequest(name)
-  adding.value = false
-  if (result === 'sent')            { showToast(t('friends.toast.sent', { name }), 'ok');  addInput.value = '' }
-  else if (result === 'not_found')    showToast(t('friends.toast.notFound', { name }), 'err')
-  else if (result === 'already_friends') showToast(t('friends.toast.alreadyFriends', { name }), 'info')
+  const result = await friendsStore.sendRequest(s.username)
+  if (result === 'sent') showToast(t('friends.toast.sent', { name: s.username }), 'ok')
   else if (result === 'already_pending') showToast(t('friends.toast.alreadyPending'), 'info')
-  else                                showToast(t('friends.toast.error'), 'err')
+  else if (result === 'already_friends') showToast(t('friends.toast.alreadyFriends', { name: s.username }), 'info')
+  else showToast(t('friends.toast.error'), 'err')
+}
+
+async function sendRequest() {
+  const name = search.value.trim()
+  if (!name || !suggestions.value.length) return
+  await addSuggestion(suggestions.value[0])
 }
 
 async function acceptRequest(uuid: string) {
@@ -440,14 +363,6 @@ async function acceptRequest(uuid: string) {
 
 async function declineRequest(uuid: string) {
   await friendsStore.declineRequest(uuid)
-}
-
-async function cancelRequest(uuid: string) {
-  await friendsStore.cancelRequest(uuid)
-}
-
-async function removeFriend(uuid: string) {
-  await friendsStore.removeFriend(uuid)
 }
 
 // ── Chat ───────────────────────────────────────────────────────────────────────
@@ -468,20 +383,13 @@ async function openChat(friend: ChatFriend) {
   chatMessages.value = []
   chatLoading.value  = true
   friendTyping.value = false
+  friendsStore.activeChatUsername = friend.username
   if (typingClearTimer) { clearTimeout(typingClearTimer); typingClearTimer = null }
   try {
     chatMessages.value = await window.api.chat.history(friend.uuid)
   } catch { /* non-fatal */ }
   chatLoading.value = false
   scrollChatBottom()
-}
-
-function closeChat() {
-  chatFriend.value   = null
-  chatMessages.value = []
-  chatInput.value    = ''
-  friendTyping.value = false
-  if (typingClearTimer) { clearTimeout(typingClearTimer); typingClearTimer = null }
 }
 
 async function sendChat() {
@@ -491,14 +399,23 @@ async function sendChat() {
   await window.api.chat.send(chatFriend.value.uuid, content)
 }
 
-// Splits a message into plain-text and link segments so URLs render as
-// clickable — but a plain click must NOT navigate (it'd otherwise steal the
-// click a user is making to select/copy text); only Ctrl/Cmd+click opens it.
 const CHAT_URL_RE = /https?:\/\/[^\s]+/g
 const TRAILING_PUNCT_RE = /[.,!?;:)\]}'"]+$/
+const IMAGE_URL_RE = /\.(png|jpe?g|gif|webp)(\?.*)?$/i
 
-function parseChatContent(content: string): { type: 'text' | 'link'; value: string }[] {
-  const parts: { type: 'text' | 'link'; value: string }[] = []
+function isImageUrl(url: string): boolean {
+  return url.startsWith('data:image/') || IMAGE_URL_RE.test(url)
+}
+
+// A whole message that's nothing but a single image/GIF link or a pasted data
+// URL renders as just the image, no surrounding link chrome.
+function parseChatContent(content: string): { type: 'text' | 'link' | 'image'; value: string }[] {
+  const trimmed = content.trim()
+  if (isImageUrl(trimmed) && trimmed === content) {
+    return [{ type: 'image', value: trimmed }]
+  }
+
+  const parts: { type: 'text' | 'link' | 'image'; value: string }[] = []
   let lastIndex = 0
   for (const match of content.matchAll(CHAT_URL_RE)) {
     const start = match.index ?? 0
@@ -508,7 +425,7 @@ function parseChatContent(content: string): { type: 'text' | 'link'; value: stri
     const trailing = url.match(TRAILING_PUNCT_RE)?.[0] ?? ''
     if (trailing) url = url.slice(0, -trailing.length)
 
-    parts.push({ type: 'link', value: url })
+    parts.push({ type: isImageUrl(url) ? 'image' : 'link', value: url })
     if (trailing) parts.push({ type: 'text', value: trailing })
     lastIndex = start + match[0].length
   }
@@ -521,7 +438,176 @@ function onChatLinkClick(e: MouseEvent, url: string) {
   if (e.ctrlKey || e.metaKey) window.api.system.openExternal(url)
 }
 
-// Throttled — at most one typing ping per 2s while the user keeps typing
+// ── Message search (client-side, over already-loaded history) ──────────────────
+const searchOpen    = ref(false)
+const msgSearch     = ref('')
+const searchInputEl = ref<HTMLInputElement | null>(null)
+
+const visibleMessages = computed(() => {
+  const q = msgSearch.value.trim().toLowerCase()
+  if (!q) return chatMessages.value
+  return chatMessages.value.filter(m => m.content.toLowerCase().includes(q))
+})
+
+// ── Pinned messages — local-only (no server field for this), keyed by friend uuid.
+const PIN_STORAGE_KEY = 'beja_pinned_messages_v1'
+const pinnedOpen = ref(false)
+const pinnedIds  = ref<Record<string, string[]>>(loadPinnedIds())
+
+function loadPinnedIds(): Record<string, string[]> {
+  try {
+    const raw = localStorage.getItem(PIN_STORAGE_KEY)
+    return raw ? JSON.parse(raw) : {}
+  } catch { return {} }
+}
+
+function savePinnedIds() {
+  localStorage.setItem(PIN_STORAGE_KEY, JSON.stringify(pinnedIds.value))
+}
+
+const pinnedForFriend = computed(() => {
+  if (!chatFriend.value) return []
+  const ids = new Set(pinnedIds.value[chatFriend.value.uuid] ?? [])
+  return chatMessages.value.filter(m => ids.has(String(m.id)))
+})
+
+function isPinned(msg: ChatMessage): boolean {
+  if (!chatFriend.value) return false
+  return (pinnedIds.value[chatFriend.value.uuid] ?? []).includes(String(msg.id))
+}
+
+function togglePin(msg: ChatMessage) {
+  if (!chatFriend.value) return
+  const uuid = chatFriend.value.uuid
+  const current = pinnedIds.value[uuid] ?? []
+  const id = String(msg.id)
+  pinnedIds.value = {
+    ...pinnedIds.value,
+    [uuid]: current.includes(id) ? current.filter(x => x !== id) : [...current, id],
+  }
+  savePinnedIds()
+}
+
+// ── Custom right-click menu — only inside chat messages, replacing the native
+// OS/browser menu there (elsewhere in the app right-click is untouched). ────
+function onMsgContextMenu(event: MouseEvent, msg: ChatMessage) {
+  const parts = parseChatContent(msg.content)
+  const isSingleImage = parts.length === 1 && parts[0].type === 'image'
+
+  const items: ContextMenuItem[] = isSingleImage
+    ? [
+        { label: 'Copy image link', icon: 'copy', onClick: () => navigator.clipboard.writeText(msg.content) },
+        { label: 'Open image', icon: 'external-link', onClick: () => window.api.system.openExternal(msg.content) },
+      ]
+    : [
+        { label: 'Copy text', icon: 'copy', onClick: () => navigator.clipboard.writeText(msg.content) },
+      ]
+
+  items.push(
+    { separator: true, label: '' },
+    { label: isPinned(msg) ? 'Unpin message' : 'Pin message', onClick: () => togglePin(msg) },
+  )
+
+  openContextMenu(event, items)
+}
+
+// ── Emoji picker ─────────────────────────────────────────────────────────────
+const emojiOpen = ref(false)
+const EMOJI_SET = [
+  '😀', '😂', '😅', '😉', '😊', '😍', '😘', '😜', '🤔', '😎',
+  '😢', '😭', '😡', '🥳', '😴', '🙄', '😱', '🤝', '👍', '👎',
+  '👏', '🙏', '🔥', '💯', '❤️', '💀', '🎉', '✨', '⭐', '🎮',
+]
+
+function insertEmoji(e: string) {
+  chatInput.value += e
+  emojiOpen.value = false
+}
+
+// ── GIF search — proxied through Rust (giphy_service.rs) so the API key stays
+// server-side, never shipped in the webview's JS bundle. Key itself lives in
+// Settings → Launcher (settings.json's launcher.giphyApiKey).
+interface GifResult { id: string; thumb: string; url: string; title: string }
+
+const gifOpen    = ref(false)
+const gifQuery   = ref('')
+const gifResults = ref<GifResult[]>([])
+const gifLoading = ref(false)
+const gifError   = ref('')
+const gifSearchEl = ref<HTMLInputElement | null>(null)
+let gifDebounce: ReturnType<typeof setTimeout> | null = null
+let gifSeq = 0
+
+async function runGifSearch(query: string) {
+  const seq = ++gifSeq
+  gifLoading.value = true
+  gifError.value = ''
+  try {
+    gifResults.value = await window.api.giphy.search(query)
+  } catch (e) {
+    if (seq !== gifSeq) return
+    gifError.value = e instanceof Error ? e.message : String(e)
+    gifResults.value = []
+  } finally {
+    if (seq === gifSeq) gifLoading.value = false
+  }
+}
+
+function onGifQueryInput() {
+  if (gifDebounce) clearTimeout(gifDebounce)
+  gifDebounce = setTimeout(() => runGifSearch(gifQuery.value.trim()), 350)
+}
+
+async function sendGif(g: GifResult) {
+  if (!chatFriend.value) return
+  gifOpen.value = false
+  await window.api.chat.send(chatFriend.value.uuid, g.url)
+}
+
+function toggleGifPopover() {
+  gifOpen.value = !gifOpen.value
+  emojiOpen.value = false
+  if (gifOpen.value && !gifResults.value.length) runGifSearch('')
+  if (gifOpen.value) nextTick(() => gifSearchEl.value?.focus())
+}
+
+// ── Send an image file ───────────────────────────────────────────────────────
+// No chat-attachment endpoint exists server-side — content is plain text —
+// so the picked file is sent as a data: URL through the same text pipe the
+// rest of chat already uses, and rendered as an image by the parser above.
+// Capped well under typical request-body limits since base64 inflates size ~33%.
+const fileInputEl = ref<HTMLInputElement | null>(null)
+const MAX_IMAGE_BYTES = 1.5 * 1024 * 1024
+
+function onFilePicked(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file || !chatFriend.value) return
+  if (file.size > MAX_IMAGE_BYTES) {
+    showToast('Image too large (max 1.5MB) — try a smaller file or paste a link instead.', 'err')
+    return
+  }
+  const reader = new FileReader()
+  reader.onload = async () => {
+    const dataUrl = reader.result as string
+    await window.api.chat.send(chatFriend.value!.uuid, dataUrl)
+  }
+  reader.onerror = () => showToast('Could not read that image.', 'err')
+  reader.readAsDataURL(file)
+}
+
+// ── Close popovers on outside click ──────────────────────────────────────────
+function onDocClick(e: MouseEvent) {
+  // .fp-msg-search-row is an inline bar (toggled by its own icon), not a floating
+  // popover, so it's deliberately excluded here — only the three overlay popovers close.
+  if (!(e.target as HTMLElement)?.closest?.('.fp-popover-anchor')) {
+    pinnedOpen.value = false
+    gifOpen.value = false
+    emojiOpen.value = false
+  }
+}
+
 function onChatInput() {
   if (!chatFriend.value) return
   const now = Date.now()
@@ -569,156 +655,165 @@ onMounted(async () => {
     ) {
       chatMessages.value.push(msg)
       scrollChatBottom()
-      // Any incoming message implies they've stopped typing
       friendTyping.value = false
       if (typingClearTimer) { clearTimeout(typingClearTimer); typingClearTimer = null }
     }
   })
+
+  document.addEventListener('mousedown', onDocClick, true)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('mousedown', onDocClick, true)
+  friendsStore.activeChatUsername = null
 })
 </script>
 
 <style lang="scss" scoped>
-@font-face {
-  font-family: 'Mojangles';
-  src: url('../assets/fonts/mojangles.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-}
-
-// ── Page shell ────────────────────────────────────────────────────────────────
+// ── Page shell — persistent two-pane layout (sidebar list + chat), matching
+// the Figma reference (node 424-24) instead of the old tab-grid + slide-over. ─
 .friends-page {
   height: 100%;
   display: flex;
-  flex-direction: column;
-  padding: 16px 20px;
-  gap: 8px;
   overflow: hidden;
   position: relative;
+  background: #0a0a0b;
 }
 
-// ── Tabs ──────────────────────────────────────────────────────────────────────
-.tab-row {
-  position: relative;
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+.fp-sidebar {
+  width: 330px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 16px;
+  overflow: hidden;
+}
+
+.fp-toggle-row {
   display: flex;
   gap: 8px;
   flex-shrink: 0;
 }
 
-.tab-btn {
-  padding: 8px 22px;
-  background: #0d0d0d;
-  border: none;
-  color: #aaa;
-  font-family: 'Mojangles', monospace;
-  font-size: 13px;
+.fp-toggle-btn {
+  padding: 9px 16px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.55);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
   cursor: pointer;
-  letter-spacing: 0.02em;
-  transition: background 80ms, color 80ms;
-  border-radius: 0;
-  display: flex;
-  align-items: center;
-  gap: 7px;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
 
-  &:hover { background: #1a1a1a; color: #ccc; }
+  &:hover { color: rgba(255, 255, 255, 0.85); border-color: rgba(255, 255, 255, 0.3); }
+
   &.active {
-    background: #111;
-    color: #d9d9d9;
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #fff;
   }
 }
 
-.tab-indicator {
-  position: absolute;
-  bottom: 0;
-  height: 2px;
-  background: rgba(255, 255, 255, 0.3);
-  pointer-events: none;
-  transition: left 260ms cubic-bezier(0.16, 1, 0.3, 1), width 260ms cubic-bezier(0.16, 1, 0.3, 1);
+// Same treatment as the "Friends" heading on the Hub page.
+.fp-friends-word {
+  display: inline-block;
+  font-size: 17px;
+  font-weight: 800;
+  color: #4660FE;
+  background: #090C20;
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-left: -6px;
+  font-family: 'Minecrafter', 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: 0.12em;
 }
 
-.tab-badge {
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  background: #f97316;
-  color: #fff;
-  font-size: 8px;
-  font-weight: 700;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: 'Mojangles', monospace;
+.fp-groups-word {
+  display: inline-block;
+  font-size: 17px;
+  font-weight: 800;
+  color: #F999E6;
+  background: #21141E;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-family: 'Minecrafter', 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: 0.12em;
 }
 
-// ── Add friend bar ────────────────────────────────────────────────────────────
-.add-bar {
-  display: flex;
-  gap: 6px;
-  flex-shrink: 0;
-  align-items: center;
-}
-
-.add-input-wrap {
+// ── Search / add-friend box ──────────────────────────────────────────────────
+.fp-search-wrap {
   position: relative;
-  flex: 1;
-  max-width: 400px;
   display: flex;
   align-items: center;
-  height: 36px;
-  background: #0a0a0b;
-  border: 1px solid rgba(118,119,120,0.61);
+  height: 38px;
+  background: #131315;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
   padding: 0 10px;
-  transition: border-color 100ms;
+  gap: 8px;
+  flex-shrink: 0;
+  transition: border-color 140ms ease;
 
-  &.focused { border-color: rgba(255,255,255,0.4); }
+  &.focused { border-color: rgba(255, 255, 255, 0.25); }
 }
 
-.add-input {
+.fp-search-input {
   flex: 1;
+  min-width: 0;
   background: none;
   border: none;
   outline: none;
-  font-family: 'Mojangles', monospace;
-  font-size: 11px;
-  color: #cbcbcb;
-  letter-spacing: 0.03em;
-  &::placeholder { color: #555; }
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.85);
+  &::placeholder { color: rgba(255, 255, 255, 0.35); }
 }
 
-.suggest-drop {
+.fp-search-icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  opacity: 0.6;
+  filter: brightness(0) invert(1);
+}
+
+.fp-suggest-drop {
   position: absolute;
   top: calc(100% + 4px);
-  left: -1px;
-  right: -1px;
-  background: #0a0a0b;
-  border: 1px solid rgba(118,119,120,0.61);
-  border-radius: 6px;
+  left: 0;
+  right: 0;
+  background: #131315;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
   overflow: hidden;
   z-index: 30;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 
-.suggest-row {
+.fp-suggest-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  width: 100%;
   padding: 8px 10px;
-  transition: background $transition;
-
-  &:hover { background: rgba(255,255,255,0.04); }
-  & + & { border-top: 1px solid rgba(255,255,255,0.04); }
+  transition: background 120ms ease;
+  &:hover { background: rgba(255, 255, 255, 0.05); }
+  & + & { border-top: 1px solid rgba(255, 255, 255, 0.05); }
 }
 
-.suggest-head {
+.fp-suggest-head {
   width: 26px;
   height: 26px;
-  border-radius: 3px;
+  border-radius: 5px;
   image-rendering: pixelated;
   flex-shrink: 0;
 }
 
-.suggest-info {
+.fp-suggest-info {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -726,8 +821,8 @@ onMounted(async () => {
   gap: 1px;
 }
 
-.suggest-name {
-  font-size: 13px;
+.fp-suggest-name {
+  font-size: 12.5px;
   font-weight: 600;
   color: $text-primary;
   white-space: nowrap;
@@ -735,343 +830,616 @@ onMounted(async () => {
   text-overflow: ellipsis;
 }
 
-.suggest-tag {
-  font-family: 'Mojangles', monospace;
-  font-size: 7px;
-  letter-spacing: 0.12em;
-  color: #555;
-
+.fp-suggest-tag {
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  color: $text-muted;
   &--beja { color: $accent; }
 }
 
-.suggest-btn {
+.fp-suggest-btn {
   flex-shrink: 0;
   padding: 5px 10px;
-  border-radius: 5px;
-  border: 1px solid $border;
-  background: $surface-elevated;
-  color: $text-secondary;
+  border-radius: 6px;
+  border: none;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
-  transition: background $transition, color $transition;
-
-  &:hover { background: $border; color: $text-primary; }
 
   &--primary {
-    background: $text-primary;
-    border-color: transparent;
-    color: $bg;
-
-    &:hover { background: $text-secondary; color: $bg; }
+    background: #fff;
+    color: #0a0a0b;
+    &:hover { background: rgba(255, 255, 255, 0.8); }
   }
 }
 
-.add-btn {
-  height: 36px;
-  padding: 0 20px;
-  background: #0d0d0d;
-  border: none;
-  color: #888;
-  font-family: 'Mojangles', monospace;
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  cursor: pointer;
-  border-radius: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: background 80ms, color 80ms;
-
-  &:hover:not(:disabled) { background: #1a1a1a; color: #ddd; }
-  &:disabled { opacity: 0.3; cursor: not-allowed; }
-}
-
-// ── Search bar ────────────────────────────────────────────────────────────────
-.search-bar {
-  display: flex;
-  align-items: center;
-  background: none;
-  border: none;
-  height: 36px;
-  padding: 0 2px;
-  gap: 8px;
+// ── Section label + list ──────────────────────────────────────────────────────
+.fp-section-label {
+  font-size: 19px;
+  font-weight: 800;
+  color: #fff;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   flex-shrink: 0;
-  max-width: 400px;
+  margin-top: 4px;
 }
 
-.search-input {
-  flex: 1;
-  background: none;
-  border: none;
-  outline: none;
-  font-family: 'Mojangles', monospace;
-  font-size: 11px;
-  color: #cbcbcb;
-  letter-spacing: 0.03em;
-  &::placeholder { color: #555; }
-}
-
-.search-icon {
-  width: 14px;
-  height: 14px;
-  opacity: 0.5;
-  flex-shrink: 0;
-  filter: brightness(0) invert(1);
-}
-
-// ── List area ─────────────────────────────────────────────────────────────────
-.list-area {
+.fp-list {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  scrollbar-width: thin;
-  scrollbar-color: #282828 transparent;
-  &::-webkit-scrollbar { width: 4px; }
-  &::-webkit-scrollbar-thumb { background: #282828; }
-}
-
-// ── Section label ─────────────────────────────────────────────────────────────
-.section-label {
-  font-family: 'Mojangles', monospace;
-  font-size: 8px;
-  color: #333;
-  letter-spacing: 0.12em;
-  padding: 10px 4px 4px;
-  flex-shrink: 0;
-}
-
-// ── Friends grid ──────────────────────────────────────────────────────────────
-.friends-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  padding: 4px 0 10px;
-}
-
-// ── Friend card ───────────────────────────────────────────────────────────────
-@property --fc-angle {
-  syntax: '<angle>';
-  initial-value: 45deg;
-  inherits: false;
-}
-
-.friend-card {
-  width: 120px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0;
-  border: 1px solid transparent;
-  border-radius: var(--edr-radius, 0px);
-  outline: var(--edr-outline, none);
-  outline-offset: 3px;
-  background-image:
-    linear-gradient(#111, #111),
-    conic-gradient(
-      from var(--fc-angle),
-      rgba(255,255,255,.04) 0%,
-      rgba(255,255,255,.45) 18%,
-      rgba(255,255,255,.04) 36%,
-      rgba(255,255,255,.04) 100%
-    );
-  background-origin: border-box;
-  background-clip: padding-box, border-box;
-  transition: --fc-angle 500ms cubic-bezier(.2,0,0,1), transform 300ms cubic-bezier(.2,0,0,1);
-  cursor: default;
-  flex-shrink: 0;
-  overflow: hidden;
-
-  &:hover {
-    --fc-angle: 135deg;
-    transform: translateY(-3px);
-    .card-remove-btn { opacity: 1; }
-  }
-
-  &--offline {
-    filter: saturate(0.3);
-    opacity: 0.6;
-    &:hover { opacity: 0.85; filter: saturate(0.5); }
-  }
-}
-
-// ── Head area ─────────────────────────────────────────────────────────────────
-.friend-head-wrap {
-  position: relative;
-  width: 120px;
-  height: 120px;
-  flex-shrink: 0;
-  background: rgba(0,0,0,0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.friend-head {
-  width: 96px;
-  height: 96px;
-  display: block;
-  image-rendering: pixelated;
-}
-
-.friend-status-dot {
-  position: absolute;
-  bottom: 8px;
-  right: 8px;
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  border: 2px solid #111;
-
-  &.dot-online  { background: #30d158; box-shadow: 0 0 6px rgba(48,209,88,0.7); }
-  &.dot-offline { background: #2a2a2a; }
-  &.dot-pending { background: #f59e0b; box-shadow: 0 0 6px rgba(245,158,11,0.5); }
-}
-
-.card-remove-btn {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  width: 18px;
-  height: 18px;
-  background: rgba(0,0,0,0.75);
-  border: 1px solid #444;
-  color: #666;
-  font-size: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 100ms, color 80ms;
-  padding: 0;
-
-  &:hover { color: #f87171; border-color: rgba(248,113,113,0.4); }
-}
-
-// ── Card label ────────────────────────────────────────────────────────────────
-.friend-card-label {
-  width: 100%;
-  padding: 6px 8px 7px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   gap: 2px;
-  background: rgba(0,0,0,0.35);
-  border-top: 1px solid rgba(255,255,255,0.05);
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+
+  &--requests {
+    flex: 0 0 auto;
+    max-height: 160px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    margin-bottom: 4px;
+  }
 }
 
-.friend-card-name {
-  font-family: var(--edr-font, 'Mojangles', monospace);
-  font-size: 10px;
-  color: var(--edr-color, #d9d9d9);
-  letter-spacing: 0.02em;
+.fp-empty {
+  font-size: 12px;
+  color: $text-muted;
+  font-style: italic;
+  padding: 6px 2px;
+}
+
+.fp-friend-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  margin: 0 -8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 140ms ease;
+
+  &:hover { background: rgba(255, 255, 255, 0.05); }
+  &.active { background: rgba(255, 255, 255, 0.09); }
+}
+
+.fp-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+}
+
+.fp-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  image-rendering: pixelated;
+  display: block;
+  &--sm { width: 28px; height: 28px; border-radius: 6px; }
+}
+
+.fp-status-dot {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #3a3a3f;
+  border: 2px solid #0a0a0b;
+  &.online { background: #30d158; box-shadow: 0 0 5px rgba(48, 209, 88, 0.65); }
+}
+
+.fp-friend-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100%;
-  text-align: center;
 }
 
-.friend-card-status {
-  font-family: 'Mojangles', monospace;
-  font-size: 8px;
-  letter-spacing: 0.05em;
-}
-
-.online-text  { color: #30d158; }
-.offline-text { color: #333; }
-.pending-text { color: #f59e0b; }
-.typing-text  { color: #f97316; font-style: italic; }
-
-// ── Request actions inside card ───────────────────────────────────────────────
-.card-request-actions {
-  width: 100%;
+// ── Requests mini-rows ────────────────────────────────────────────────────────
+.fp-request-row {
   display: flex;
-  gap: 0;
-  border-top: 1px solid rgba(255,255,255,0.05);
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  margin: 0 -8px;
 }
 
-.action-btn {
-  font-family: 'Mojangles', monospace;
-  font-size: 9px;
-  letter-spacing: 0.07em;
+.fp-request-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.fp-req-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
   border: none;
+  font-size: 11px;
   cursor: pointer;
-  border-radius: 0;
-  transition: background 80ms, color 80ms;
-  flex: 1;
-  padding: 6px 0;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
-  &--accept {
-    background: rgba(48,209,88,0.08);
-    color: #30d158;
-    border-right: 1px solid rgba(255,255,255,0.05);
-    &:hover { background: rgba(48,209,88,0.18); }
-  }
-
-  &--decline {
-    background: transparent;
-    color: #555;
-    &:hover { background: rgba(255,255,255,0.04); color: #999; }
-  }
+  &--accept { background: rgba(48, 209, 88, 0.15); color: #30d158; &:hover { background: rgba(48, 209, 88, 0.28); } }
+  &--decline { background: rgba(255, 255, 255, 0.06); color: $text-muted; &:hover { background: rgba(248, 113, 113, 0.18); color: #f87171; } }
 }
 
-// ── States ────────────────────────────────────────────────────────────────────
-.state-area {
+.fp-groups-empty {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.state-text {
-  font-family: 'Mojangles', monospace;
+.fp-groups-empty-text {
   font-size: 12px;
-  color: #2a2a2a;
-  letter-spacing: 0.12em;
+  color: $text-muted;
+  font-style: italic;
 }
 
-.empty-icon {
-  width: 100%;
-  height: 100%;
+// ── Chat pane ─────────────────────────────────────────────────────────────────
+.fp-chat {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  background: #0e0e10;
+
+  &--empty {
+    align-items: center;
+    justify-content: center;
+  }
 }
 
-.all-offline-note {
+.fp-chat-empty-hint {
+  font-size: 13px;
+  color: $text-muted;
+}
+
+.fp-chat-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 2px 22px;
-  color: rgba(255, 255, 255, 0.3);
-  font-size: 12px;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.fp-chat-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+}
+
+.fp-chat-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
-.all-offline-icon {
-  width: 14px;
-  height: 14px;
+.fp-chat-typing {
+  font-size: 11px;
+  color: #f97316;
+  font-style: italic;
+}
+
+.fp-chat-header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.fp-header-icon-btn {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 120ms ease;
+
+  img { width: 16px; height: 16px; opacity: 0.7; filter: brightness(0) invert(1); transition: opacity 120ms ease; }
+  &:hover, &.active { background: rgba(255, 255, 255, 0.07); img { opacity: 1; } }
+  &:disabled { cursor: not-allowed; img { opacity: 0.3; } &:hover { background: transparent; } }
+}
+
+.fp-header-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 13px;
+  height: 13px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: #f97316;
+  color: #fff;
+  font-size: 8px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// ── Popovers (pinned / GIF / emoji) ──────────────────────────────────────────
+.fp-popover-anchor { position: relative; }
+
+.fp-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 280px;
+  background: #131315;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 12px;
+  z-index: 40;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.fp-popover-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.fp-popover-hint {
+  font-size: 10.5px;
+  color: $text-muted;
+  font-weight: 400;
+}
+
+.fp-popover-empty {
+  font-size: 11.5px;
+  color: $text-muted;
+  padding: 6px 0 2px;
+}
+
+.fp-pinned-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  margin-top: 8px;
+}
+
+.fp-pinned-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+}
+
+.fp-pinned-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fp-pinned-unpin {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: transparent;
+  border: none;
+  color: $text-muted;
+  font-size: 9px;
+  cursor: pointer;
+  &:hover { background: rgba(248, 113, 113, 0.18); color: #f87171; }
+}
+
+// ── Inline message search bar ────────────────────────────────────────────────
+.fp-msg-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
 }
 
-// ── Spinner ───────────────────────────────────────────────────────────────────
-.spinner {
+.fp-msg-search-input {
+  flex: 1;
+  background: #131315;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 7px;
+  outline: none;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  &::placeholder { color: rgba(255, 255, 255, 0.35); }
+}
+
+.fp-msg-search-count {
+  font-size: 10.5px;
+  color: $text-muted;
+  flex-shrink: 0;
+}
+
+.fp-chat-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: #222 transparent;
+  &::-webkit-scrollbar { width: 4px; }
+  &::-webkit-scrollbar-thumb { background: #222; }
+}
+
+.fp-chat-state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fp-chat-empty-text {
+  font-size: 12px;
+  color: $text-muted;
+}
+
+.fp-spinner {
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  border-style: solid;
+  border: 2px solid #2a2a2a;
   border-top-color: #ccc;
-  border-color: #333;
-  animation: spin 0.7s linear infinite;
-  flex-shrink: 0;
-
-  &.sm { width: 11px; height: 11px; border-width: 1.5px; }
-  &.lg { width: 22px; height: 22px; border-width: 2px; }
+  animation: fp-spin 0.7s linear infinite;
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes fp-spin { to { transform: rotate(360deg); } }
+
+.fp-msg {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  max-width: 70%;
+
+  &--mine {
+    align-self: flex-end;
+    align-items: flex-end;
+
+    .fp-msg-row { flex-direction: row-reverse; }
+
+    .fp-msg-bubble {
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+    }
+  }
+}
+
+.fp-msg-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.fp-pin-toggle {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  background: transparent;
+  border: none;
+  font-size: 10px;
+  cursor: pointer;
+  opacity: 0;
+  filter: grayscale(1);
+  transition: opacity 120ms ease, filter 120ms ease, background 120ms ease;
+
+  .fp-msg:hover & { opacity: 0.5; }
+  &:hover { opacity: 1 !important; background: rgba(255, 255, 255, 0.08); }
+  &.pinned { opacity: 1; filter: none; }
+}
+
+.fp-msg-bubble {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 10px 14px;
+  line-height: 1.5;
+  word-break: break-word;
+  white-space: pre-wrap;
+  user-select: text;
+  cursor: text;
+}
+
+.fp-msg-image {
+  display: block;
+  max-width: 320px;
+  max-height: 320px;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+.fp-chat-link {
+  color: #f97316;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  cursor: pointer;
+  &:hover { color: #fbbf24; }
+}
+
+.fp-msg-time {
+  font-size: 9px;
+  color: $text-muted;
+  padding: 0 2px;
+}
+
+.fp-chat-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 20px 20px;
+  padding: 4px 6px;
+  background: #131315;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.fp-file-input { display: none; }
+
+.fp-attach-btn {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+  &:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
+}
+
+.fp-chat-input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.9);
+  padding: 10px 0;
+  &::placeholder { color: rgba(255, 255, 255, 0.35); }
+}
+
+.fp-icon-btn {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 120ms ease;
+
+  img { width: 17px; height: 17px; opacity: 0.6; filter: brightness(0) invert(1); transition: opacity 120ms ease; }
+  &:hover, &.active { background: rgba(255, 255, 255, 0.07); img { opacity: 1; } }
+}
+
+// ── GIF search popover ────────────────────────────────────────────────────────
+.fp-gif-popover {
+  bottom: calc(100% + 8px);
+  top: auto;
+  width: 320px;
+}
+
+.fp-gif-search-input {
+  width: 100%;
+  background: #0a0a0b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  outline: none;
+  padding: 8px 10px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+  box-sizing: border-box;
+  &::placeholder { color: rgba(255, 255, 255, 0.3); }
+}
+
+.fp-gif-grid {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #222 transparent;
+  &::-webkit-scrollbar { width: 4px; }
+  &::-webkit-scrollbar-thumb { background: #222; }
+}
+
+.fp-gif-status {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 20px 0;
+  font-size: 11.5px;
+  color: $text-muted;
+}
+
+.fp-gif-thumb {
+  aspect-ratio: 1;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+
+  img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  &:hover { outline: 2px solid rgba(255, 255, 255, 0.4); outline-offset: -2px; }
+}
+
+.fp-gif-credit {
+  margin-top: 8px;
+  text-align: right;
+}
+
+// ── Emoji popover ─────────────────────────────────────────────────────────────
+.fp-emoji-popover {
+  bottom: calc(100% + 8px);
+  top: auto;
+  width: 240px;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 2px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.fp-emoji-btn {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  font-size: 18px;
+  cursor: pointer;
+  transition: background 100ms ease;
+  &:hover { background: rgba(255, 255, 255, 0.08); }
+}
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 .toast {
@@ -1080,219 +1448,20 @@ onMounted(async () => {
   left: 50%;
   transform: translateX(-50%);
   padding: 8px 20px;
-  font-family: 'Mojangles', monospace;
-  font-size: 10px;
-  letter-spacing: 0.04em;
+  font-size: 12px;
+  border-radius: 8px;
   border: 1px solid;
   white-space: nowrap;
   z-index: 50;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.7);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
 
-  &--ok   { background: rgba(8,8,10,0.95); color: #30d158; border-color: rgba(48,209,88,0.3); }
-  &--err  { background: rgba(8,8,10,0.95); color: #f87171; border-color: rgba(248,113,113,0.3); }
-  &--info { background: rgba(8,8,10,0.95); color: #aaa;    border-color: rgba(255,255,255,0.15); }
+  &--ok   { background: rgba(8, 8, 10, 0.95); color: #30d158; border-color: rgba(48, 209, 88, 0.3); }
+  &--err  { background: rgba(8, 8, 10, 0.95); color: #f87171; border-color: rgba(248, 113, 113, 0.3); }
+  &--info { background: rgba(8, 8, 10, 0.95); color: #aaa;    border-color: rgba(255, 255, 255, 0.15); }
 }
 
 .toast-enter-active { transition: opacity 150ms, transform 150ms; }
 .toast-leave-active { transition: opacity 200ms; }
 .toast-enter-from   { opacity: 0; transform: translateX(-50%) translateY(8px); }
 .toast-leave-to     { opacity: 0; }
-
-// ── Chat panel ────────────────────────────────────────────────────────────────
-.chat-panel {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 300px;
-  background: rgba(8, 8, 10, 0.97);
-  border-left: 1px solid rgba(255,255,255,0.08);
-  display: flex;
-  flex-direction: column;
-  z-index: 20;
-  backdrop-filter: blur(8px);
-}
-
-.chat-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  flex-shrink: 0;
-}
-
-.chat-avatar {
-  width: 32px;
-  height: 32px;
-  image-rendering: pixelated;
-  flex-shrink: 0;
-}
-
-.chat-header-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.chat-header-name {
-  font-family: 'Mojangles', monospace;
-  font-size: 11px;
-  color: #d9d9d9;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.chat-header-status {
-  font-family: 'Mojangles', monospace;
-  font-size: 8px;
-  letter-spacing: 0.05em;
-}
-
-.chat-close-btn {
-  background: transparent;
-  border: none;
-  color: #444;
-  font-size: 10px;
-  cursor: pointer;
-  padding: 4px 6px;
-  transition: color 80ms;
-  flex-shrink: 0;
-  &:hover { color: #888; }
-}
-
-.chat-messages {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 12px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  scrollbar-width: thin;
-  scrollbar-color: #222 transparent;
-  &::-webkit-scrollbar { width: 3px; }
-  &::-webkit-scrollbar-thumb { background: #222; }
-}
-
-.chat-empty {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.chat-empty-text {
-  font-family: 'Mojangles', monospace;
-  font-size: 10px;
-  color: #2a2a2a;
-  letter-spacing: 0.06em;
-}
-
-.chat-msg {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  max-width: 85%;
-
-  &--mine {
-    align-self: flex-end;
-    align-items: flex-end;
-
-    .chat-msg-bubble {
-      background: rgba(249,115,22,0.15);
-      border-color: rgba(249,115,22,0.3);
-      color: #e5e5e5;
-    }
-  }
-}
-
-.chat-msg-bubble {
-  font-family: 'Mojangles', monospace;
-  font-size: 10px;
-  color: #ccc;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.08);
-  padding: 6px 10px;
-  letter-spacing: 0.02em;
-  line-height: 1.5;
-  word-break: break-word;
-  white-space: pre-wrap;
-  // The app-wide reset disables selection everywhere (native-app feel) —
-  // chat text is the one place that needs to stay copyable.
-  user-select: text;
-  cursor: text;
-}
-
-.chat-link {
-  color: #f97316;
-  text-decoration: underline;
-  text-decoration-style: dotted;
-  cursor: pointer;
-
-  &:hover { color: #fbbf24; }
-}
-
-.chat-msg-time {
-  font-family: 'Mojangles', monospace;
-  font-size: 7px;
-  color: #333;
-  letter-spacing: 0.04em;
-  padding: 0 2px;
-}
-
-.chat-input-row {
-  display: flex;
-  gap: 0;
-  border-top: 1px solid rgba(255,255,255,0.06);
-  flex-shrink: 0;
-}
-
-.chat-input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  outline: none;
-  font-family: 'Mojangles', monospace;
-  font-size: 10px;
-  color: #ccc;
-  padding: 11px 12px;
-  letter-spacing: 0.02em;
-  &::placeholder { color: #333; }
-}
-
-.chat-send-btn {
-  width: 42px;
-  background: transparent;
-  border: none;
-  border-left: 1px solid rgba(255,255,255,0.06);
-  color: #444;
-  font-size: 11px;
-  cursor: pointer;
-  transition: color 80ms, background 80ms;
-  flex-shrink: 0;
-
-  &:hover:not(:disabled) { color: #f97316; background: rgba(249,115,22,0.08); }
-  &:disabled { opacity: 0.3; cursor: not-allowed; }
-}
-
-// ── Friend card enter/leave/reorder ───────────────────────────────────────────
-.friend-pop-enter-active,
-.friend-pop-leave-active {
-  transition: opacity 180ms ease, transform 180ms cubic-bezier(0.25, 1, 0.5, 1);
-}
-.friend-pop-move { transition: transform 220ms cubic-bezier(0.25, 1, 0.5, 1); }
-.friend-pop-enter-from { opacity: 0; transform: scale(0.94) translateY(6px); }
-.friend-pop-leave-to   { opacity: 0; transform: scale(0.94); }
-
-// ── Chat slide transition ─────────────────────────────────────────────────────
-.chat-slide-enter-active { transition: transform 200ms cubic-bezier(0.2, 0, 0, 1), opacity 200ms; }
-.chat-slide-leave-active { transition: transform 150ms cubic-bezier(0.4, 0, 1, 1), opacity 150ms; }
-.chat-slide-enter-from   { transform: translateX(100%); opacity: 0; }
-.chat-slide-leave-to     { transform: translateX(100%); opacity: 0; }
 </style>

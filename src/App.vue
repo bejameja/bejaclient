@@ -6,8 +6,6 @@
 
   <RouterView v-if="isConsole || isLobby" />
   <div v-else class="app-shell">
-    <div class="bg-layer" :style="{ backgroundImage: `url(${mazeBg})` }" />
-
     <!-- Splash screen -->
     <Transition name="splash">
       <div v-if="splashVisible" class="splash-screen">
@@ -31,26 +29,18 @@
       </div>
     </Transition>
 
-    <NavBar v-if="!isConsole && !isLobby" />
     <div v-if="!isConsole && !isLobby" class="main-col">
       <TopBar />
       <main class="main-content" ref="mainRef" @scroll="onScroll">
         <RouterView v-slot="{ Component }">
-          <Transition :name="pageTransitionName" mode="out-in">
-            <KeepAlive :max="8">
-              <component :is="Component" />
-            </KeepAlive>
-          </Transition>
+          <KeepAlive :max="8">
+            <component :is="Component" />
+          </KeepAlive>
         </RouterView>
       </main>
     </div>
-    <div v-if="!isConsole && !isLobby" class="corner-brand">
-      <img :src="logoUrl" class="brand-logo" alt="BC" />
-      <span class="wordmark">
-        <span class="w-beja">Beja</span><span class="w-client">Client</span>
-        <span class="w-launcher">Launcher</span>
-      </span>
-      <ServerRow class="corner-server-row" />
+    <div v-if="!isConsole && !isLobby" class="corner-servers">
+      <ServerRow />
     </div>
     <NotificationsDrawer />
     <CrashAnalyzerModal />
@@ -73,7 +63,6 @@
 import { onMounted, watch, ref, computed, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
-import NavBar    from './components/layout/NavBar.vue'
 import TopBar    from './components/layout/TopBar.vue'
 import mazeBg   from './assets/hex-bg.png'
 import ServerRow from './components/home/ServerRow.vue'
@@ -136,13 +125,45 @@ const lobbyStore    = useLobbyStore()
 const notifStore    = useNotificationsStore()
 const lockerStore   = useLockerStore()
 
+// ── Discord Rich Presence — reflects what's actually on screen ──────────────
+// Never runs while a game is actually running: launch_service.rs already owns
+// the presence then ("Playing Minecraft <version>"), and this must not stomp it.
+// `state` mirrors the actual TopBar nav label for that route (see TopBar.vue's
+// navItems) so the two RPC lines read as "<action> — <tab>" instead of every
+// tab collapsing into the same generic "In the launcher" second line.
+const ROUTE_PRESENCE: Record<string, { details: string; state: string }> = {
+  '/':          { details: 'On the Hub', state: 'Hub' },
+  '/cosmetics': { details: 'Browsing the Locker', state: 'Locker' },
+  '/mods':      { details: 'Exploring mods', state: 'Explore' },
+  '/store':     { details: 'Browsing the Store', state: 'Store' },
+  '/quests':    { details: 'Viewing quests', state: 'Quests' },
+  '/capes':     { details: 'Browsing capes', state: 'Capes' },
+  '/versions':  { details: 'Browsing versions', state: 'Versions' },
+  '/settings':  { details: 'Configuring settings', state: 'Settings' },
+  '/profiles':  { details: 'Browsing profiles', state: 'Profiles' },
+  '/friends':   { details: 'Browsing friends', state: 'Friends' },
+}
+
+const discordPresence = computed(() => {
+  if (route.path === '/profiles' && launcherStore.editingProfileName) {
+    return { details: `Editing profile ${launcherStore.editingProfileName}`, state: 'Profiles' }
+  }
+  if (route.path === '/friends' && friendsStore.activeChatUsername) {
+    return { details: `Chatting with ${friendsStore.activeChatUsername}`, state: 'Friends' }
+  }
+  return ROUTE_PRESENCE[route.path] ?? { details: 'Browsing the launcher', state: 'Hub' }
+})
+
+watch(discordPresence, (p) => {
+  if (isConsole.value || isLobby.value) return
+  if (launcherStore.status === 'running') return
+  window.api.discord.setPresence(p.details, p.state)
+}, { immediate: true })
+
 function applyAccent(color: string) {
   document.documentElement.style.setProperty('--accent', color)
 }
 
-const pageTransitionName = computed(() =>
-  settingsStore.settings.appearance.pageTransition === 'instant' ? '' : 'page-fade'
-)
 
 // The app no longer gates entry behind an access code — it unlocks straight
 // into the normal boot flow. Console window is exempt (it's a separate
@@ -246,6 +267,18 @@ async function initApp() {
   })
 }
 
+// This is a shipped desktop app, not a website — the native WebView2 menu
+// (Reload/Inspect/View Source/etc.) should never appear. Suppressed globally
+// here; any element that wants its own menu calls openContextMenu(event, …)
+// which does its own preventDefault() first, so this doesn't interfere with
+// e.g. the chat message menu or the mods-list menu.
+document.addEventListener('contextmenu', (e) => e.preventDefault())
+
+// Same reasoning — native drag-out-of-the-window for images/icons/links
+// reads as a leaky browser habit, not a native app. CSS (see _reset.scss)
+// covers most cases; this is the JS-level belt-and-suspenders backstop.
+document.addEventListener('dragstart', (e) => e.preventDefault())
+
 onMounted(async () => {
   gateChecked.value = true
   if (isConsole.value) return
@@ -267,6 +300,13 @@ watch(
 
 watch(() => launcherStore.status, (val, prev) => {
   if (val === 'running' && prev !== 'running') playLaunch()
+  // Game just stopped — re-sync presence to whatever page is on screen now,
+  // since set_idle_presence() (called from launch_service.rs on stop) always
+  // resets to the generic default and would otherwise clobber e.g. "Configuring
+  // settings" if that's actually what's showing.
+  if (prev === 'running' && val !== 'running' && !isConsole.value && !isLobby.value) {
+    window.api.discord.setPresence(discordPresence.value.details, discordPresence.value.state)
+  }
 })
 </script>
 
@@ -427,70 +467,25 @@ $splash-ease: cubic-bezier(0.16, 1, 0.3, 1);
   color: $text-primary;
   background-color: $bg;
   isolation: isolate;
-
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.35);
-    z-index: 0;
-    pointer-events: none;
-  }
 }
 
-// Sits in the empty top-left corner opened up by cropping the NavBar —
-// not part of the sidebar (clipped by its overflow: hidden) or the
-// topbar (confined to main-col), so it's a free-floating sibling instead.
-.corner-brand {
+// Floating overlay, top-right, just under the TopBar (which now owns the
+// brand/logo and is full-width, so there's no more empty corner to sit
+// inside like the old sidebar-era corner-brand had). Not part of TopBar
+// itself — that row is already full with nav/search/gems/account/window
+// controls — so this stays a free-floating sibling over main-content.
+.corner-servers {
   position: absolute;
-  top: 0;
-  left: 0;
-  height: 44px;
-  padding-left: 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  top: 78px;
+  right: 12px;
   z-index: 150;
   -webkit-app-region: no-drag;
-  animation: brand-fade-in 800ms cubic-bezier(0.16, 1, 0.3, 1) 200ms both;
+  animation: corner-servers-fade-in 800ms cubic-bezier(0.16, 1, 0.3, 1) 300ms both;
 }
 
-@keyframes brand-fade-in {
-  from { opacity: 0; transform: translateX(-16px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-
-.brand-logo {
-  width: 24px;
-  height: 24px;
-  object-fit: contain;
-  filter: brightness(0) invert(1);
-  opacity: 0.9;
-  flex-shrink: 0;
-}
-
-.wordmark {
-  display: flex;
-  align-items: baseline;
-  font-size: 19px;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.w-beja {
-  font-weight: 800;
-  color: $text-primary;
-}
-
-.w-client {
-  font-weight: 300;
-  color: $text-primary;
-}
-
-.w-launcher {
-  font-weight: 800;
-  color: $text-primary;
+@keyframes corner-servers-fade-in {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .main-col {

@@ -55,6 +55,15 @@ canvas {
   display: block;
 }
 
+// Native app feel — images/icons shouldn't be draggable out of the window the
+// way they are on a regular web page (same reasoning as body's user-select: none).
+img,
+svg,
+a {
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+
 // ── Ultra-thin scrollbars, invisible-ish ─────────────────────────────────────
 ::-webkit-scrollbar {
   width: 2px;

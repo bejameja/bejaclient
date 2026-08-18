@@ -142,7 +142,6 @@ function execute(index: number) {
 
 <style lang="scss" scoped>
 @font-face {
-  font-family: 'Mojangles';
   src: url('../../assets/fonts/mojangles.ttf') format('truetype');
 }
 
@@ -194,7 +193,6 @@ function execute(index: number) {
 }
 
 .kbd-hint {
-  font-family: 'Mojangles', monospace;
   font-size: 9px;
   font-weight: 400;
   color: rgba(255, 255, 255, 0.5);
