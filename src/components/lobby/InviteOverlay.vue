@@ -164,7 +164,7 @@ async function doJoin(): Promise<void> {
 // ── Panel ─────────────────────────────────────────────────────────────────────
 .invite-panel {
   width: 360px;
-  border-radius: 0;
+  border-radius: 4px;
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 92px);
@@ -217,7 +217,7 @@ async function doJoin(): Promise<void> {
   cursor: pointer;
   color: $text-muted;
   padding: 6px;
-  border-radius: 8px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   transition: color 200ms, background 200ms;
@@ -235,7 +235,7 @@ async function doJoin(): Promise<void> {
   padding: 9px 14px;
   background: #0a0a0b;
   border: 1px solid rgba(137, 137, 137, 0.5);
-  border-radius: 0;
+  border-radius: 4px;
   transition: border-color 200ms;
   flex-shrink: 0;
 
@@ -336,7 +336,7 @@ async function doJoin(): Promise<void> {
 
 .invite-btn {
   padding: 6px 16px;
-  border-radius: 0;
+  border-radius: 4px;
   border: none;
   background: #0d0d0d;
   color: #aaa;
@@ -390,7 +390,7 @@ async function doJoin(): Promise<void> {
   flex: 1;
   background: #0a0a0b;
   border: 1px solid rgba(137, 137, 137, 0.5);
-  border-radius: 0;
+  border-radius: 4px;
   padding: 12px 16px;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 20px;
@@ -411,7 +411,7 @@ async function doJoin(): Promise<void> {
 
 .join-btn {
   padding: 12px 22px;
-  border-radius: 0;
+  border-radius: 4px;
   border: none;
   background: #0d0d0d;
   color: #aaa;

@@ -260,7 +260,7 @@ const wiggleStyle = computed(() => ({
   background: rgba(49, 89, 163, 0.92);
   border: 1px solid #78aaff;
   color: #eaf1ff;
-  border-radius: 5px;
+  border-radius: 4px;
   pointer-events: none;
   z-index: 31;
 

@@ -172,7 +172,7 @@ async function send() {
   background: $surface;
   border: 1px solid $border;
   border-right: none;
-  border-radius: 8px 0 0 8px;
+  border-radius: 4px 0 0 4px;
   cursor: pointer;
   color: $text-secondary;
   padding: 0;
@@ -345,7 +345,7 @@ async function send() {
   align-items: center;
   gap: 9px;
   padding: 7px 6px;
-  border-radius: 8px;
+  border-radius: 4px;
   transition: background 120ms;
   &:hover { background: $surface-elevated; }
 }
@@ -353,7 +353,7 @@ async function send() {
 .avatar {
   width: 30px;
   height: 30px;
-  border-radius: 8px;
+  border-radius: 4px;
   background: $surface-elevated;
   border: 1px solid $border;
   color: $text-primary;

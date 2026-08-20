@@ -185,7 +185,7 @@ function dismiss() {
   :deep(code) {
     background: $surface-elevated;
     border: 1px solid $border;
-    border-radius: 3px;
+    border-radius: 4px;
     padding: 1px 5px;
     font-size: 12px;
   }

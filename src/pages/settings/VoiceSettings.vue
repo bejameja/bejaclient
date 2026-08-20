@@ -664,7 +664,7 @@ init()
   flex: 1;
   justify-content: center;
   padding: 7px 14px;
-  border-radius: 6px;
+  border-radius: 4px;
   border: none;
   background: transparent;
   color: $text-muted;
@@ -834,7 +834,7 @@ init()
 .rec-bar {
   width: 3px;
   background: $error;
-  border-radius: 2px;
+  border-radius: 4px;
   transition: height 80ms ease;
   opacity: 0.85;
 }

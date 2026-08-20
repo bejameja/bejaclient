@@ -183,7 +183,19 @@
       </div>
 
       <EditableRegion id="home.emptyEmbed" label="Leeres Embed" flex-fill :features="['radius', 'outline', 'color', 'bgColor', 'fontFamily']">
-      <div class="empty-embed"></div>
+      <div class="empty-embed">
+        <div class="maintenance-notice">
+          <svg class="maintenance-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9" />
+            <line x1="12" y1="8" x2="12" y2="13" />
+            <line x1="12" y1="16" x2="12" y2="16.01" />
+          </svg>
+          <div class="maintenance-text">
+            <h3 class="maintenance-title">{{ $t('home.maintenanceTitle') }}</h3>
+            <p class="maintenance-body">{{ $t('home.maintenanceBody') }}</p>
+          </div>
+        </div>
+      </div>
       </EditableRegion>
 
     </div>
@@ -195,15 +207,10 @@
         <div class="friends-card-header">
           <div class="friends-heading-row">
             <h2 class="friends-heading">{{ $t('home.friends') }}</h2>
-            <span class="friends-online-count">
-              <span class="online-dot" :class="{ lit: friendsStore.onlineCount > 0 }" />
-              {{ $t('home.onlineCount', { count: friendsStore.onlineCount }) }}
-            </span>
           </div>
-          <button class="satellite-link" @click="openFriendChat()">
-            {{ $t('home.openSatellite') }}
-            <Icon name="external-link" :size="13" />
-          </button>
+          <span class="friends-online-count">
+            {{ $t('home.onlineCount', { count: friendsStore.onlineCount }) }}
+          </span>
         </div>
         <div class="friends-card-list">
           <template v-if="friends.length">
@@ -550,9 +557,9 @@ function onVideoError(e: Event) {
 .video-card {
   width: 100%;
   height: 56vh;
-  border-radius: var(--edr-radius, 10px);
+  border-radius: var(--edr-radius, 4px);
   overflow: hidden;
-  clip-path: inset(0 round var(--edr-radius, 10px));
+  clip-path: inset(0 round var(--edr-radius, 4px));
   outline: var(--edr-outline, none);
   outline-offset: 3px;
   flex-shrink: 0;
@@ -636,7 +643,7 @@ function onVideoError(e: Event) {
   align-items: center;
   gap: 6px;
   padding: 4px 12px;
-  border-radius: 20px;
+  border-radius: 4px;
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.08);
   pointer-events: none;
@@ -656,7 +663,7 @@ function onVideoError(e: Event) {
   align-items: center;
   gap: 6px;
   padding: 8px;
-  border-radius: 14px;
+  border-radius: 4px;
   pointer-events: auto;
 }
 
@@ -674,7 +681,7 @@ function onVideoError(e: Event) {
   align-items: center;
   gap: 4px;
   padding: 8px 12px;
-  border-radius: 10px;
+  border-radius: 4px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.08);
   cursor: pointer;
@@ -741,7 +748,7 @@ function onVideoError(e: Event) {
 .voice-btn {
   width: 34px;
   height: 34px;
-  border-radius: 0;
+  border-radius: 4px;
   border: none;
   background: #0d0d0d;
   color: rgba(255, 255, 255, 0.7);
@@ -766,22 +773,32 @@ function onVideoError(e: Event) {
   color: rgba(255, 255, 255, 0.5);
   background: #0d0d0d;
   padding: 4px 6px 4px 8px;
-  border-radius: 0;
+  border-radius: 4px;
   border: none;
   user-select: all;
 }
 
 .create-lobby-btn {
+  position: relative;
   width: auto;
   height: 34px;
-  border-radius: 0;
+  border-radius: 4px;
   padding: 0 14px;
   gap: 6px;
   font-size: 11px;
   font-weight: 400;
   letter-spacing: 0.02em;
   white-space: nowrap;
+  overflow: hidden;
+  background: rgba(32, 32, 36, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 12px 32px rgba(0, 0, 0, 0.55);
 
+  &:hover { background: rgba(48, 48, 52, 0.55); }
   &:disabled { opacity: 0.5; cursor: default; }
 }
 
@@ -798,7 +815,7 @@ function onVideoError(e: Event) {
   background: none;
   color: rgba(255, 255, 255, 0.35);
   cursor: pointer;
-  border-radius: 0;
+  border-radius: 4px;
   user-select: none;
   transition: color 150ms, background 150ms;
 
@@ -810,7 +827,7 @@ function onVideoError(e: Event) {
 .ready-btn {
   height: 46px;
   padding: 0 28px;
-  border-radius: 8px;
+  border-radius: 4px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.6);
@@ -838,9 +855,9 @@ function onVideoError(e: Event) {
 
 // ── Friends panel ─────────────────────────────────────────────────────────────
 .friends-panel {
-  width: 264px;
+  width: 318px;
   flex-shrink: 0;
-  padding: 0 14px 14px 0;
+  padding: 0 12px 12px 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -859,22 +876,27 @@ function onVideoError(e: Event) {
 
 .friends-heading-row {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 7px;
   min-width: 0;
+}
+
+.friends-sep {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 12px;
 }
 
 .friends-heading {
   display: inline-block;
   font-size: 17px;
-  font-weight: 800;
-  color: #4660FE;
+  font-weight: 500;
+  color: #fff;
   background: #090C20;
   border-radius: 4px;
   padding: 1px 6px;
   margin: 0 0 0 -6px;
-  font-family: 'Minecrafter', 'Plus Jakarta Sans', sans-serif;
-  letter-spacing: 0.12em;
+  font-family: $font-family;
 }
 
 .friends-online-count {
@@ -884,7 +906,6 @@ function onVideoError(e: Event) {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.03em;
-  text-transform: uppercase;
   color: #fff;
 }
 
@@ -925,20 +946,56 @@ $friends-embed-bg: #0f0f11;
 .empty-embed {
   flex: 1;
   min-height: 0;
-  border-radius: var(--edr-radius, 8px);
+  border-radius: var(--edr-radius, 4px);
   outline: var(--edr-outline, none);
   outline-offset: 3px;
   box-sizing: border-box;
   background: var(--edr-bg, $friends-embed-bg);
   border: 1px solid #262627;
   animation: hub-fade 900ms ease 1100ms both;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.maintenance-notice {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: 480px;
+}
+
+.maintenance-icon {
+  flex-shrink: 0;
+  color: $warning;
+}
+
+.maintenance-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.maintenance-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  font-family: $font-family;
+}
+
+.maintenance-body {
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: $font-family;
 }
 
 .friends-card {
   flex: 1;
   display: flex;
   flex-direction: column;
-  border-radius: var(--edr-radius, 8px);
+  border-radius: var(--edr-radius, 4px);
   outline: var(--edr-outline, none);
   outline-offset: 3px;
   color: var(--edr-color, inherit);
@@ -1000,7 +1057,7 @@ $friends-embed-bg: #0f0f11;
 .friend-avatar {
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: 4px;
   image-rendering: pixelated;
   display: block;
   transition: transform 160ms $ease-out;

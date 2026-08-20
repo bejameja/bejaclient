@@ -50,7 +50,7 @@ function dismiss() {
   gap: 10px;
   background: $surface-elevated;
   border: 1px solid rgba(232, 160, 48, 0.3);
-  border-radius: 8px;
+  border-radius: 4px;
   padding: 12px 14px;
   max-width: 420px;
   width: max-content;
@@ -103,7 +103,7 @@ function dismiss() {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 3px;
+  border-radius: 4px;
   transition: color 100ms, background 100ms;
   margin-left: 4px;
 

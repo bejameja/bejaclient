@@ -288,7 +288,7 @@ onUnmounted(() => {
   background: rgba(15, 15, 15, 0.97);
   backdrop-filter: blur(16px);
   border: 1px solid rgba(120, 170, 255, 0.35);
-  border-radius: 10px;
+  border-radius: 4px;
   box-shadow: 0 20px 48px rgba(0, 0, 0, 0.6);
   font-size: 12px;
   overflow: hidden;
@@ -330,7 +330,7 @@ onUnmounted(() => {
   border: none;
   color: rgba(255, 255, 255, 0.5);
   cursor: pointer;
-  border-radius: 5px;
+  border-radius: 4px;
   &:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
 }
 
@@ -404,7 +404,7 @@ onUnmounted(() => {
 .edp-seg {
   display: flex;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
+  border-radius: 4px;
   overflow: hidden;
 }
 
@@ -424,7 +424,7 @@ onUnmounted(() => {
 .edp-toggle {
   width: 32px;
   height: 18px;
-  border-radius: 9px;
+  border-radius: 4px;
   background: rgba(255, 255, 255, 0.12);
   cursor: pointer;
   position: relative;
@@ -478,7 +478,7 @@ onUnmounted(() => {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.75);
-  border-radius: 5px;
+  border-radius: 4px;
   cursor: pointer;
   font-size: 11px;
   white-space: nowrap;
@@ -492,7 +492,7 @@ onUnmounted(() => {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: #fff;
-  border-radius: 5px;
+  border-radius: 4px;
   font-size: 11px;
 }
 
@@ -507,7 +507,7 @@ onUnmounted(() => {
   background: none;
   border: 1px solid rgba(255, 90, 90, 0.35);
   color: #ff8a8a;
-  border-radius: 5px;
+  border-radius: 4px;
   cursor: pointer;
   font-size: 11px;
   font-weight: 600;

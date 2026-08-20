@@ -30,7 +30,7 @@ const { enabled, setEnabled } = useEditorMode()
   background: rgba(20, 20, 20, 0.9);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 8px;
+  border-radius: 4px;
   color: rgba(255, 255, 255, 0.8);
   font-size: 12px;
   font-weight: 600;

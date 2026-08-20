@@ -1311,7 +1311,7 @@ onUnmounted(() => {
   cursor: pointer;
   outline: none;
   appearance: none;
-  border-radius: 0;
+  border-radius: 4px;
   transition: color 80ms;
 
   &:hover, &:focus { color: #bbb; }
@@ -1364,7 +1364,7 @@ onUnmounted(() => {
   font-size: 10px;
   letter-spacing: 0.04em;
   cursor: pointer;
-  border-radius: 0;
+  border-radius: 4px;
   transition: background 80ms, color 80ms;
   display: flex;
   align-items: center;
@@ -1394,7 +1394,7 @@ onUnmounted(() => {
   letter-spacing: 0.03em;
   padding: 0 8px;
   outline: none;
-  border-radius: 0;
+  border-radius: 4px;
   flex: 1;
   min-width: 140px;
 
@@ -1412,7 +1412,7 @@ onUnmounted(() => {
   font-size: 10px;
   letter-spacing: 0.06em;
   cursor: pointer;
-  border-radius: 0;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1443,7 +1443,7 @@ onUnmounted(() => {
   padding: 18px 20px;
   background: #0f0f11;
   border: 1px solid #262627;
-  border-radius: 16px;
+  border-radius: 4px;
   box-sizing: border-box;
   transition: background 80ms, border-color 80ms;
   flex-shrink: 0;
@@ -1744,7 +1744,7 @@ onUnmounted(() => {
   padding: 16px 18px;
   background: #0f0f11;
   border: 1px solid #262627;
-  border-radius: 16px;
+  border-radius: 4px;
   box-sizing: border-box;
   transition: background 80ms, border-color 80ms;
   flex-shrink: 0;
@@ -1762,7 +1762,7 @@ onUnmounted(() => {
   padding: 20px 18px 18px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 90px), #1c1c1f;
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 20px;
+  border-radius: 4px;
   overflow: visible;
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
 
@@ -1782,7 +1782,7 @@ onUnmounted(() => {
   right: 16px;
   width: 72px;
   height: 72px;
-  border-radius: 14px;
+  border-radius: 4px;
   overflow: hidden;
   background: #1a1a1c;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -2079,7 +2079,7 @@ onUnmounted(() => {
   width: 220px;
   flex-shrink: 0;
   background: #1a1a1e;
-  border-radius: 18px;
+  border-radius: 4px;
   padding: 18px 14px;
   display: flex;
   flex-direction: column;
@@ -2106,7 +2106,7 @@ onUnmounted(() => {
   color: rgba(255, 255, 255, 0.6);
   font-size: 12.5px;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: 4px;
   cursor: pointer;
   transition: background 100ms, color 100ms;
 
@@ -2431,7 +2431,7 @@ onUnmounted(() => {
   padding: 0 10px;
   cursor: pointer;
   outline: none;
-  border-radius: 0;
+  border-radius: 4px;
   transition: border-color 80ms;
 
   &:hover, &:focus { border-color: rgba(255, 255, 255, 0.3); }
@@ -2530,7 +2530,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  border-radius: 0;
+  border-radius: 4px;
 
   &--cancel {
     background: transparent;

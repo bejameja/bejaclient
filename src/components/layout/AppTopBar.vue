@@ -285,7 +285,7 @@ onUnmounted(() => {
   letter-spacing: 0.08em;
   color: #ffffff;
   background: #cc0000;
-  border-radius: 0;
+  border-radius: 4px;
   padding: 1px 4px;
   line-height: 1.4;
   font-family: 'Plus Jakarta Sans', sans-serif;
@@ -305,7 +305,7 @@ onUnmounted(() => {
   font-size: 10px;
   color: $text-muted;
   padding: 3px 8px;
-  border-radius: 10px;
+  border-radius: 4px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.06);
   white-space: nowrap;
@@ -427,7 +427,7 @@ onUnmounted(() => {
 .account-head {
   width: 22px;
   height: 22px;
-  border-radius: 3px;
+  border-radius: 4px;
   image-rendering: pixelated;
   flex-shrink: 0;
 }
@@ -456,7 +456,7 @@ onUnmounted(() => {
   backdrop-filter: blur($glass-blur);
   -webkit-backdrop-filter: blur($glass-blur);
   border: 1px solid rgba(255, 255, 255, 0.61);
-  border-radius: 0;
+  border-radius: 4px;
   overflow: hidden;
   z-index: 2000;
   box-shadow: $shadow-xl;
@@ -494,7 +494,7 @@ onUnmounted(() => {
 .dd-head {
   width: 18px;
   height: 18px;
-  border-radius: 2px;
+  border-radius: 4px;
   image-rendering: pixelated;
   flex-shrink: 0;
 }
@@ -550,7 +550,7 @@ onUnmounted(() => {
 .win-btn {
   width: 30px;
   height: 30px;
-  border-radius: 6px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;

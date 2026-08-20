@@ -267,7 +267,7 @@ function timeAgo(ts: number): string {
 .notif-avatar {
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: 4px;
   background: $surface-elevated;
   border: 1px solid $border-strong;
   display: flex;
@@ -282,7 +282,7 @@ function timeAgo(ts: number): string {
 .notif-icon {
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: 4px;
   background: $surface-elevated;
   border: 1px solid $border;
   display: flex;

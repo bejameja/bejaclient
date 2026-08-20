@@ -77,7 +77,7 @@ function runAction(toast: Toast) {
   padding: 10px 11px 12px;
   background: #000;
   border: 1px solid $border-strong;
-  border-radius: 0;
+  border-radius: 4px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   position: relative;
   overflow: hidden;
@@ -87,7 +87,7 @@ function runAction(toast: Toast) {
   flex-shrink: 0;
   width: 22px;
   height: 22px;
-  border-radius: 0;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -131,7 +131,7 @@ function runAction(toast: Toast) {
 .toast-action {
   flex-shrink: 0;
   padding: 3px 8px;
-  border-radius: 0;
+  border-radius: 4px;
   border: 1px solid $border-strong;
   background: transparent;
   color: $text-primary;
@@ -147,7 +147,7 @@ function runAction(toast: Toast) {
   flex-shrink: 0;
   width: 18px;
   height: 18px;
-  border-radius: 0;
+  border-radius: 4px;
   border: none;
   background: transparent;
   color: $text-muted;
@@ -167,7 +167,7 @@ function runAction(toast: Toast) {
   right: 0;
   height: 2px;
   width: auto;
-  border-radius: 0;
+  border-radius: 4px;
   background: $accent;
   transform-origin: left;
   animation: toast-shrink linear forwards;

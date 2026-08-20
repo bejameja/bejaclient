@@ -371,7 +371,7 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside))
   flex-shrink: 0;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
+  border-radius: 4px;
   color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
   transition: background $transition, color $transition;
@@ -486,7 +486,7 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside))
   padding: 7px 16px;
   background: rgba(102, 102, 102, 0.3);
   border: 2px solid rgba(255, 255, 255, 0.18);
-  border-radius: 20px;
+  border-radius: 4px;
   color: #d6d6d6;
   font-size: 10px;
   cursor: pointer;
@@ -505,7 +505,7 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside))
   padding: 7px 16px;
   background: rgba(0, 0, 0, 0.6);
   border: 2px solid rgba(255, 255, 255, 0.18);
-  border-radius: 20px;
+  border-radius: 4px;
   color: #46d66d;
   font-size: 10px;
   cursor: pointer;

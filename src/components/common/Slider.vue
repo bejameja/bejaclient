@@ -76,7 +76,7 @@ function onInput(e: Event) {
     left: 0;
     right: 0;
     height: 4px;
-    border-radius: 2px;
+    border-radius: 4px;
     background: linear-gradient(
       to right,
       var(--accent, #{$primary}) var(--fill),
@@ -143,7 +143,7 @@ function onInput(e: Event) {
   font-size: 11px;
   font-weight: 600;
   padding: 3px 8px;
-  border-radius: 6px;
+  border-radius: 4px;
   white-space: nowrap;
   pointer-events: none;
   box-shadow: $shadow-sm;

@@ -81,7 +81,7 @@ const store = useLauncherStore()
 .conflict-icon-wrap {
   width: 40px;
   height: 40px;
-  border-radius: 10px;
+  border-radius: 4px;
   background: rgba(232, 160, 48, 0.12);
   border: 1px solid rgba(232, 160, 48, 0.25);
   display: flex;
@@ -112,7 +112,7 @@ const store = useLauncherStore()
   max-height: 260px;
   overflow-y: auto;
   &::-webkit-scrollbar { width: 3px; }
-  &::-webkit-scrollbar-thumb { background: $border; border-radius: 3px; }
+  &::-webkit-scrollbar-thumb { background: $border; border-radius: 4px; }
 }
 
 .conflict-item {

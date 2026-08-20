@@ -208,7 +208,7 @@ function open(url: string) {
   code {
     background: $surface-elevated;
     border: 1px solid $border;
-    border-radius: 2px;
+    border-radius: 4px;
     padding: 1px 4px;
     font-size: 11px;
     color: $text-secondary;

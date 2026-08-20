@@ -152,7 +152,7 @@ onMounted(() => {
 .update-card {
   background: $bg;
   border: 1px solid $border;
-  border-radius: 12px;
+  border-radius: 4px;
   padding: 28px 32px;
   width: 420px;
   display: flex;
@@ -170,7 +170,7 @@ onMounted(() => {
 .update-icon-wrap {
   width: 40px;
   height: 40px;
-  border-radius: 10px;
+  border-radius: 4px;
   background: rgba(39, 173, 224, 0.12);
   border: 1px solid rgba(39, 173, 224, 0.25);
   color: #27ADE0;
@@ -207,14 +207,14 @@ onMounted(() => {
   width: 100%;
   height: 6px;
   background: $border;
-  border-radius: 3px;
+  border-radius: 4px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
   background: #27ADE0;
-  border-radius: 3px;
+  border-radius: 4px;
   transition: width 0.4s ease;
 
   &.full { width: 100%; }
@@ -257,7 +257,7 @@ onMounted(() => {
   background: #27ADE0;
   color: #fff;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   padding: 6px 16px;
   font-size: 13px;
   font-weight: 600;
@@ -278,7 +278,7 @@ onMounted(() => {
   background: none;
   border: 1px solid $border;
   color: $text-secondary;
-  border-radius: 6px;
+  border-radius: 4px;
   padding: 5px 14px;
   font-size: 12px;
   cursor: pointer;
