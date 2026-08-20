@@ -382,11 +382,13 @@ watch(dims, () => {
 
 .slot-crown {
   position: absolute;
-  top: -22px;
+  // Above the nametag (which sits at top: -10%, ~-43px at the 2xl size used on the
+  // Hub page), not overlapping/behind it.
+  top: -68px;
   left: 50%;
   transform: translateX(-50%);
   filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.6));
-  z-index: 2;
+  z-index: 6;
   animation: crown-float 3s ease-in-out infinite;
 }
 

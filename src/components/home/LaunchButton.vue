@@ -11,13 +11,13 @@
     >
       <!-- Idle + BejaClient profile selected: blocked, maintenance clock -->
       <template v-if="status === 'idle' && isMaintenance">
-        <svg class="launch-rocket" width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="launch-rocket launch-rocket--maint" width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="9" />
           <polyline points="12 7 12 12 15.5 13.8" />
         </svg>
         <div class="launch-text">
-          <span class="launch-label launch-label--title" style="font-size: 14px;">MAINTENANCE</span>
-          <span v-if="activeProfile" class="launch-version">{{ versionLabel }}</span>
+          <span class="launch-label launch-label--title launch-label--maint" style="font-size: 14px;">MAINTENANCE</span>
+          <span v-if="activeProfile" class="launch-version launch-version--maint">{{ versionLabel }}</span>
         </div>
       </template>
 
@@ -150,7 +150,21 @@ function onClickOutside(e: MouseEvent) {
   }
 }
 
-onMounted(() => document.addEventListener('mousedown', onClickOutside, true))
+onMounted(() => {
+  document.addEventListener('mousedown', onClickOutside, true)
+
+  // WebView2/Chromium sometimes fails to composite backdrop-filter at all on
+  // first paint — it just renders as if the property weren't there — and only
+  // starts working once some unrelated repaint elsewhere happens to trigger
+  // proper layer creation. Nudging a real (sub-pixel, invisible) transform
+  // forces that layer creation immediately instead of leaving it to chance.
+  requestAnimationFrame(() => {
+    const el = rootEl.value?.querySelector<HTMLElement>('.launch-split')
+    if (!el) return
+    el.style.transform = 'translateZ(0.01px)'
+    requestAnimationFrame(() => { el.style.transform = '' })
+  })
+})
 onUnmounted(() => document.removeEventListener('mousedown', onClickOutside, true))
 </script>
 
@@ -206,19 +220,26 @@ $btn-error:  #ff453a;
   position: relative;
   display: flex;
   align-items: stretch;
-  width: 320px;
-  height: 84px;
+  width: 272px;
+  height: 72px;
   border-radius: 4px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(24, 24, 27, 0.2);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(10px) saturate(160%);
+  -webkit-backdrop-filter: blur(10px) saturate(160%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.14),
     inset 0 -1px 2px rgba(0, 0, 0, 0.4),
     0 24px 60px rgba(0, 0, 0, 0.65),
     $glass-shadow;
+  // A neutral, always-on filter (not just set on :hover below) — without
+  // this, WebView2/Chromium seems to only create the compositing layer that
+  // backdrop-filter also needs the first time `filter` actually gets a real
+  // value, i.e. whenever the mouse happens to first hover this element,
+  // rather than on initial paint. That's what made the blur look like it
+  // "eventually" appeared at random instead of being there from the start.
+  filter: brightness(1);
   transition: filter 150ms ease-out;
 
   &:hover {
@@ -241,6 +262,7 @@ $btn-error:  #ff453a;
   padding: 0 16px;
   background: none;
   border: none;
+  outline: none;
   cursor: pointer;
   overflow: hidden;
   transition: transform 100ms cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -267,13 +289,12 @@ $btn-error:  #ff453a;
 .launch-rocket {
   flex-shrink: 0;
   color: #6b6b70;
-  filter:
-    drop-shadow(-1px -1px 0.5px rgba(0, 0, 0, 0.85))
-    drop-shadow(1px 1px 0.5px rgba(255, 255, 255, 0.1));
 
   .launch-main:hover:not(:disabled) & {
     animation: rocket-nudge 900ms ease-in-out infinite;
   }
+
+  &--maint { color: #fff; }
 }
 
 .launch-text {
@@ -290,9 +311,6 @@ $btn-error:  #ff453a;
   letter-spacing: 0.02em;
   line-height: 1.2;
   color: #fff;
-  text-shadow:
-    -1px -1px 1px rgba(0, 0, 0, 0.5),
-    1px 1px 1px rgba(255, 255, 255, 0.15);
 
   &--status {
     font-size: 13px;
@@ -302,10 +320,17 @@ $btn-error:  #ff453a;
     text-overflow: ellipsis;
     max-width: 200px;
     color: rgba(255, 255, 255, 0.9);
-    text-shadow: none;
   }
 
-  &--error { color: #fff; text-shadow: none; }
+  &--error { color: #fff; }
+
+  // Same font/weight as the top bar's Hub/Locker/etc. nav labels (TopBar.vue's
+  // .nav-label, which just inherits the app's default $font-family/weight 500)
+  // instead of the branded Plus Jakarta Sans 800 used for "LAUNCH".
+  &--maint {
+    font-family: $font-family;
+    font-weight: 500;
+  }
 }
 
 .launch-version {
@@ -314,11 +339,10 @@ $btn-error:  #ff453a;
   font-size: 12px;
   font-weight: 500;
   color: #6b6b70;
-  text-shadow:
-    -1px -1px 1px rgba(0, 0, 0, 0.85),
-    1px 1px 1px rgba(255, 255, 255, 0.08);
   line-height: 1.2;
   background: transparent;
+
+  &--maint { color: #fff; }
 }
 
 .launch-state-overlay {
@@ -338,6 +362,7 @@ $btn-error:  #ff453a;
   justify-content: center;
   background: none;
   border: none;
+  outline: none;
   color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
   transition: color 120ms;

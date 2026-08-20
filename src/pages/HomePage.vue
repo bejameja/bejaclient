@@ -40,10 +40,8 @@
               :auto-rotate-speed="0"
             />
             <div class="skin-footer">
-              <div v-if="account" class="skin-namebar">
-                <span class="skin-you-tag">You</span>
-                <span class="skin-username">{{ account.username }}</span>
-                <span v-if="ownedEmotes.length" class="skin-emote-hint">Press B for emotes</span>
+              <div v-if="ownedEmotes.length" class="skin-namebar">
+                <span class="skin-emote-hint">Press B for emotes</span>
               </div>
               <Transition name="emote-pop">
                 <div v-if="ownedEmotes.length && emotePickerOpen" ref="emotePickerEl" class="emote-bar">
@@ -170,7 +168,7 @@
             <span class="rope rope--left"></span>
             <span class="rope rope--right"></span>
           </div>
-          <div class="launch-drop">
+          <div class="launch-drop" @animationend="onLaunchDropSettled">
             <LaunchButton v-if="lobbyStore.isLeader || !lobbyStore.party" />
             <button v-else class="ready-btn" :class="{ 'ready-btn--ready': lobbyStore.isReady }" @click="lobbyStore.toggleReady()">
               <svg v-if="lobbyStore.isReady" width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -218,6 +216,7 @@
               v-for="friend in friends"
               :key="friend.uuid"
               class="friend-row"
+              :class="{ online: friend.online }"
               @click="openFriendChat(friend)"
             >
               <div class="friend-avatar-wrap">
@@ -317,6 +316,18 @@ function openFriendChat(friend?: Friend) {
   const target = friend ?? friends.value.find(f => f.online) ?? friends.value[0]
   if (!target) return
   router.push({ name: 'friends', query: { chatWith: target.uuid } })
+}
+
+// An element with an active CSS `animation` keeps creating its own stacking
+// context for as long as `animation-name` isn't `none` — even once the
+// one-time launch-drop-y entrance has finished and is just sitting at its
+// `both`-filled end state. That nested stacking context is what was blocking
+// LaunchButton's backdrop-filter (a descendant) from ever compositing: it
+// works fine elsewhere in the app (e.g. the account dropdown, teleported
+// straight to <body> with no such ancestor), just not behind this animation.
+// Dropping the animation entirely once it's done removes the context.
+function onLaunchDropSettled(e: AnimationEvent) {
+  if (e.animationName === 'launch-drop-y') (e.currentTarget as HTMLElement).style.animation = 'none'
 }
 
 // ── Emotes ────────────────────────────────────────────────────────────────────
@@ -434,14 +445,30 @@ function onVideoError(e: Event) {
 }
 
 // ── Hub entrance — plays once on mount (KeepAlive skips it on tab revisits) ───
+//
+// No `filter` here (unlike hub-fade-blur/hub-slide-in below) — .video-card is
+// what LaunchButton's backdrop-filter renders against (the launch button sits
+// absolutely-positioned on top of it), and an active `filter` on an element
+// blocks a sibling's `backdrop-filter` from compositing at all in Chromium/
+// WebView2 until that filter animation settles. That's why the launch button
+// had no blur for the first ~1.2s after mount.
 @keyframes hub-rise {
-  from { opacity: 0; transform: translateY(64px) scale(0.93); filter: blur(6px); }
-  to   { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  from { opacity: 0; transform: translateY(64px) scale(0.93); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes hub-fade {
   from { opacity: 0; }
   to   { opacity: 1; }
+}
+
+// Same visibility-based swap as launch-drop-y — .voice-controls now has
+// backdrop-filter children (voice-btn/party-id), and an opacity-animating
+// ancestor blocks those from compositing until the animation ends, same
+// bug as LaunchButton had.
+@keyframes voice-controls-in {
+  from { visibility: hidden; }
+  to   { visibility: visible; }
 }
 
 @keyframes hub-fade-blur {
@@ -459,10 +486,16 @@ function onVideoError(e: Event) {
   to   { opacity: 1; transform: translateX(0); }
 }
 
+// margin-top + visibility, not transform + opacity: animating transform or
+// opacity on this ancestor keeps creating its own stacking context for the
+// whole animation (delay included), which blocks LaunchButton's
+// backdrop-filter (a descendant) from compositing at all until the
+// animation ends. margin-top/visibility give the same "hidden, then drops
+// into place" effect without ever creating one.
 @keyframes launch-drop-y {
-  0%   { opacity: 0; transform: translateY(-170px); }
-  8%   { opacity: 1; }
-  100% { transform: translateY(0); }
+  0%   { visibility: hidden; margin-top: -170px; }
+  8%   { visibility: visible; }
+  100% { margin-top: 0; }
 }
 
 @keyframes launch-rope-extend {
@@ -508,7 +541,7 @@ function onVideoError(e: Event) {
 
 .hero-launch {
   position: absolute;
-  bottom: 20px;
+  bottom: 50px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
@@ -520,7 +553,6 @@ function onVideoError(e: Event) {
   display: flex;
   align-items: center;
   gap: 12px;
-  transform-origin: top center;
   animation: launch-drop-y 1100ms cubic-bezier(0.16, 1, 0.3, 1) 980ms both;
 }
 
@@ -611,7 +643,7 @@ function onVideoError(e: Event) {
 }
 
 .slot-crown {
-  margin-top: 10px;
+  margin-top: 40px;
   margin-bottom: -4px;
   filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.65));
   animation: crown-float 3s ease-in-out infinite;
@@ -702,22 +734,6 @@ function onVideoError(e: Event) {
   white-space: nowrap;
 }
 
-.skin-username {
-  font-size: 13px;
-  font-weight: 600;
-  color: $text-primary;
-}
-
-.skin-you-tag {
-  font-size: 10px;
-  color: $accent;
-  font-weight: 700;
-  background: rgba(85, 178, 255, 0.18);
-  border-radius: 4px;
-  padding: 1px 5px;
-  letter-spacing: 0.5px;
-}
-
 // ── Flanking lobby slots ──────────────────────────────────────────────────────
 .flank-slot {
   position: absolute;
@@ -742,15 +758,20 @@ function onVideoError(e: Event) {
   align-items: center;
   gap: 8px;
   z-index: 10;
-  animation: hub-fade 800ms ease 1100ms both;
+  animation: voice-controls-in 1ms linear 1100ms both;
 }
 
 .voice-btn {
   width: 34px;
   height: 34px;
   border-radius: 4px;
-  border: none;
-  background: #0d0d0d;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(32, 32, 36, 0.2);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 12px 32px rgba(0, 0, 0, 0.55);
   color: rgba(255, 255, 255, 0.7);
   display: flex;
   align-items: center;
@@ -760,21 +781,27 @@ function onVideoError(e: Event) {
 
   &.active { color: rgba(255, 255, 255, 0.9); }
   &.muted  { color: #ff453a; background: rgba(255, 69, 58, 0.12); }
-  &:hover  { background: #1a1a1a; }
+  &:hover  { background: rgba(48, 48, 52, 0.55); }
 }
 
 .party-id {
   display: flex;
   align-items: center;
+  height: 34px;
   gap: 6px;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 10px;
   letter-spacing: 0.16em;
   color: rgba(255, 255, 255, 0.5);
-  background: #0d0d0d;
-  padding: 4px 6px 4px 8px;
+  background: rgba(32, 32, 36, 0.2);
+  padding: 0 6px 0 8px;
   border-radius: 4px;
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 12px 32px rgba(0, 0, 0, 0.55);
   user-select: all;
 }
 
@@ -825,31 +852,37 @@ function onVideoError(e: Event) {
 
 // ── Ready button (non-leader) ─────────────────────────────────────────────────
 .ready-btn {
-  height: 46px;
+  height: 34px;
   padding: 0 28px;
   border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(32, 32, 36, 0.2);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 12px 32px rgba(0, 0, 0, 0.55);
   color: rgba(255, 255, 255, 0.6);
   font-family: $font-family;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.04em;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 8px;
   transition: background 150ms, border-color 150ms, color 150ms;
-  backdrop-filter: blur(8px);
 
-  &:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+  &:hover { background: rgba(48, 48, 52, 0.55); }
 
-  &--ready {
-    background: rgba(52, 199, 89, 0.18);
-    border-color: rgba(52, 199, 89, 0.5);
+  // Same toggle pattern as .voice-btn.muted (color + a tinted translucent
+  // background, no border/hover override), just green instead of red.
+  // Compounded with the base class (&.ready-btn--ready, not just &--ready)
+  // so its specificity matches &:hover above, same as .voice-btn.muted does
+  // against .voice-btn:hover — otherwise :hover's background always wins.
+  &.ready-btn--ready {
     color: #34c759;
-
-    &:hover { background: rgba(52, 199, 89, 0.26); }
+    background: rgba(52, 199, 89, 0.12);
   }
 }
 
@@ -1036,11 +1069,13 @@ $friends-embed-bg: #0f0f11;
   animation: hub-row-slide-in 640ms cubic-bezier(0.16, 1, 0.3, 1) 1000ms both;
   &:last-child { border-bottom: none; }
 
-  &:hover {
-    background: rgba(255, 255, 255, 0.05);
+  // Same hover treatment as the top bar's nav items (TopBar.vue's .nav-label):
+  // no background fill, just the name dimming/brightening.
+  .friend-name { color: rgba(255, 255, 255, 0.22); transition: color 200ms ease; }
 
-    .friend-avatar { transform: scale(1.06); }
-  }
+  &:hover .friend-avatar { transform: scale(1.06); }
+  &:hover:not(.online) .friend-name { color: rgba(255, 255, 255, 0.45); }
+  &.online .friend-name { color: #fff; }
 }
 
 @for $i from 1 through 16 {

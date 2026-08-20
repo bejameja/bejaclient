@@ -80,7 +80,7 @@
         </template>
 
         <TransitionGroup tag="div" name="friend-row-pop">
-        <div v-for="friend in friends" :key="friend.uuid" class="friend-row">
+        <div v-for="friend in friends" :key="friend.uuid" class="friend-row" :class="{ online: friend.online }">
           <div class="avatar">{{ friend.username[0].toUpperCase() }}</div>
           <span class="friend-name">{{ friend.username }}</span>
           <span class="status" :class="friend.online ? 'online' : 'offline'" :title="friend.online ? 'Online' : 'Offline'" />
@@ -346,8 +346,11 @@ async function send() {
   gap: 9px;
   padding: 7px 6px;
   border-radius: 4px;
-  transition: background 120ms;
-  &:hover { background: $surface-elevated; }
+
+  // Same hover treatment as the top bar's nav items (TopBar.vue's .nav-label):
+  // no background fill, just the name dimming/brightening.
+  &:hover:not(.online) .friend-name { color: rgba(255, 255, 255, 0.45); }
+  &.online .friend-name { color: #fff; }
 }
 
 .avatar {
@@ -369,7 +372,8 @@ async function send() {
   flex: 1;
   font-size: 12px;
   font-weight: 500;
-  color: $text-secondary;
+  color: rgba(255, 255, 255, 0.22);
+  transition: color 200ms ease;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

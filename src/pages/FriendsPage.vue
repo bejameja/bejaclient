@@ -73,7 +73,7 @@
             v-for="f in filteredFriends"
             :key="f.uuid"
             class="fp-friend-row"
-            :class="{ active: chatFriend?.uuid === f.uuid }"
+            :class="{ active: chatFriend?.uuid === f.uuid, online: f.online }"
             @click="openChat(f)"
           >
             <div class="fp-avatar-wrap">
@@ -898,10 +898,12 @@ onUnmounted(() => {
   margin: 0 -8px;
   border-radius: 4px;
   cursor: pointer;
-  transition: background 140ms ease;
 
-  &:hover { background: rgba(255, 255, 255, 0.05); }
-  &.active { background: rgba(255, 255, 255, 0.09); }
+  // Same hover/select treatment as the top bar's nav items (TopBar.vue's
+  // .nav-label): no background fill, just the name dimming/brightening.
+  .fp-friend-name { color: rgba(255, 255, 255, 0.22); transition: color 200ms ease; }
+  &:hover:not(.active):not(.online) .fp-friend-name { color: rgba(255, 255, 255, 0.45); }
+  &.active .fp-friend-name, &.online .fp-friend-name { color: #fff; }
 }
 
 .fp-avatar-wrap {
