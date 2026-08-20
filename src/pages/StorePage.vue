@@ -79,7 +79,7 @@ onMounted(() => {
   cursor: pointer;
   letter-spacing: 0.02em;
   transition: background 80ms, color 80ms;
-  border-radius: 0;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   gap: 7px;
@@ -107,7 +107,7 @@ onMounted(() => {
   color: #fff;
   font-size: 8px;
   font-weight: 700;
-  border-radius: 7px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;

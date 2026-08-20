@@ -12,7 +12,6 @@
         <RouterLink
           v-for="item in navItems"
           :key="item.path"
-          :ref="(el) => setNavBtnRef(item.path, el)"
           :to="item.path"
           class="nav-item"
           :class="{ active: isActive(item.path, item.exact) }"
@@ -27,20 +26,10 @@
             </svg>
           </span>
         </RouterLink>
-        <span class="nav-indicator" :style="navIndicatorStyle" />
       </nav>
     </div>
 
     <div class="right-group">
-      <!-- Quick search -->
-      <button class="palette-btn" title="Search & quick actions" @click="openPalette">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="11" cy="11" r="8"/>
-          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-        </svg>
-        <kbd>Ctrl K</kbd>
-      </button>
-
       <!-- Currency -->
       <Tooltip v-if="account" text="Violet Gems" placement="bottom">
         <div class="gem-pill">
@@ -124,21 +113,24 @@
 
       <div class="win-controls">
         <button class="win-btn" title="Minimize" @click="minimize">
-          <svg width="10" height="1" viewBox="0 0 10 1"><rect width="10" height="1" fill="currentColor"/></svg>
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+            <line x1="2" y1="5.5" x2="9" y2="5.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
         </button>
         <button class="win-btn" title="Maximize" @click="toggleMaximize">
-          <svg v-if="!maximized" width="9" height="9" viewBox="0 0 9 9">
-            <rect x="0.5" y="0.5" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1"/>
+          <svg v-if="!maximized" width="11" height="11" viewBox="0 0 11 11" fill="none">
+            <rect x="1.9" y="1.9" width="7.2" height="7.2" rx="0.7" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
           </svg>
-          <svg v-else width="10" height="10" viewBox="0 0 10 10">
-            <rect x="2" y="0" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1"/>
-            <rect x="0" y="2" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1"/>
+          <!-- Restore icon: two custom inward-pointing corner brackets, not the OS double-square -->
+          <svg v-else width="11" height="11" viewBox="0 0 11 11" fill="none">
+            <path d="M1.5 4.5V1.5H4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M9.5 6.5V9.5H6.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </button>
         <button class="win-btn win-close" title="Close" @click="close">
-          <svg width="10" height="10" viewBox="0 0 10 10">
-            <line x1="0.5" y1="0.5" x2="9.5" y2="9.5" stroke="currentColor" stroke-width="1.3"/>
-            <line x1="9.5" y1="0.5" x2="0.5" y2="9.5" stroke="currentColor" stroke-width="1.3"/>
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+            <line x1="2" y1="2" x2="9" y2="9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <line x1="9" y1="2" x2="2" y2="9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
           </svg>
         </button>
       </div>
@@ -154,8 +146,6 @@ import { useAccountStore } from '../../store/accountStore'
 import { useWalletStore } from '../../store/walletStore'
 import { useFriendsStore } from '../../store/friendsStore'
 import { useCountUp } from '../../composables/useCountUp'
-import { useCommandPalette } from '../../composables/useCommandPalette'
-import { useSlidingTabIndicator } from '../../composables/useSlidingTabIndicator'
 import Tooltip from '../common/Tooltip.vue'
 import gemIcon from '../../assets/violet-gem-pixel.svg'
 import logoUrl from '../../assets/bc-logo-new.png'
@@ -172,7 +162,6 @@ const walletStore  = useWalletStore()
 const friendsStore = useFriendsStore()
 const account      = computed(() => accountStore.selectedAccount)
 const gemDisplay   = useCountUp(computed(() => walletStore.balance))
-const { openPalette } = useCommandPalette()
 
 // ── Nav (formerly the left sidebar, now folded into the top bar) ────────────
 const route = useRoute()
@@ -199,19 +188,6 @@ const navItems = computed<NavItem[]>(() => [
 function isActive(path: string, exact: boolean) {
   return exact ? route.path === path : route.path.startsWith(path)
 }
-
-const activeNavKey = computed(() => navItems.value.find(item => isActive(item.path, item.exact))?.path ?? '')
-const { setTabBtnRef, indicatorStyle } = useSlidingTabIndicator(activeNavKey)
-
-function setNavBtnRef(key: string, el: unknown) {
-  const domEl = (el as { $el?: HTMLElement } | null)?.$el ?? (el as HTMLElement | null)
-  setTabBtnRef(key, domEl instanceof HTMLElement ? domEl : null)
-}
-
-const navIndicatorStyle = computed(() => ({
-  left: `calc(${indicatorStyle.value.left} + 6px)`,
-  width: `calc(${indicatorStyle.value.width} - 12px)`,
-}))
 
 const maximized    = ref(false)
 const dropdownOpen = ref(false)
@@ -272,12 +248,13 @@ onUnmounted(() => {
 
 <style lang="scss" scoped>
 .topbar {
-  height: 72px;
   flex-shrink: 0;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  // Right column is a FIXED width (not auto) so gem/account/win-controls content
+  // changes never reflow the 1fr nav column — see .right-group/.account-pill below.
+  grid-template-columns: auto 1fr 320px;
   align-items: center;
-  padding: 0 12px 0 14px;
+  padding: 8px 12px 8px 14px;
   -webkit-app-region: drag;
 }
 
@@ -289,12 +266,18 @@ onUnmounted(() => {
   align-items: center;
   height: 100%;
   min-width: 0;
+  // Recenters against the visible end of the "BejaClientLauncher" text rather than
+  // the grid column boundary, which includes .brand-group's 34px margin-right.
+  margin-left: -17px;
 }
 
 .right-group {
   display: flex;
   align-items: center;
-  justify-self: end;
+  // Stretches to fill the fixed 420px column so .gem-pill (flex-start, first
+  // child) always sits at the same spot; .account-pill's margin-left: auto
+  // pushes the account+win-controls cluster flush right within this box.
+  justify-self: stretch;
   flex-shrink: 0;
 }
 
@@ -320,7 +303,7 @@ onUnmounted(() => {
 .wordmark {
   display: flex;
   align-items: baseline;
-  font-size: 18px;
+  font-size: 14px;
   font-family: 'Plus Jakarta Sans', sans-serif;
   line-height: 1;
   white-space: nowrap;
@@ -356,32 +339,22 @@ onUnmounted(() => {
   user-select: none;
   white-space: nowrap;
   flex-shrink: 0;
+  -webkit-app-region: no-drag;
 }
 
-// Active tab pill — a single shared element that slides between nav items
-// (position/width driven by useSlidingTabIndicator) instead of each button
-// drawing its own static active-state box.
-.nav-indicator {
-  position: absolute;
-  top: 14px;
-  bottom: 14px;
-  background: linear-gradient(to right, #272628 28%, #1A191B 100%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 0;
-  pointer-events: none;
-  z-index: 0;
-  transition: left 260ms cubic-bezier(0.16, 1, 0.3, 1), width 260ms cubic-bezier(0.16, 1, 0.3, 1);
+.nav-item:hover:not(.active) .nav-label {
+  color: rgba(255, 255, 255, 0.45);
 }
 
-// Plain text, no animation/transition/glow — active adds the static pill
-// above (::before) plus a brighter color.
 .nav-label {
   position: relative;
   z-index: 1;
   display: inline-block;
-  font-size: 14.5px;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 500;
+  transition: color 200ms ease;
+  color: rgba(255, 255, 255, 0.22);
 }
 
 .nav-item.active .nav-label {
@@ -400,7 +373,7 @@ onUnmounted(() => {
   color: #fff;
   font-size: 8px;
   font-weight: 700;
-  border-radius: 7px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -444,41 +417,12 @@ onUnmounted(() => {
   100% { transform: rotate(360deg); }
 }
 
-// ── Quick search ──────────────────────────────────────────────────────────────
-.palette-btn {
-  -webkit-app-region: no-drag;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  height: 30px;
-  padding: 0 10px;
-  margin-right: 8px;
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.5);
-  cursor: pointer;
-  flex-shrink: 0;
-  animation: topbar-drop-in 700ms cubic-bezier(0.16, 1, 0.3, 1) 150ms both;
-  transition: color 160ms ease, opacity 160ms ease;
-
-  kbd {
-    font-size: 9px;
-    font-weight: 400;
-    color: #fff;
-    border: none;
-    padding: 2px 5px;
-    line-height: 1;
-  }
-
-  &:hover { color: rgba(255, 255, 255, 0.9); }
-}
-
 // ── Currency pill ────────────────────────────────────────────────────────────
 .gem-pill {
   -webkit-app-region: no-drag;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 3px;
   height: 30px;
   padding: 0 12px;
   margin-right: 8px;
@@ -500,15 +444,17 @@ onUnmounted(() => {
 // ── Account pill ──────────────────────────────────────────────────────────────
 .account-pill {
   position: relative;
+  margin-left: -14px;
   display: flex;
   align-items: center;
   gap: 8px;
   height: 30px;
   padding: 0 10px 0 6px;
-  margin-right: 10px;
+  margin-right: 4px;
   background: none;
   cursor: pointer;
-  flex-shrink: 0;
+  min-width: 0;
+  flex-shrink: 1;
   -webkit-app-region: no-drag;
   color: rgba(255, 255, 255, 0.7);
   animation: topbar-drop-in 700ms cubic-bezier(0.16, 1, 0.3, 1) 150ms both;
@@ -526,15 +472,20 @@ onUnmounted(() => {
 .account-head {
   width: 18px;
   height: 18px;
-  border-radius: 3px;
+  border-radius: 4px;
   image-rendering: pixelated;
   flex-shrink: 0;
 }
 
 .account-name {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 300;
   color: rgba(255, 255, 255, 0.9);
+  min-width: 0;
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 
   &--guest {
     color: #e05555;
@@ -543,6 +494,8 @@ onUnmounted(() => {
 }
 
 .pill-chevron {
+  margin-left: -4px;
+  flex-shrink: 0;
   transition: transform 150ms ease;
   &.open { transform: rotate(180deg); }
 }
@@ -591,7 +544,7 @@ onUnmounted(() => {
 .dd-head {
   width: 18px;
   height: 18px;
-  border-radius: 2px;
+  border-radius: 4px;
   image-rendering: pixelated;
   flex-shrink: 0;
 }
@@ -639,6 +592,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 4px;
+  margin-left: auto;
   animation: topbar-drop-in 700ms cubic-bezier(0.16, 1, 0.3, 1) 150ms both;
   -webkit-app-region: no-drag;
   flex-shrink: 0;
@@ -647,25 +601,27 @@ onUnmounted(() => {
 .win-btn {
   width: 30px;
   height: 30px;
-  border-radius: 6px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   border: none;
   cursor: pointer;
-  color: rgba(255, 255, 255, 0.35);
-  transition: background 80ms ease, color 80ms ease;
+  color: rgba(255, 255, 255, 0.55);
+  transition: color 150ms ease;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.88);
+    color: #ffffff;
   }
 
-  &.win-close:hover {
-    background: #c0392b;
-    color: #fff;
+  svg {
+    transform: scale(1.3);
   }
+}
+
+.win-close:hover {
+  color: #b56b6b;
 }
 
 @keyframes topbar-drop-in {

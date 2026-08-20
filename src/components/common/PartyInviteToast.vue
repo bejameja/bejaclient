@@ -81,7 +81,7 @@ async function accept(): Promise<void> {
 .toast-avatar {
   width: 38px;
   height: 38px;
-  border-radius: 9px;
+  border-radius: 4px;
   background: $surface;
   border: 1px solid $border-strong;
   display: flex;

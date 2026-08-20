@@ -306,7 +306,7 @@ watch(dims, () => {
   align-items: center;
   justify-content: center;
   gap: 14px;
-  border-radius: 18px;
+  border-radius: 4px;
   cursor: pointer;
   color: rgba(255,255,255,0.3);
   font-family: $font-family;
@@ -335,14 +335,16 @@ watch(dims, () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.3);
   transition:
     transform 600ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    color     600ms ease;
+    color     600ms ease,
+    filter    600ms ease;
 
   .slot-invite:hover & {
     transform: scale(1.12) rotate(180deg);
-    color: #f97316;
+    color: #fff;
+    filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.55));
   }
 }
 
@@ -396,14 +398,14 @@ watch(dims, () => {
 // ── Glow wrap (speaking aura) ─────────────────────────────────────────────────
 .slot-glow-wrap {
   position: relative;
-  border-radius: 16px;
+  border-radius: 4px;
   overflow: visible;
 }
 
 .slot-speaking-glow {
   position: absolute;
   inset: -8px;
-  border-radius: 22px;
+  border-radius: 4px;
   background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.22) 0%, rgba(85, 200, 140, 0.12) 45%, transparent 70%);
   animation: speaker-pulse 0.95s ease-in-out infinite;
   pointer-events: none;
@@ -422,7 +424,7 @@ watch(dims, () => {
 
 // ── Shimmer skeleton ──────────────────────────────────────────────────────────
 .slot-shimmer {
-  border-radius: 14px;
+  border-radius: 4px;
   background: linear-gradient(
     90deg,
     $surface-elevated 25%,
@@ -496,7 +498,7 @@ watch(dims, () => {
   span {
     display: block;
     width: 3px;
-    border-radius: 2px;
+    border-radius: 4px;
     background: $success;
     animation: soundbar 0.7s ease-in-out infinite;
 

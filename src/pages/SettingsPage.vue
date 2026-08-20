@@ -876,7 +876,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
   padding: 13px 16px;
   background: rgba(255, 255, 255, 0.035);
   border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 0;
+  border-radius: 4px;
   min-height: 56px;
   transition: background 120ms, border-color 120ms;
 
@@ -916,7 +916,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
   justify-content: center;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0;
+  border-radius: 4px;
   color: #666;
 
   svg { width: 16px; height: 16px; }
@@ -964,7 +964,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
   background: #1a1a1a;
   border: none;
   box-shadow: inset 0 0 0 1px #333;
-  border-radius: 11px;
+  border-radius: 4px;
   position: relative;
   cursor: pointer;
   transition: background 150ms, box-shadow 150ms;
@@ -1014,7 +1014,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
   height: 3px;
   -webkit-appearance: none;
   background: #2a2a2a;
-  border-radius: 2px;
+  border-radius: 4px;
   outline: none;
   cursor: pointer;
 
@@ -1163,7 +1163,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
 .seg-control {
   display: flex;
   border: none;
-  border-radius: 0;
+  border-radius: 4px;
   background: #0a0a0b;
   overflow: hidden;
 }
@@ -1204,7 +1204,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
   width: 20px;
   height: 20px;
   border: 2px solid transparent;
-  border-radius: 0;
+  border-radius: 4px;
   cursor: pointer;
   transition: transform 100ms, border-color 100ms;
   flex-shrink: 0;
@@ -1219,7 +1219,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
   gap: 7px;
   cursor: pointer;
   border: none;
-  border-radius: 0;
+  border-radius: 4px;
   padding: 4px 8px;
   background: #0a0a0b;
   transition: background 100ms;

@@ -471,7 +471,7 @@ onMounted(async () => {
   background-size: cover;
   background-position: center;
   border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 14px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -524,7 +524,7 @@ onMounted(async () => {
   position: relative;
   width: 72px;
   height: 72px;
-  border-radius: 10px;
+  border-radius: 4px;
   background: #101114;
   border: 1px solid rgba(255, 255, 255, 0.12);
   display: flex;
@@ -544,7 +544,7 @@ onMounted(async () => {
   padding: 3px 7px;
   background: rgba(0, 0, 0, 0.6);
   border: 1px solid rgba(255, 100, 100, 0.5);
-  border-radius: 2px;
+  border-radius: 4px;
   color: #ff8a8a;
   font-size: 9px;
   font-weight: 700;

@@ -2,10 +2,6 @@
   <div class="launch-wrap" ref="rootEl">
   <div class="launch-split" :class="status">
 
-    <!-- Apex-style hover notch: dim at rest, snaps to bright white on hover
-         (see the reference clip — this reads as the "fun" part of hovering). -->
-    <div class="launch-notch" aria-hidden="true"></div>
-
     <!-- Main launch area -->
     <button
       class="launch-main"
@@ -95,13 +91,9 @@
   </Transition>
 
   <Transition name="err-fade">
-    <div
-      v-if="(status === 'error' && store.lastError) || (status === 'idle' && isMaintenance)"
-      class="launch-error"
-      :class="{ 'launch-error--maint': status === 'idle' && isMaintenance }"
-    >
+    <div v-if="status === 'error' && store.lastError" class="launch-error">
       <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.2"/><line x1="6" y1="3.5" x2="6" y2="6.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="6" cy="8.5" r="0.6" fill="currentColor"/></svg>
-      <span class="launch-error-text">{{ status === 'idle' && isMaintenance ? maintenanceMessage : store.lastError }}</span>
+      <span class="launch-error-text">{{ store.lastError }}</span>
     </div>
   </Transition>
   </div>
@@ -116,7 +108,6 @@ const status = computed(() => store.status)
 const profiles = computed(() => store.profiles)
 const activeProfile = computed(() => store.activeProfile)
 const isMaintenance = computed(() => store.isBejaMaintenance)
-const maintenanceMessage = "BejaClient versions are under maintenance right now. We're working at full speed to bring them back. Sorry for the inconvenience!"
 const dropdownOpen = ref(false)
 const rootEl = ref<HTMLElement | null>(null)
 
@@ -170,12 +161,6 @@ $btn-blue-1: #7d8ae6;
 $btn-blue-2: #4a4fc4;
 $btn-error:  #ff453a;
 
-@property --launch-angle {
-  syntax: '<angle>';
-  initial-value: 45deg;
-  inherits: false;
-}
-
 .launch-wrap {
   position: relative;
   display: flex;
@@ -200,7 +185,7 @@ $btn-error:  #ff453a;
   &--maint {
     background: #0a0a0a;
     border-color: rgba(255, 255, 255, 0.08);
-    border-radius: 0;
+    border-radius: 4px;
 
     .launch-error-text { color: $btn-error; font-weight: 600; }
   }
@@ -221,64 +206,28 @@ $btn-error:  #ff453a;
   position: relative;
   display: flex;
   align-items: stretch;
-  width: 360px;
-  height: 96px;
-  border-radius: 0;
+  width: 320px;
+  height: 84px;
+  border-radius: 4px;
   overflow: hidden;
-  border: 1px solid transparent;
-  background-image:
-    linear-gradient(#131315, #131315),
-    conic-gradient(
-      from var(--launch-angle),
-      rgba(255, 255, 255, 0.04) 0%,
-      rgba(255, 255, 255, 0.4) 10%,
-      rgba(255, 255, 255, 0.04) 20%,
-      rgba(255, 255, 255, 0.04) 100%
-    );
-  background-origin: border-box;
-  background-clip: padding-box, border-box;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(24, 24, 27, 0.2);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
   box-shadow:
-    inset 0 1px 2px rgba(0, 0, 0, 0.6),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.03);
-  transition: filter 150ms ease-out, --launch-angle 2000ms cubic-bezier(0.2, 0, 0, 1);
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.4),
+    0 24px 60px rgba(0, 0, 0, 0.65),
+    $glass-shadow;
+  transition: filter 150ms ease-out;
 
   &:hover {
     filter: brightness(1.1);
-    --launch-angle: 135deg;
   }
 
   &.error {
-    background-image:
-      linear-gradient(#191313, #191313),
-      conic-gradient(
-        from var(--launch-angle),
-        rgba(255, 69, 58, 0.08) 0%,
-        rgba(255, 69, 58, 0.5) 10%,
-        rgba(255, 69, 58, 0.08) 20%,
-        rgba(255, 69, 58, 0.08) 100%
-      );
+    background: rgba(30, 19, 19, 0.45);
   }
-}
-
-// Dim salmon at rest → snaps to bright glowing white on hover, fast (~240ms),
-// matching the reference's quick reactive flash rather than a slow fade.
-.launch-notch {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 46%;
-  height: 6px;
-  background: rgba(255, 190, 180, 0.4);
-  clip-path: polygon(10% 0, 90% 0, 76% 100%, 24% 100%);
-  transition: background 240ms cubic-bezier(0.2, 0, 0, 1), box-shadow 240ms cubic-bezier(0.2, 0, 0, 1);
-  pointer-events: none;
-  z-index: 2;
-}
-
-.launch-split:hover .launch-notch {
-  background: #fff;
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.7);
 }
 
 .launch-main {
@@ -407,7 +356,7 @@ $btn-error:  #ff453a;
   transform: translateX(-50%);
   background: #0a0a0a;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0;
+  border-radius: 4px;
   overflow: hidden;
   z-index: 10;
 }

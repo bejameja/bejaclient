@@ -911,7 +911,7 @@ onUnmounted(() => {
   width: 60px;
   height: 4px;
   background: rgba(255,255,255,0.08);
-  border-radius: 2px;
+  border-radius: 4px;
   overflow: hidden;
 }
 

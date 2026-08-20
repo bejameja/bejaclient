@@ -12,11 +12,13 @@ export default {
   },
 
   home: {
-    friends: 'FRIENDS',
+    friends: 'Friends',
     noFriends: 'no friends found...',
-    onlineCount: '{count} online',
+    onlineCount: '{count} Online',
     openSatellite: 'Open Chat',
     playing: 'Playing',
+    maintenanceTitle: 'Under Maintenance',
+    maintenanceBody: "BejaClient versions are under maintenance right now. We're working at full speed to bring them back. Sorry for the inconvenience.",
   },
 
   launch: {

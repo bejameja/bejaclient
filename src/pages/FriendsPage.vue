@@ -701,7 +701,7 @@ onUnmounted(() => {
   padding: 9px 16px;
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 8px;
+  border-radius: 4px;
   color: rgba(255, 255, 255, 0.55);
   font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 12px;
@@ -753,7 +753,7 @@ onUnmounted(() => {
   height: 38px;
   background: #131315;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  border-radius: 4px;
   padding: 0 10px;
   gap: 8px;
   flex-shrink: 0;
@@ -789,7 +789,7 @@ onUnmounted(() => {
   right: 0;
   background: #131315;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  border-radius: 4px;
   overflow: hidden;
   z-index: 30;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
@@ -808,7 +808,7 @@ onUnmounted(() => {
 .fp-suggest-head {
   width: 26px;
   height: 26px;
-  border-radius: 5px;
+  border-radius: 4px;
   image-rendering: pixelated;
   flex-shrink: 0;
 }
@@ -840,7 +840,7 @@ onUnmounted(() => {
 .fp-suggest-btn {
   flex-shrink: 0;
   padding: 5px 10px;
-  border-radius: 6px;
+  border-radius: 4px;
   border: none;
   font-size: 11px;
   font-weight: 700;
@@ -896,7 +896,7 @@ onUnmounted(() => {
   gap: 10px;
   padding: 8px;
   margin: 0 -8px;
-  border-radius: 8px;
+  border-radius: 4px;
   cursor: pointer;
   transition: background 140ms ease;
 
@@ -914,10 +914,10 @@ onUnmounted(() => {
 .fp-avatar {
   width: 32px;
   height: 32px;
-  border-radius: 7px;
+  border-radius: 4px;
   image-rendering: pixelated;
   display: block;
-  &--sm { width: 28px; height: 28px; border-radius: 6px; }
+  &--sm { width: 28px; height: 28px; border-radius: 4px; }
 }
 
 .fp-status-dot {
@@ -961,7 +961,7 @@ onUnmounted(() => {
 .fp-req-btn {
   width: 22px;
   height: 22px;
-  border-radius: 6px;
+  border-radius: 4px;
   border: none;
   font-size: 11px;
   cursor: pointer;
@@ -1018,7 +1018,7 @@ onUnmounted(() => {
 .fp-chat-avatar {
   width: 34px;
   height: 34px;
-  border-radius: 7px;
+  border-radius: 4px;
   image-rendering: pixelated;
   flex-shrink: 0;
 }
@@ -1047,7 +1047,7 @@ onUnmounted(() => {
   position: relative;
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: 4px;
   background: transparent;
   border: none;
   display: flex;
@@ -1068,7 +1068,7 @@ onUnmounted(() => {
   min-width: 13px;
   height: 13px;
   padding: 0 3px;
-  border-radius: 7px;
+  border-radius: 4px;
   background: #f97316;
   color: #fff;
   font-size: 8px;
@@ -1088,7 +1088,7 @@ onUnmounted(() => {
   width: 280px;
   background: #131315;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+  border-radius: 4px;
   padding: 12px;
   z-index: 40;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
@@ -1128,7 +1128,7 @@ onUnmounted(() => {
   gap: 8px;
   padding: 6px 8px;
   background: rgba(255, 255, 255, 0.04);
-  border-radius: 6px;
+  border-radius: 4px;
 }
 
 .fp-pinned-text {
@@ -1145,7 +1145,7 @@ onUnmounted(() => {
   flex-shrink: 0;
   width: 18px;
   height: 18px;
-  border-radius: 5px;
+  border-radius: 4px;
   background: transparent;
   border: none;
   color: $text-muted;
@@ -1168,7 +1168,7 @@ onUnmounted(() => {
   flex: 1;
   background: #131315;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 7px;
+  border-radius: 4px;
   outline: none;
   padding: 6px 10px;
   font-size: 12px;
@@ -1249,7 +1249,7 @@ onUnmounted(() => {
   flex-shrink: 0;
   width: 20px;
   height: 20px;
-  border-radius: 5px;
+  border-radius: 4px;
   background: transparent;
   border: none;
   font-size: 10px;
@@ -1267,7 +1267,7 @@ onUnmounted(() => {
   font-size: 16px;
   color: rgba(255, 255, 255, 0.85);
   background: rgba(255, 255, 255, 0.05);
-  border-radius: 10px;
+  border-radius: 4px;
   padding: 10px 14px;
   line-height: 1.5;
   word-break: break-word;
@@ -1280,7 +1280,7 @@ onUnmounted(() => {
   display: block;
   max-width: 320px;
   max-height: 320px;
-  border-radius: 8px;
+  border-radius: 4px;
   object-fit: contain;
 }
 
@@ -1306,7 +1306,7 @@ onUnmounted(() => {
   padding: 4px 6px;
   background: #131315;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
+  border-radius: 4px;
   flex-shrink: 0;
 }
 
@@ -1316,7 +1316,7 @@ onUnmounted(() => {
   width: 30px;
   height: 30px;
   flex-shrink: 0;
-  border-radius: 8px;
+  border-radius: 4px;
   background: transparent;
   border: none;
   color: rgba(255, 255, 255, 0.5);
@@ -1342,7 +1342,7 @@ onUnmounted(() => {
   width: 30px;
   height: 30px;
   flex-shrink: 0;
-  border-radius: 8px;
+  border-radius: 4px;
   background: transparent;
   border: none;
   display: flex;
@@ -1366,7 +1366,7 @@ onUnmounted(() => {
   width: 100%;
   background: #0a0a0b;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
+  border-radius: 4px;
   outline: none;
   padding: 8px 10px;
   font-size: 14px;
@@ -1400,7 +1400,7 @@ onUnmounted(() => {
   aspect-ratio: 1;
   padding: 0;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.04);
   cursor: pointer;
@@ -1434,7 +1434,7 @@ onUnmounted(() => {
   justify-content: center;
   background: transparent;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   font-size: 18px;
   cursor: pointer;
   transition: background 100ms ease;
@@ -1449,7 +1449,7 @@ onUnmounted(() => {
   transform: translateX(-50%);
   padding: 8px 20px;
   font-size: 12px;
-  border-radius: 8px;
+  border-radius: 4px;
   border: 1px solid;
   white-space: nowrap;
   z-index: 50;

@@ -16,3 +16,9 @@ npm-debug.log*
 
 .DS_Store
 Thumbs.db
+
+# Local docs
+CODEBASE.md
+
+# Ignore file itself
+.gitignore

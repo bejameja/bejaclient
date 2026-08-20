@@ -110,7 +110,7 @@ onMounted(() => {
   max-width: 92vw;
   background: $surface;
   border: 1px solid $border;
-  border-radius: 0;
+  border-radius: 4px;
   overflow: hidden;
   box-shadow: $shadow-inset, $shadow-xl;
 }
@@ -127,7 +127,7 @@ onMounted(() => {
 .shared-icon-wrap {
   width: 40px;
   height: 40px;
-  border-radius: 0;
+  border-radius: 4px;
   background: rgba(255, 255, 255, 0.07);
   border: 1px solid $border-strong;
   display: flex;
@@ -190,7 +190,7 @@ onMounted(() => {
   background: $surface-elevated;
   color: $text-secondary;
   border: 1px solid $border;
-  border-radius: 0;
+  border-radius: 4px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -204,7 +204,7 @@ onMounted(() => {
   background: var(--accent, #{$primary});
   color: #fff;
   border: none;
-  border-radius: 0;
+  border-radius: 4px;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;

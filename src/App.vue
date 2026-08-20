@@ -39,7 +39,8 @@
         </RouterView>
       </main>
     </div>
-    <div v-if="!isConsole && !isLobby" class="corner-servers">
+    <!-- TEMP: quick servers row hidden -->
+    <div v-if="false && !isConsole && !isLobby" class="corner-servers">
       <ServerRow />
     </div>
     <NotificationsDrawer />
@@ -404,7 +405,7 @@ $splash-ease: cubic-bezier(0.16, 1, 0.3, 1);
   width: 220px;
   height: 2px;
   background: rgba(255, 255, 255, 0.08);
-  border-radius: 2px;
+  border-radius: 4px;
   overflow: hidden;
   opacity: 0;
   animation: splash-rise 900ms $splash-ease 260ms forwards;
@@ -414,7 +415,7 @@ $splash-ease: cubic-bezier(0.16, 1, 0.3, 1);
 
 .splash-bar-fill {
   height: 100%;
-  border-radius: 2px;
+  border-radius: 4px;
   background: linear-gradient(90deg, rgba(240, 240, 240, 0.25), $text-primary);
   transition: width 900ms $splash-ease;
 }

@@ -97,7 +97,7 @@ function openProfiles() {
 .crash-icon-wrap {
   width: 42px;
   height: 42px;
-  border-radius: 10px;
+  border-radius: 4px;
   background: rgba(220, 60, 60, 0.12);
   border: 1px solid rgba(220, 60, 60, 0.25);
   display: flex;
@@ -199,7 +199,7 @@ function openProfiles() {
   overflow-y: auto;
   margin: 0;
   &::-webkit-scrollbar { width: 3px; height: 3px; }
-  &::-webkit-scrollbar-thumb { background: #2a1a1a; border-radius: 3px; }
+  &::-webkit-scrollbar-thumb { background: #2a1a1a; border-radius: 4px; }
 }
 
 .crash-footer {

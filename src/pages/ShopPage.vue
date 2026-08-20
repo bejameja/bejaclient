@@ -367,7 +367,7 @@ onMounted(() => {
   width: 260px;
   height: 340px;
   border: 1px solid transparent;
-  border-radius: var(--edr-radius, 0px);
+  border-radius: var(--edr-radius, 4px);
   outline: var(--edr-outline, none);
   outline-offset: 3px;
   background-image:

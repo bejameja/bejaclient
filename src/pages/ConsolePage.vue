@@ -271,7 +271,7 @@ onMounted(() => {
   gap: 1px;
   background: $bg;
   border: 1px solid $border;
-  border-radius: 5px;
+  border-radius: 4px;
   padding: 2px;
   margin-right: 4px;
 }
@@ -284,7 +284,7 @@ onMounted(() => {
   font-family: inherit;
   background: transparent;
   border: none;
-  border-radius: 3px;
+  border-radius: 4px;
   color: $text-muted;
   cursor: pointer;
   transition: background $transition-fast, color $transition-fast;
@@ -306,7 +306,7 @@ onMounted(() => {
   font-family: inherit;
   background: $surface;
   border: 1px solid $border;
-  border-radius: 5px;
+  border-radius: 4px;
   color: $text-secondary;
   outline: none;
   transition: border-color $transition-fast, width 200ms $ease-out;
@@ -330,7 +330,7 @@ onMounted(() => {
   font-family: inherit;
   background: $surface;
   border: 1px solid $border;
-  border-radius: 5px;
+  border-radius: 4px;
   color: $text-muted;
   cursor: pointer;
   display: flex;
@@ -379,7 +379,7 @@ onMounted(() => {
 
   &::-webkit-scrollbar { width: 2px; }
   &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb { background: $border-strong; border-radius: 2px; }
+  &::-webkit-scrollbar-thumb { background: $border-strong; border-radius: 4px; }
 }
 
 .con-side {

@@ -161,7 +161,7 @@ function execute(index: number) {
   max-height: 60vh;
   background: #0d0d0d;
   border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 0;
+  border-radius: 4px;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
   display: flex;
   flex-direction: column;
@@ -198,7 +198,7 @@ function execute(index: number) {
   color: rgba(255, 255, 255, 0.5);
   background: none;
   border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 0;
+  border-radius: 4px;
   padding: 3px 6px;
 }
 
@@ -213,7 +213,7 @@ function execute(index: number) {
   gap: 10px;
   width: 100%;
   padding: 9px 10px;
-  border-radius: 0;
+  border-radius: 4px;
   border: none;
   background: transparent;
   color: rgba(255, 255, 255, 0.55);

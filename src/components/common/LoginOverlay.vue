@@ -81,7 +81,7 @@ async function handleImport() {
   width: 320px;
   background: $surface;
   border: 1px solid $border-strong;
-  border-radius: 0;
+  border-radius: 4px;
   padding: 36px 32px 28px;
   display: flex;
   flex-direction: column;
@@ -124,7 +124,7 @@ async function handleImport() {
   gap: 10px;
   background: $surface-elevated;
   border: 1px solid $border;
-  border-radius: 0;
+  border-radius: 4px;
   color: $text-primary;
   font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 13px;

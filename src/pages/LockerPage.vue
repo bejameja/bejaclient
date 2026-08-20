@@ -1130,6 +1130,7 @@ onMounted(() => {
 .skin-card {
   width: 320px;
   height: 460px;
+  border-radius: 4px;
   border: 1px solid transparent;
   background-image:
     linear-gradient(#111, #111),
@@ -1404,7 +1405,7 @@ onMounted(() => {
   width: 160px;
   height: 200px;
   border: 1px solid transparent;
-  border-radius: var(--edr-radius, 0px);
+  border-radius: var(--edr-radius, 4px);
   outline: var(--edr-outline, none);
   outline-offset: 3px;
   color: var(--edr-color, inherit);
