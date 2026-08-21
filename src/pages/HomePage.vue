@@ -10,8 +10,8 @@
           label="Skin-Vorschau Hintergrund"
           :features="['radius', 'outline', 'bgVideo']"
         >
-        <div class="video-card">
-          <video v-if="displayVideo" ref="videoRef" class="scene-video" :class="{ 'scene-video--blurred': isSnowBg }" :src="displayVideo" autoplay loop muted playsinline @error="onVideoError" />
+        <div class="video-card" @mousemove="onVideoCardMouseMove" @mouseleave="onVideoCardMouseLeave">
+          <video v-if="displayVideo" ref="videoRef" class="scene-video" :class="{ 'scene-video--blurred': isBlurredBg }" :src="displayVideo" autoplay loop muted playsinline @error="onVideoError" />
           <div v-else-if="displayImage" class="scene-mirror">
             <img class="scene-mirror-side" :src="displayImage" alt="" />
             <img class="scene-mirror-center" :src="displayImage" alt="" />
@@ -31,8 +31,13 @@
           </button>
 
           <!-- Left flanking member -->
-          <div class="flank-slot flank-slot--left">
+          <div class="flank-slot flank-slot--left" :class="{ 'flank-slot--passthrough': frontLeftPassthrough }">
             <LobbySkinSlot :member="lobbySlots[0]" size="2xl" :initial-rotation-y="0.524" @invite="openInvite" />
+          </div>
+
+          <!-- Inner-left invite slot — only once both outer flanks are filled -->
+          <div v-if="innerSlotsVisible" ref="innerLeftEl" class="flank-slot flank-slot--inner-left">
+            <LobbySkinSlot :member="lobbySlots[1]" size="lg" :initial-rotation-y="0.524" @invite="openInvite" />
           </div>
 
           <!-- Center: local player — preserves original HeroSkinViewer positioning/animation -->
@@ -51,6 +56,7 @@
                 </svg>
               </div>
             </Transition>
+            <div v-if="account" class="skin-nametag" :class="{ 'skin-nametag--pop': !!lobbyStore.party }">{{ account.username }}</div>
             <HeroSkinViewer
               ref="heroViewerRef"
               :skin-url="activeSkinUrl"
@@ -112,9 +118,14 @@
             </div>
           </div>
 
+          <!-- Inner-right invite slot — only once both outer flanks are filled -->
+          <div v-if="innerSlotsVisible" ref="innerRightEl" class="flank-slot flank-slot--inner-right">
+            <LobbySkinSlot :member="lobbySlots[2]" size="lg" :initial-rotation-y="-0.524" @invite="openInvite" />
+          </div>
+
           <!-- Right flanking member -->
-          <div class="flank-slot flank-slot--right">
-            <LobbySkinSlot :member="lobbySlots[1]" size="2xl" :initial-rotation-y="-0.524" @invite="openInvite" />
+          <div class="flank-slot flank-slot--right" :class="{ 'flank-slot--passthrough': frontRightPassthrough }">
+            <LobbySkinSlot :member="lobbySlots[3]" size="2xl" :initial-rotation-y="-0.524" @invite="openInvite" />
           </div>
 
           <!-- Voice controls (shown when party has ≥2 members or voice is active) -->
@@ -195,8 +206,33 @@
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
               </svg>
-              Create Lobby
             </button>
+            <button
+              v-if="!lobbyStore.party && !joinInputActive"
+              class="voice-btn join-lobby-btn"
+              title="Join a party using its code"
+              @click="openJoin"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>
+              </svg>
+              Join Party
+            </button>
+            <input
+              v-if="!lobbyStore.party && joinInputActive"
+              ref="joinInputEl"
+              v-model="joinCodeInline"
+              class="join-lobby-input"
+              :class="{ 'join-lobby-input--busy': joiningInline }"
+              placeholder="XXXXXX"
+              maxlength="6"
+              spellcheck="false"
+              :disabled="joiningInline"
+              @input="joinCodeInline = (joinCodeInline as string).toUpperCase()"
+              @keydown.enter="submitJoinInline"
+              @keydown.esc="cancelJoinInline"
+              @blur="onJoinInputBlur"
+            />
           </div>
         </div>
         </EditableRegion>
@@ -274,7 +310,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onActivated, onDeactivated, onMounted, watch } from 'vue'
+import { computed, ref, onActivated, onDeactivated, onMounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useFriendsStore, type Friend } from '../store/friendsStore'
 import { useAccountStore }  from '../store/accountStore'
@@ -283,6 +319,7 @@ import { useLobbyStore }    from '../store/lobbyStore'
 import { useShopStore }     from '../store/shopStore'
 import type { ShopItem }    from '../types'
 import { useLobbyVoice }    from '../composables/useLobbyVoice'
+import { showToast }        from '../composables/useToasts'
 import LobbySkinSlot  from '../components/lobby/LobbySkinSlot.vue'
 import InviteOverlay  from '../components/lobby/InviteOverlay.vue'
 import HeroSkinViewer from '../components/skin/HeroSkinViewer.vue'
@@ -294,6 +331,8 @@ import { useElementStyle } from '../composables/useElementStyle'
 // of this same video, so only one needs to be imported.
 import snowBgVideo from '../assets/launcher-bg.mp4'
 import sigmaBgGif from '../assets/sigma-bg.gif'
+import butterfliesBgVideo from '../assets/butterflies-garden-bg.mp4'
+import kitsuneBgVideo from '../assets/kitsune-girl-bg.mp4'
 import { consumeHubIntro } from './homePageIntro'
 // ── Video ─────────────────────────────────────────────────────────────────────
 
@@ -310,15 +349,22 @@ const videoRef   = ref<HTMLVideoElement | null>(null)
 const { override: heroBgOverride } = useElementStyle('home.skinPreviewBg')
 
 // Quick background cycler (top-left button on .video-card) — cycles between
-// the original scene.mp4 (`null`, fetched below), the snow-biome/aurora
-// video, and the sigma GIF (a static/animated image, so it needs <img> not
+// the original scene.mp4 (`null`, fetched below), a handful of bundled
+// videos, and the sigma GIF (a static/animated image, so it needs <img> not
 // <video> — each choice carries its own type and the template picks
-// between them).
-type BgChoice = { type: 'video'; src: string | null } | { type: 'image'; src: string }
+// between them). `blurred` opts a video into the same blur(3px)
+// brightness(0.85) treatment originally added for the snow/aurora scene —
+// declared per-choice instead of matched by src so adding another blurred
+// video later is a one-line change, not a new comparison branch.
+type BgChoice =
+  | { type: 'video'; src: string | null; blurred?: boolean }
+  | { type: 'image'; src: string }
 const BG_CHOICES: BgChoice[] = [
   { type: 'video', src: null },
-  { type: 'video', src: snowBgVideo },
+  { type: 'video', src: snowBgVideo, blurred: true },
   { type: 'image', src: sigmaBgGif },
+  { type: 'video', src: butterfliesBgVideo, blurred: true },
+  { type: 'video', src: kitsuneBgVideo, blurred: true },
 ]
 const bgChoiceIndex = ref(0)
 function cycleBackground() {
@@ -334,10 +380,10 @@ const displayVideo = computed(() => {
 })
 const displayImage = computed(() =>
   !heroBgOverride.value.bgVideo && activeBgChoice.value.type === 'image' ? activeBgChoice.value.src : null)
-// Only blur the snow video scene (not the Editor Mode override, the
-// original, or the sigma GIF).
-const isSnowBg = computed(() =>
-  !heroBgOverride.value.bgVideo && activeBgChoice.value.type === 'video' && activeBgChoice.value.src === snowBgVideo)
+// Blur whichever video choices opt in via `blurred` (not the Editor Mode
+// override, the original, or the sigma GIF).
+const isBlurredBg = computed(() =>
+  !heroBgOverride.value.bgVideo && activeBgChoice.value.type === 'video' && !!activeBgChoice.value.blurred)
 
 // ── Stores / composables ──────────────────────────────────────────────────────
 
@@ -358,6 +404,37 @@ const activeSkinModel = computed(() => lockerStore.model    ?? account.value?.sk
 
 const friends    = computed(() => friendsStore.friends)
 const lobbySlots = computed(() => lobbyStore.slots)
+// Inner invite slots only show once both outer flanks are taken by real
+// members — otherwise a 1- or 2-person party would show 4 invite buttons
+// at once instead of growing into them.
+const innerSlotsVisible = computed(() => Boolean(lobbySlots.value[0]) && Boolean(lobbySlots.value[3]))
+
+// The front (outer) flank slots visually sit above the inner slots, and by
+// default their full bounding box would swallow every hover/click there —
+// even over the parts where the inner slot underneath isn't actually
+// covered. Rather than blanket pointer-events:none on the whole outer slot
+// (which kills its own cursor-follow rotation everywhere), track the cursor
+// against each inner slot's actual rect and only go pointer-events:none on
+// the corresponding outer slot while the cursor is truly over that rect.
+const innerLeftEl  = ref<HTMLElement | null>(null)
+const innerRightEl = ref<HTMLElement | null>(null)
+const frontLeftPassthrough  = ref(false)
+const frontRightPassthrough = ref(false)
+
+function onVideoCardMouseMove(e: MouseEvent): void {
+  const inRect = (el: HTMLElement | null): boolean => {
+    if (!el) return false
+    const r = el.getBoundingClientRect()
+    return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom
+  }
+  frontLeftPassthrough.value  = inRect(innerLeftEl.value)
+  frontRightPassthrough.value = inRect(innerRightEl.value)
+}
+
+function onVideoCardMouseLeave(): void {
+  frontLeftPassthrough.value  = false
+  frontRightPassthrough.value = false
+}
 
 const router = useRouter()
 
@@ -444,6 +521,48 @@ async function openInvite() {
   inviteInitTab.value = 'invite'
   inviteOpen.value = true
 }
+
+// ── Inline join-by-code (the "Join Party" button morphs into this) ────────────
+
+const joinInputActive = ref(false)
+const joinCodeInline   = ref('')
+const joiningInline    = ref(false)
+const joinInputEl      = ref<HTMLInputElement | null>(null)
+
+function openJoin(): void {
+  joinCodeInline.value  = ''
+  joinInputActive.value = true
+  nextTick(() => joinInputEl.value?.focus())
+}
+
+function cancelJoinInline(): void {
+  joinInputActive.value = false
+  joinCodeInline.value  = ''
+}
+
+// blur cancels only when empty — mid-code, a stray focus loss (e.g. alt-tab)
+// shouldn't silently discard what they typed; keydown.esc is the explicit cancel.
+function onJoinInputBlur(): void {
+  if (!joinCodeInline.value) cancelJoinInline()
+}
+
+async function submitJoinInline(): Promise<void> {
+  if (joinCodeInline.value.length < 6 || joiningInline.value) return
+  joiningInline.value = true
+  const result = await lobbyStore.joinParty(joinCodeInline.value)
+  joiningInline.value = false
+  if (result.ok) {
+    cancelJoinInline()
+  } else {
+    showToast({ title: 'Failed to join party', body: result.error, variant: 'error' })
+    joinCodeInline.value = ''
+    joinInputEl.value?.focus()
+  }
+}
+
+// Auto-submit the moment a full 6-character code is typed — no separate
+// confirm button needed for a fixed-length code.
+watch(joinCodeInline, v => { if (v.length === 6) submitJoinInline() })
 
 // ── Voice: wire IPC events → composable ──────────────────────────────────────
 
@@ -729,6 +848,10 @@ function onVideoError(e: Event) {
   display: flex;
   flex-direction: column;
   align-items: center;
+  // Front row (with the outer flanks below) — sits above the inner slots so
+  // newly-invited members filling those slots read as standing behind the
+  // established trio, not beside them.
+  z-index: 3;
 }
 
 // Absolutely positioned (like LobbySkinSlot.vue's flanking-member crown) —
@@ -739,12 +862,34 @@ function onVideoError(e: Event) {
 // own but very visible underneath the character's transform-scale pop.
 .slot-crown {
   position: absolute;
-  top: 38px;
+  top: 30px;
   left: 50%;
   transform: translateX(-50%);
   filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.65));
   animation: crown-float 3s ease-in-out infinite;
   z-index: 2;
+}
+
+// Sits below .slot-crown (top: 38px) — closer to the head, same pill style
+// as the flanking members' nametag in LobbySkinSlot.vue for consistency.
+.skin-nametag {
+  position: absolute;
+  top: 41px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  padding: 4px 10px;
+  background: rgba(0, 0, 0, 0.28);
+  font-size: 11px;
+  color: #fff;
+  white-space: nowrap;
+  pointer-events: none;
+  // Mirrors .hero-viewer--pop (HeroSkinViewer.vue) exactly — the character
+  // itself shifts translateY(16px) while in a party, and without this the
+  // nametag stays put and drifts out of sync with the head as that toggles.
+  transition: transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  &--pop { transform: translateX(-50%) translateY(16px); }
 }
 
 .crown-fade-enter-active { transition: opacity 700ms cubic-bezier(0.16, 1, 0.3, 1); }
@@ -847,8 +992,30 @@ function onVideoError(e: Event) {
   animation-direction: alternate, normal;
   animation-fill-mode: none, both;
 
+  // Front row — same layer as .skin-wrap (z-index: 3), above the inner slots.
+  &--left, &--right { z-index: 3; }
+
+  // Applied only while the cursor is actually over the inner slot's rect
+  // underneath (tracked in JS — see frontLeftPassthrough/frontRightPassthrough
+  // in the script), so it doesn't blanket-disable the outer slot's own
+  // hover/cursor-follow or its invite button everywhere else.
+  &--passthrough { pointer-events: none; }
   &--left  { left: 20%; transform: translateX(-50%); animation-delay: -1.1s, 640ms; }
   &--right { left: 80%; transform: translateX(-50%); animation-delay: -2.2s, 780ms; }
+
+  // Newly-invited members (via the inner invite buttons) render tucked
+  // behind the front row — higher up (peeking over the shoulder line) and
+  // a lower z-index so the front row's bodies overlap and occlude them,
+  // instead of standing flat in the gap next to everyone else.
+  // Anchor point is the character's HEAD (flex column grows down from
+  // `top`), so this must stay above the front row's own head-line (33%,
+  // see &--left/&--right) or the front row's higher z-index paints right
+  // over the back row's head — it's not "cut off", it's fully hidden
+  // behind an opaque front-row canvas at that y-position. Legs/torso
+  // extending down into the front row's zone is the intended "behind" look.
+  &--inner-left, &--inner-right { top: 32%; z-index: 1; }
+  &--inner-left  { left: 35%; transform: translateX(-50%); animation-delay: -0.6s, 700ms; }
+  &--inner-right { left: 65%; transform: translateX(-50%); animation-delay: -1.8s, 860ms; }
 }
 
 // ── Background toggle ───────────────────────────────────────────────────────
@@ -881,6 +1048,8 @@ function onVideoError(e: Event) {
 // ── Voice controls ────────────────────────────────────────────────────────────
 .voice-controls {
   position: absolute;
+  // Same 14px as .bg-toggle-btn's top/left — no padding/margin trickery
+  // here, so this stays trivially guaranteed to match it.
   bottom: 14px;
   right: 14px;
   display: flex;
@@ -888,6 +1057,19 @@ function onVideoError(e: Event) {
   gap: 8px;
   z-index: 10;
   animation: voice-controls-in 1ms linear 1100ms both;
+
+  // Invisible hit-area, 12px larger on every side than the visible row —
+  // a separate layer (via inset) so it can't affect the row's own bottom/
+  // right position above. Without it, a click landing just past a button's
+  // own edge but still inside this row's visual footprint falls through to
+  // whatever sits underneath — namely the empty right-flank invite button
+  // (2xl size, 210x320px), which reaches down far enough to overlap this
+  // corner when there's no party.
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -12px;
+  }
 }
 
 .voice-btn {
@@ -939,13 +1121,21 @@ function onVideoError(e: Event) {
   &:hover { color: #ff453a; background: rgba(255, 69, 58, 0.12); }
 }
 
+// Icon-only — inherits its square 34x34 shape straight from .voice-btn.
 .create-lobby-btn {
+  &:disabled { opacity: 0.5; cursor: default; filter: brightness(1); }
+}
+
+// Fixed width (not auto) — .join-lobby-input below matches it exactly so
+// swapping button↔input on click doesn't resize/jump in the toolbar.
+.join-lobby-btn {
   position: relative;
-  width: auto;
+  width: 96px;
   height: 34px;
+  justify-content: center;
   border-radius: 4px;
-  padding: 0 14px;
-  gap: 6px;
+  padding: 0 8px;
+  gap: 5px;
   font-size: 11px;
   font-weight: 400;
   letter-spacing: 0.02em;
@@ -958,8 +1148,39 @@ function onVideoError(e: Event) {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.14),
     0 12px 32px rgba(0, 0, 0, 0.55);
+  // Suppress the browser's default focus ring — the button already gets a
+  // clear pressed/hover state from .voice-btn's filter:brightness, doesn't
+  // need the native outline on top.
+  outline: none;
+}
 
-  &:disabled { opacity: 0.5; cursor: default; filter: brightness(1); }
+// Replaces .join-lobby-btn in place while joinInputActive — same footprint
+// (34px tall, glass style) so the toolbar row doesn't jump.
+.join-lobby-input {
+  height: 34px;
+  width: 96px;
+  border-radius: 4px;
+  padding: 0 10px;
+  background: rgba(32, 32, 36, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 12px 32px rgba(0, 0, 0, 0.55);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  text-align: center;
+  text-transform: uppercase;
+  color: $text-primary;
+  outline: none;
+  transition: border-color 200ms, opacity 200ms;
+
+  &::placeholder { color: rgba(255, 255, 255, 0.15); letter-spacing: 0.2em; }
+  &:focus { border-color: rgba(255, 255, 255, 0.61); }
+  &--busy { opacity: 0.5; }
 }
 
 .create-lobby-info {
