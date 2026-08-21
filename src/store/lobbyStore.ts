@@ -50,11 +50,22 @@ export const useLobbyStore = defineStore('lobby', () => {
 
   const isReady = computed(() => localMember.value?.isReady ?? false)
 
-  const allReady = computed(() => {
-    if (!party.value) return false
-    const nonLeader = party.value.members.filter(m => m.uuid !== party.value!.leaderId)
-    return nonLeader.length === 0 || nonLeader.every(m => m.isReady)
+  // UI capacity for the flanking slots (see `slots` below) — 1 leader + 2
+  // others. Readiness itself is judged against whoever's actually in the
+  // party (`partyTotal`), not this fixed number.
+  const PARTY_SIZE = 3
+
+  const readyCount = computed(() => {
+    if (!party.value) return 0
+    const nonLeaderReady = party.value.members.filter(
+      m => m.uuid !== party.value!.leaderId && m.isReady,
+    ).length
+    return 1 + nonLeaderReady // leader always counts as ready
   })
+
+  const partyTotal = computed(() => party.value?.members.length ?? 0)
+
+  const allReady = computed(() => !!party.value && readyCount.value === partyTotal.value)
 
   const canLaunch = computed(() => isLeader.value && allReady.value)
 
@@ -68,7 +79,7 @@ export const useLobbyStore = defineStore('lobby', () => {
 
   // Two flanking slots for other members; null = empty invite slot
   const slots = computed<(PartyMember | null)[]>(() => {
-    const MAX = 2
+    const MAX = PARTY_SIZE - 1
     const filled: (PartyMember | null)[] = [...otherMembers.value]
     while (filled.length < MAX) filled.push(null)
     return filled
@@ -264,7 +275,7 @@ export const useLobbyStore = defineStore('lobby', () => {
 
   return {
     party, isCreating, pendingInvite, lastEmote,
-    localUuid, localMember, isLeader, isReady, allReady, canLaunch, slots, memberCount,
+    localUuid, localMember, isLeader, isReady, allReady, canLaunch, readyCount, partyTotal, PARTY_SIZE, slots, memberCount,
     createParty, regenerateParty, leaveParty, joinParty, inviteFriend, toggleReady, launchParty,
     handleMemberJoined, handleMemberLeft, handleReadyUpdate,
     handleSkinUpdate, handleDisbanded, handleSpeaking, handlePartyEmote, handlePartyState, handlePartyError,

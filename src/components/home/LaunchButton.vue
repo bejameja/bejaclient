@@ -6,7 +6,7 @@
     <button
       class="launch-main"
       :class="status"
-      :disabled="status === 'starting' || status === 'stopping' || (status === 'idle' && isMaintenance)"
+      :disabled="status === 'starting' || status === 'stopping' || (status === 'idle' && isMaintenance) || (status === 'idle' && isPartyLeader && !lobbyStore.canLaunch)"
       @click="onLaunch"
     >
       <!-- Idle + BejaClient profile selected: blocked, maintenance clock -->
@@ -30,7 +30,7 @@
           <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
         </svg>
         <div class="launch-text">
-          <span class="launch-label launch-label--title">LAUNCH</span>
+          <span class="launch-label launch-label--title">{{ props.readyMode ? (lobbyStore.isReady ? 'Ready' : 'Ready up') : 'Launch' }}</span>
           <span v-if="activeProfile" class="launch-version">{{ versionLabel }}</span>
         </div>
       </template>
@@ -60,9 +60,18 @@
       </template>
     </button>
 
-    <!-- Dropdown chevron -->
-    <button class="launch-chevron" @click.stop="toggleDropdown" :disabled="status === 'starting' || status === 'stopping'">
-      <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Dropdown chevron — swaps to a cancel/close "X" while starting or running -->
+    <button
+      class="launch-chevron"
+      :class="{ cancel: showCancelX }"
+      :title="status === 'starting' ? 'Cancel launch' : status === 'running' ? 'Close Minecraft' : undefined"
+      @click.stop="showCancelX ? store.killGame() : toggleDropdown()"
+      :disabled="status === 'stopping'"
+    >
+      <svg v-if="showCancelX" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+      <svg v-else xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="6 9 12 15 18 9"/>
       </svg>
     </button>
@@ -102,14 +111,20 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useLauncherStore } from '../../store/launcherStore'
+import { useLobbyStore } from '../../store/lobbyStore'
+
+const props = defineProps<{ readyMode?: boolean }>()
 
 const store = useLauncherStore()
+const lobbyStore = useLobbyStore()
 const status = computed(() => store.status)
 const profiles = computed(() => store.profiles)
 const activeProfile = computed(() => store.activeProfile)
 const isMaintenance = computed(() => store.isBejaMaintenance)
 const dropdownOpen = ref(false)
 const rootEl = ref<HTMLElement | null>(null)
+const showCancelX = computed(() => status.value === 'starting' || status.value === 'running')
+const isPartyLeader = computed(() => !!lobbyStore.party && lobbyStore.isLeader)
 
 const LOADER_NAMES: Record<string, string> = {
   fabric: 'Fabric',
@@ -130,6 +145,8 @@ const versionLabel = computed(() => {
 function onLaunch() {
   if (status.value === 'running') {
     store.killGame()
+  } else if (status.value === 'idle' && props.readyMode) {
+    lobbyStore.toggleReady()
   } else if (status.value === 'idle' || status.value === 'error') {
     store.launch()
   }
@@ -288,13 +305,11 @@ $btn-error:  #ff453a;
 
 .launch-rocket {
   flex-shrink: 0;
-  color: #6b6b70;
+  color: #fff;
 
   .launch-main:hover:not(:disabled) & {
     animation: rocket-nudge 900ms ease-in-out infinite;
   }
-
-  &--maint { color: #fff; }
 }
 
 .launch-text {
@@ -319,7 +334,7 @@ $btn-error:  #ff453a;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 200px;
-    color: rgba(255, 255, 255, 0.9);
+    color: #fff;
   }
 
   &--error { color: #fff; }
@@ -338,12 +353,11 @@ $btn-error:  #ff453a;
   font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 12px;
   font-weight: 500;
-  color: #6b6b70;
+  color: #fff;
   line-height: 1.2;
   background: transparent;
-
-  &--maint { color: #fff; }
 }
+
 
 .launch-state-overlay {
   display: flex;
@@ -363,13 +377,14 @@ $btn-error:  #ff453a;
   background: none;
   border: none;
   outline: none;
-  color: rgba(255, 255, 255, 0.7);
+  color: #fff;
   cursor: pointer;
-  transition: color 120ms;
+  transition: color 120ms, background 120ms;
   flex-shrink: 0;
 
-  &:hover:not(:disabled) { color: #fff; }
   &:disabled { cursor: not-allowed; opacity: 0.5; }
+
+  &.cancel:hover { color: $btn-error; background: rgba(255, 69, 58, 0.12); }
 }
 
 // ── Dropdown ──────────────────────────────────────────────────────────────────
