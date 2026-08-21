@@ -11,7 +11,7 @@
           :features="['radius', 'outline', 'bgVideo']"
         >
         <div class="video-card" @mousemove="onVideoCardMouseMove" @mouseleave="onVideoCardMouseLeave">
-          <video v-if="displayVideo" ref="videoRef" class="scene-video" :class="{ 'scene-video--blurred': isSnowBg }" :src="displayVideo" autoplay loop muted playsinline @error="onVideoError" />
+          <video v-if="displayVideo" ref="videoRef" class="scene-video" :class="{ 'scene-video--blurred': isBlurredBg }" :src="displayVideo" autoplay loop muted playsinline @error="onVideoError" />
           <div v-else-if="displayImage" class="scene-mirror">
             <img class="scene-mirror-side" :src="displayImage" alt="" />
             <img class="scene-mirror-center" :src="displayImage" alt="" />
@@ -331,6 +331,8 @@ import { useElementStyle } from '../composables/useElementStyle'
 // of this same video, so only one needs to be imported.
 import snowBgVideo from '../assets/launcher-bg.mp4'
 import sigmaBgGif from '../assets/sigma-bg.gif'
+import butterfliesBgVideo from '../assets/butterflies-garden-bg.mp4'
+import kitsuneBgVideo from '../assets/kitsune-girl-bg.mp4'
 import { consumeHubIntro } from './homePageIntro'
 // ── Video ─────────────────────────────────────────────────────────────────────
 
@@ -347,15 +349,22 @@ const videoRef   = ref<HTMLVideoElement | null>(null)
 const { override: heroBgOverride } = useElementStyle('home.skinPreviewBg')
 
 // Quick background cycler (top-left button on .video-card) — cycles between
-// the original scene.mp4 (`null`, fetched below), the snow-biome/aurora
-// video, and the sigma GIF (a static/animated image, so it needs <img> not
+// the original scene.mp4 (`null`, fetched below), a handful of bundled
+// videos, and the sigma GIF (a static/animated image, so it needs <img> not
 // <video> — each choice carries its own type and the template picks
-// between them).
-type BgChoice = { type: 'video'; src: string | null } | { type: 'image'; src: string }
+// between them). `blurred` opts a video into the same blur(3px)
+// brightness(0.85) treatment originally added for the snow/aurora scene —
+// declared per-choice instead of matched by src so adding another blurred
+// video later is a one-line change, not a new comparison branch.
+type BgChoice =
+  | { type: 'video'; src: string | null; blurred?: boolean }
+  | { type: 'image'; src: string }
 const BG_CHOICES: BgChoice[] = [
   { type: 'video', src: null },
-  { type: 'video', src: snowBgVideo },
+  { type: 'video', src: snowBgVideo, blurred: true },
   { type: 'image', src: sigmaBgGif },
+  { type: 'video', src: butterfliesBgVideo, blurred: true },
+  { type: 'video', src: kitsuneBgVideo, blurred: true },
 ]
 const bgChoiceIndex = ref(0)
 function cycleBackground() {
@@ -371,10 +380,10 @@ const displayVideo = computed(() => {
 })
 const displayImage = computed(() =>
   !heroBgOverride.value.bgVideo && activeBgChoice.value.type === 'image' ? activeBgChoice.value.src : null)
-// Only blur the snow video scene (not the Editor Mode override, the
-// original, or the sigma GIF).
-const isSnowBg = computed(() =>
-  !heroBgOverride.value.bgVideo && activeBgChoice.value.type === 'video' && activeBgChoice.value.src === snowBgVideo)
+// Blur whichever video choices opt in via `blurred` (not the Editor Mode
+// override, the original, or the sigma GIF).
+const isBlurredBg = computed(() =>
+  !heroBgOverride.value.bgVideo && activeBgChoice.value.type === 'video' && !!activeBgChoice.value.blurred)
 
 // ── Stores / composables ──────────────────────────────────────────────────────
 
