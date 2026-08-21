@@ -61,16 +61,6 @@
               {{ member.username }}
             </div>
           </div>
-
-          <!-- Ready badge -->
-          <div class="slot-footer">
-            <div class="slot-ready-badge" :class="{ 'ready': member.isReady }">
-              <svg v-if="member.isReady" width="10" height="10" viewBox="0 0 10 10" fill="none">
-                <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              {{ member.isReady ? 'Ready' : 'Not Ready' }}
-            </div>
-          </div>
         </div>
 
       </div>
@@ -143,6 +133,19 @@ function stopRenderLoop(): void {
   if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null }
 }
 
+// SkinViewer.dispose() releases Three.js-side resources but doesn't force the
+// underlying WebGL context to free immediately — the browser only reclaims it
+// whenever GC gets around to it, which isn't guaranteed to be prompt. Lots of
+// slots mounting/unmounting in a short window (HMR during dev, or just many
+// party members) can exhaust the browser's finite WebGL context pool before
+// GC catches up, silently breaking rendering on whichever viewer is built
+// next. forceContextLoss() releases the GPU context synchronously.
+function disposeViewer(v: SkinViewer | null): void {
+  if (!v) return
+  v.renderer.forceContextLoss()
+  v.dispose()
+}
+
 // ── Mouse tracking ────────────────────────────────────────────────────────────
 
 function onMouseMove(e: MouseEvent): void {
@@ -161,7 +164,7 @@ function onMouseLeave(): void {
 
 function buildViewer(): void {
   if (!canvasEl.value || !props.member) return
-  viewer?.dispose()
+  disposeViewer(viewer)
   stopRenderLoop()
 
   viewer = new SkinViewer({
@@ -261,7 +264,7 @@ onUnmounted(() => {
   document.removeEventListener('visibilitychange', onVisibilityChange)
   if (emoteTimer) clearTimeout(emoteTimer)
   stopRenderLoop()
-  viewer?.dispose()
+  disposeViewer(viewer)
   viewer = null
 })
 
@@ -272,7 +275,7 @@ watch(
   (next, prev) => {
     if (!next) {
       stopRenderLoop()
-      viewer?.dispose()
+      disposeViewer(viewer)
       viewer = null
       return
     }
@@ -494,15 +497,6 @@ watch(dims, () => {
   }
 }
 
-// ── Footer / ready badge ──────────────────────────────────────────────────────
-.slot-footer {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  margin-top: 10px;
-}
-
 // Animated sound bars when speaking
 .speak-waves {
   display: flex;
@@ -545,22 +539,4 @@ watch(dims, () => {
   letter-spacing: 0.5px;
 }
 
-.slot-ready-badge {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.4px;
-  color: $text-muted;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: rgba(255,255,255,0.04);
-  transition: color 250ms cubic-bezier(0.4,0,0.2,1), background 250ms cubic-bezier(0.4,0,0.2,1);
-
-  &.ready {
-    color: $success;
-    background: rgba(52, 199, 89, 0.13);
-  }
-}
 </style>

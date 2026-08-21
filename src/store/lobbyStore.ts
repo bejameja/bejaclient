@@ -50,10 +50,11 @@ export const useLobbyStore = defineStore('lobby', () => {
 
   const isReady = computed(() => localMember.value?.isReady ?? false)
 
-  // UI capacity for the flanking slots (see `slots` below) — 1 leader + 2
-  // others. Readiness itself is judged against whoever's actually in the
-  // party (`partyTotal`), not this fixed number.
-  const PARTY_SIZE = 3
+  // UI capacity for the flanking slots (see `slots` below) — 1 leader + 4
+  // others (2 outer flanks + 2 inner invite slots). Readiness itself is
+  // judged against whoever's actually in the party (`partyTotal`), not this
+  // fixed number.
+  const PARTY_SIZE = 5
 
   const readyCount = computed(() => {
     if (!party.value) return 0
@@ -77,12 +78,18 @@ export const useLobbyStore = defineStore('lobby', () => {
     return party.value.members.filter(m => m.uuid !== localUuid.value)
   })
 
-  // Two flanking slots for other members; null = empty invite slot
+  // Four flanking slots for other members, ordered left-to-right as
+  // rendered: [outerLeft, innerLeft, innerRight, outerRight]. null = empty
+  // invite slot. The first two joiners keep the outer flank positions they
+  // always had; the 3rd/4th joiner fills the inner slots between the outer
+  // flanks and the local player, so a 3-person party still shows invite
+  // buttons in that inner gap.
   const slots = computed<(PartyMember | null)[]>(() => {
     const MAX = PARTY_SIZE - 1
     const filled: (PartyMember | null)[] = [...otherMembers.value]
     while (filled.length < MAX) filled.push(null)
-    return filled
+    const [outerLeft, outerRight, innerLeft, innerRight] = filled
+    return [outerLeft, innerLeft, innerRight, outerRight]
   })
 
   // Filled slot count for layout hints
