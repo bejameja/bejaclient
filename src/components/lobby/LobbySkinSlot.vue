@@ -399,9 +399,9 @@ watch(dims, () => {
 
 .slot-crown {
   position: absolute;
-  // Above the nametag (which sits at top: -10%, ~-43px at the 2xl size used on the
+  // Above the nametag (which sits at top: -6%, ~-26px at the 2xl size used on the
   // Hub page), not overlapping/behind it.
-  top: -68px;
+  top: -52px;
   left: 50%;
   transform: translateX(-50%);
   filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.6));
@@ -478,7 +478,7 @@ watch(dims, () => {
 // ── Minecraft nametag ─────────────────────────────────────────────────────────
 .slot-nametag {
   position: absolute;
-  top: -10%;
+  top: -6%;
   left: 50%;
   transform: translateX(-50%);
   z-index: 5;
