@@ -349,30 +349,6 @@ const voice         = useLobbyVoice()
 
 const heroViewerRef = ref<InstanceType<typeof HeroSkinViewer> | null>(null)
 
-// TEMP DEBUG — injects 2 fake members into whatever party is currently live
-// (party HN2RGM, then ORBOGC, then 91QT75, then R15UKB, now UXEWXN) for
-// visual testing of the flanking slots/crown/ready badges.
-// handleMemberJoined() no-ops if a uuid is already present, so this is safe
-// to leave across HMR re-runs.
-// Remove once done testing.
-if (lobbyStore.party) {
-  const DEBUG_STEVE_SKIN = 'https://mc-heads.net/skin/MHF_Steve'
-  lobbyStore.handleMemberJoined({
-    uuid: 'debug-fake-1', username: 'TestFriend1',
-    skinUrl: DEBUG_STEVE_SKIN, capeUrl: null, skinModel: 'default',
-    isLeader: false, isReady: true, isSpeaking: false,
-  })
-  lobbyStore.handleMemberJoined({
-    uuid: 'debug-fake-2', username: 'TestFriend2',
-    skinUrl: DEBUG_STEVE_SKIN, capeUrl: null, skinModel: 'default',
-    isLeader: false, isReady: false, isSpeaking: false,
-  })
-  // handleMemberJoined() no-ops once the uuid already exists (e.g. after a
-  // regenerated party code), so also force-update in place for that case.
-  lobbyStore.handleSkinUpdate({ uuid: 'debug-fake-1', skinUrl: DEBUG_STEVE_SKIN, capeUrl: null, skinModel: 'default' })
-  lobbyStore.handleSkinUpdate({ uuid: 'debug-fake-2', skinUrl: DEBUG_STEVE_SKIN, capeUrl: null, skinModel: 'default' })
-}
-
 const lockerStore = useLockerStore()
 const account     = computed(() => accountStore.selectedAccount)
 
