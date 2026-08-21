@@ -11,11 +11,24 @@
           :features="['radius', 'outline', 'bgVideo']"
         >
         <div class="video-card">
-          <video v-if="displayVideo" ref="videoRef" class="scene-video" :src="displayVideo" autoplay loop muted playsinline @error="onVideoError" />
+          <video v-if="displayVideo" ref="videoRef" class="scene-video" :class="{ 'scene-video--blurred': isSnowBg }" :src="displayVideo" autoplay loop muted playsinline @error="onVideoError" />
+          <div v-else-if="displayImage" class="scene-mirror">
+            <img class="scene-mirror-side" :src="displayImage" alt="" />
+            <img class="scene-mirror-center" :src="displayImage" alt="" />
+            <img class="scene-mirror-side" :src="displayImage" alt="" />
+          </div>
           <div v-else class="download-overlay">
             <div class="download-spinner" />
             <span class="download-label">Downloading assets…</span>
           </div>
+
+          <!-- Cycles through the bundled background videos -->
+          <button class="bg-toggle-btn" title="Change background" @click="cycleBackground">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9.06 11.9l8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"/>
+              <path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1.08 1.1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02z"/>
+            </svg>
+          </button>
 
           <!-- Left flanking member -->
           <div class="flank-slot flank-slot--left">
@@ -24,11 +37,20 @@
 
           <!-- Center: local player — preserves original HeroSkinViewer positioning/animation -->
           <div class="skin-wrap">
-            <div v-if="lobbyStore.isLeader" class="slot-crown">
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-                <path d="M12 6l4 6l5 -4l-2 10h-14l-2 -10l5 4z" fill="#FFD700" stroke="#E8A800" stroke-width="1" stroke-linejoin="round"/>
-              </svg>
-            </div>
+            <!-- Fades in (opacity only — never touches `transform`, which
+                 .slot-crown's own crown-float animation already owns; sharing
+                 that property between an entrance transition and the
+                 continuous float animation would just fight itself) instead
+                 of popping in at full strength the instant you become leader,
+                 so it doesn't read as a jump ahead of the character's own
+                 pop below. -->
+            <Transition name="crown-fade">
+              <div v-if="lobbyStore.isLeader" class="slot-crown">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 6l4 6l5 -4l-2 10h-14l-2 -10l5 4z" fill="#FFD700" stroke="#E8A800" stroke-width="1" stroke-linejoin="round"/>
+                </svg>
+              </div>
+            </Transition>
             <HeroSkinViewer
               ref="heroViewerRef"
               :skin-url="activeSkinUrl"
@@ -38,6 +60,7 @@
               :zoom="0.75"
               :initial-rotation-y="0.524"
               :auto-rotate-speed="0"
+              :pop="!!lobbyStore.party"
             />
             <div class="skin-footer">
               <div v-if="ownedEmotes.length" class="skin-namebar">
@@ -119,12 +142,13 @@
                 <path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
               </svg>
               <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/>
+                <line x1="1" y1="1" x2="23" y2="23"/><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
               </svg>
             </button>
             <div v-if="lobbyStore.party" class="party-id">
               {{ lobbyStore.party.id }}
               <button
+                v-if="lobbyStore.isLeader"
                 class="party-id-refresh"
                 title="Generate a new code"
                 :disabled="lobbyStore.isCreating"
@@ -137,7 +161,32 @@
               </button>
             </div>
             <button
-              v-else
+              v-if="lobbyStore.party && lobbyStore.isLeader"
+              class="voice-btn delete-party-btn"
+              title="Delete party"
+              @click="lobbyStore.leaveParty()"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                <path d="M10 11v6M14 11v6"/>
+                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+              </svg>
+            </button>
+            <button
+              v-if="lobbyStore.party && !lobbyStore.isLeader"
+              class="voice-btn delete-party-btn"
+              title="Leave party"
+              @click="lobbyStore.leaveParty()"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+            </button>
+            <button
+              v-if="!lobbyStore.party"
               class="voice-btn create-lobby-btn"
               title="Create a lobby and get a code"
               :disabled="lobbyStore.isCreating"
@@ -147,16 +196,6 @@
                 <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
               </svg>
               Create Lobby
-            </button>
-            <InfoTooltip
-              v-if="!lobbyStore.party"
-              text="Creates a shareable code so friends can join your session and launch together."
-              class="create-lobby-info"
-            />
-            <button class="voice-btn join-party-btn" title="Join a party by code" @click="openJoin">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
-              </svg>
             </button>
           </div>
         </div>
@@ -169,32 +208,13 @@
             <span class="rope rope--right"></span>
           </div>
           <div class="launch-drop" @animationend="onLaunchDropSettled">
-            <LaunchButton v-if="lobbyStore.isLeader || !lobbyStore.party" />
-            <button v-else class="ready-btn" :class="{ 'ready-btn--ready': lobbyStore.isReady }" @click="lobbyStore.toggleReady()">
-              <svg class="ready-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path v-if="lobbyStore.isReady" d="M4 12l5 5L20 6"/>
-                <circle v-else cx="12" cy="12" r="9"/>
-              </svg>
-              <span class="ready-label">{{ lobbyStore.isReady ? 'Ready' : 'Not Ready' }}</span>
-            </button>
+            <LaunchButton :ready-mode="!!lobbyStore.party && !lobbyStore.isLeader" />
           </div>
         </div>
       </div>
 
       <EditableRegion id="home.emptyEmbed" label="Leeres Embed" flex-fill :features="['radius', 'outline', 'color', 'bgColor', 'fontFamily']">
-      <div class="empty-embed">
-        <div class="maintenance-notice">
-          <svg class="maintenance-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="9" />
-            <line x1="12" y1="8" x2="12" y2="13" />
-            <line x1="12" y1="16" x2="12" y2="16.01" />
-          </svg>
-          <div class="maintenance-text">
-            <h3 class="maintenance-title">{{ $t('home.maintenanceTitle') }}</h3>
-            <p class="maintenance-body">{{ $t('home.maintenanceBody') }}</p>
-          </div>
-        </div>
-      </div>
+      <div class="empty-embed"></div>
       </EditableRegion>
 
     </div>
@@ -267,10 +287,13 @@ import LobbySkinSlot  from '../components/lobby/LobbySkinSlot.vue'
 import InviteOverlay  from '../components/lobby/InviteOverlay.vue'
 import HeroSkinViewer from '../components/skin/HeroSkinViewer.vue'
 import LaunchButton   from '../components/home/LaunchButton.vue'
-import InfoTooltip    from '../components/common/InfoTooltip.vue'
 import Icon           from '../components/common/Icon.vue'
 import EditableRegion from '../components/common/EditableRegion.vue'
 import { useElementStyle } from '../composables/useElementStyle'
+// Snow-biome/aurora scene — minecraft-bg.mp4 is a byte-identical duplicate
+// of this same video, so only one needs to be imported.
+import snowBgVideo from '../assets/launcher-bg.mp4'
+import sigmaBgGif from '../assets/sigma-bg.gif'
 import { consumeHubIntro } from './homePageIntro'
 // ── Video ─────────────────────────────────────────────────────────────────────
 
@@ -285,7 +308,36 @@ const videoRef   = ref<HTMLVideoElement | null>(null)
 // Editor Mode — lets the user swap the hero/skin-preview background for a
 // custom video (see SettingsPage → Appearance → Editor Mode).
 const { override: heroBgOverride } = useElementStyle('home.skinPreviewBg')
-const displayVideo = computed(() => heroBgOverride.value.bgVideo || sceneVideo.value)
+
+// Quick background cycler (top-left button on .video-card) — cycles between
+// the original scene.mp4 (`null`, fetched below), the snow-biome/aurora
+// video, and the sigma GIF (a static/animated image, so it needs <img> not
+// <video> — each choice carries its own type and the template picks
+// between them).
+type BgChoice = { type: 'video'; src: string | null } | { type: 'image'; src: string }
+const BG_CHOICES: BgChoice[] = [
+  { type: 'video', src: null },
+  { type: 'video', src: snowBgVideo },
+  { type: 'image', src: sigmaBgGif },
+]
+const bgChoiceIndex = ref(0)
+function cycleBackground() {
+  bgChoiceIndex.value = (bgChoiceIndex.value + 1) % BG_CHOICES.length
+}
+const activeBgChoice = computed(() => BG_CHOICES[bgChoiceIndex.value])
+
+// Editor Mode's override always wins and is always a video.
+const displayVideo = computed(() => {
+  if (heroBgOverride.value.bgVideo) return heroBgOverride.value.bgVideo
+  const choice = activeBgChoice.value
+  return choice.type === 'video' ? (choice.src || sceneVideo.value) : null
+})
+const displayImage = computed(() =>
+  !heroBgOverride.value.bgVideo && activeBgChoice.value.type === 'image' ? activeBgChoice.value.src : null)
+// Only blur the snow video scene (not the Editor Mode override, the
+// original, or the sigma GIF).
+const isSnowBg = computed(() =>
+  !heroBgOverride.value.bgVideo && activeBgChoice.value.type === 'video' && activeBgChoice.value.src === snowBgVideo)
 
 // ── Stores / composables ──────────────────────────────────────────────────────
 
@@ -296,6 +348,30 @@ const shopStore     = useShopStore()
 const voice         = useLobbyVoice()
 
 const heroViewerRef = ref<InstanceType<typeof HeroSkinViewer> | null>(null)
+
+// TEMP DEBUG — injects 2 fake members into whatever party is currently live
+// (party HN2RGM, then ORBOGC, then 91QT75, then R15UKB, now UXEWXN) for
+// visual testing of the flanking slots/crown/ready badges.
+// handleMemberJoined() no-ops if a uuid is already present, so this is safe
+// to leave across HMR re-runs.
+// Remove once done testing.
+if (lobbyStore.party) {
+  const DEBUG_STEVE_SKIN = 'https://mc-heads.net/skin/MHF_Steve'
+  lobbyStore.handleMemberJoined({
+    uuid: 'debug-fake-1', username: 'TestFriend1',
+    skinUrl: DEBUG_STEVE_SKIN, capeUrl: null, skinModel: 'default',
+    isLeader: false, isReady: true, isSpeaking: false,
+  })
+  lobbyStore.handleMemberJoined({
+    uuid: 'debug-fake-2', username: 'TestFriend2',
+    skinUrl: DEBUG_STEVE_SKIN, capeUrl: null, skinModel: 'default',
+    isLeader: false, isReady: false, isSpeaking: false,
+  })
+  // handleMemberJoined() no-ops once the uuid already exists (e.g. after a
+  // regenerated party code), so also force-update in place for that case.
+  lobbyStore.handleSkinUpdate({ uuid: 'debug-fake-1', skinUrl: DEBUG_STEVE_SKIN, capeUrl: null, skinModel: 'default' })
+  lobbyStore.handleSkinUpdate({ uuid: 'debug-fake-2', skinUrl: DEBUG_STEVE_SKIN, capeUrl: null, skinModel: 'default' })
+}
 
 const lockerStore = useLockerStore()
 const account     = computed(() => accountStore.selectedAccount)
@@ -392,7 +468,6 @@ async function openInvite() {
   inviteInitTab.value = 'invite'
   inviteOpen.value = true
 }
-function openJoin() { inviteInitTab.value = 'join'; inviteOpen.value = true }
 
 // ── Voice: wire IPC events → composable ──────────────────────────────────────
 
@@ -623,6 +698,43 @@ function onVideoError(e: Event) {
   object-fit: cover;
   display: block;
   transform: scale(1.15);
+  // Matches .video-card's own background-image color (#111) — without this,
+  // swapping :src to a new video (background toggle) shows the browser's
+  // default grey "no frame decoded yet" fill for the brief gap before the
+  // new source has a frame ready, instead of blending into the card.
+  background: #111;
+
+  // Slightly oversized (scale(1.15) above) so the blurred edges never show
+  // the video's actual boundary.
+  &--blurred { filter: blur(3px) brightness(0.85); }
+}
+
+// Static/GIF backgrounds — a smaller centered copy flanked by horizontally-
+// mirrored copies of the same image filling the rest of the width, instead
+// of one copy stretched edge-to-edge (which looked too large/pixelated for
+// a low-res source like the sigma GIF).
+.scene-mirror {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  background: #111;
+  overflow: hidden;
+}
+
+.scene-mirror-side,
+.scene-mirror-center {
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.scene-mirror-side {
+  flex: 0 0 20%;
+  transform: scaleX(-1);
+}
+
+.scene-mirror-center {
+  flex: 1 1 60%;
 }
 
 // ── Center player (HeroSkinViewer, original positioning) ─────────────────────
@@ -643,17 +755,30 @@ function onVideoError(e: Event) {
   align-items: center;
 }
 
+// Absolutely positioned (like LobbySkinSlot.vue's flanking-member crown) —
+// NOT a normal flex item of .skin-wrap. It used to be margin-based flow,
+// which meant the instant it appeared, flexbox's default flex-shrink:1
+// actually shrank HeroSkinViewer to make room for it in the fixed-height
+// column — a real, instant, unanimatable layout resize, invisible on its
+// own but very visible underneath the character's transform-scale pop.
 .slot-crown {
-  margin-top: 54px;
-  margin-bottom: -4px;
+  position: absolute;
+  top: 38px;
+  left: 50%;
+  transform: translateX(-50%);
   filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.65));
   animation: crown-float 3s ease-in-out infinite;
   z-index: 2;
 }
 
+.crown-fade-enter-active { transition: opacity 700ms cubic-bezier(0.16, 1, 0.3, 1); }
+.crown-fade-enter-from   { opacity: 0; }
+.crown-fade-leave-active { transition: opacity 700ms cubic-bezier(0.16, 1, 0.3, 1); }
+.crown-fade-leave-to     { opacity: 0; }
+
 @keyframes crown-float {
-  0%, 100% { transform: translateY(0); }
-  50%       { transform: translateY(-3px); }
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50%       { transform: translateX(-50%) translateY(-3px); }
 }
 
 @keyframes skinFloat {
@@ -750,6 +875,33 @@ function onVideoError(e: Event) {
   &--right { left: 80%; transform: translateX(-50%); animation-delay: -2.2s, 780ms; }
 }
 
+// ── Background toggle ───────────────────────────────────────────────────────
+.bg-toggle-btn {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 10;
+  width: 34px;
+  height: 34px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(32, 32, 36, 0.2);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 12px 32px rgba(0, 0, 0, 0.55);
+  color: rgba(255, 255, 255, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  filter: brightness(1);
+  transition: color 160ms $ease-out, filter 150ms ease-out;
+
+  &:hover { filter: brightness(1.1); color: rgba(255, 255, 255, 0.9); }
+}
+
 // ── Voice controls ────────────────────────────────────────────────────────────
 .voice-controls {
   position: absolute;
@@ -778,11 +930,12 @@ function onVideoError(e: Event) {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 160ms $ease-out, color 160ms $ease-out;
+  filter: brightness(1);
+  transition: background 160ms $ease-out, color 160ms $ease-out, filter 150ms ease-out;
 
   &.active { color: rgba(255, 255, 255, 0.9); }
   &.muted  { color: #ff453a; background: rgba(255, 69, 58, 0.12); }
-  &:hover  { background: rgba(48, 48, 52, 0.55); }
+  &:hover  { filter: brightness(1.1); }
 }
 
 .party-id {
@@ -806,6 +959,10 @@ function onVideoError(e: Event) {
   user-select: all;
 }
 
+.delete-party-btn {
+  &:hover { color: #ff453a; background: rgba(255, 69, 58, 0.12); }
+}
+
 .create-lobby-btn {
   position: relative;
   width: auto;
@@ -826,8 +983,7 @@ function onVideoError(e: Event) {
     inset 0 1px 0 rgba(255, 255, 255, 0.14),
     0 12px 32px rgba(0, 0, 0, 0.55);
 
-  &:hover { background: rgba(48, 48, 52, 0.55); }
-  &:disabled { opacity: 0.5; cursor: default; }
+  &:disabled { opacity: 0.5; cursor: default; filter: brightness(1); }
 }
 
 .create-lobby-info {
@@ -849,65 +1005,6 @@ function onVideoError(e: Event) {
 
   &:hover:not(:disabled) { color: rgba(255, 255, 255, 0.9); background: rgba(255, 255, 255, 0.08); }
   &:disabled { opacity: 0.4; cursor: default; }
-}
-
-// ── Ready button (non-leader) ───────────────────────────────────────────────
-// Same glass-panel footprint/blur/shadow/hover-brightness/active-scale as
-// LaunchButton's .launch-split + .launch-main (see LaunchButton.vue) — this
-// sits in the same .launch-drop slot as a straight swap for non-leaders.
-.ready-btn {
-  width: 272px;
-  height: 72px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 0 16px;
-  border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(24, 24, 27, 0.2);
-  backdrop-filter: blur(10px) saturate(160%);
-  -webkit-backdrop-filter: blur(10px) saturate(160%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.4),
-    0 24px 60px rgba(0, 0, 0, 0.65),
-    $glass-shadow;
-  color: #fff;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 17px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  filter: brightness(1);
-  transition: filter 150ms ease-out, transform 100ms cubic-bezier(0.34, 1.56, 0.64, 1), background 150ms, color 150ms;
-
-  &:hover { filter: brightness(1.1); }
-  &:active { transform: scale(0.98); }
-
-  // Same toggle pattern as .voice-btn.muted (color + a tinted translucent
-  // background), just green instead of red.
-  &.ready-btn--ready {
-    color: #34c759;
-    background: rgba(52, 199, 89, 0.12);
-  }
-}
-
-.ready-icon {
-  flex-shrink: 0;
-  color: inherit;
-
-  .ready-btn:hover & { animation: check-nudge 900ms ease-in-out infinite; }
-}
-
-@keyframes check-nudge {
-  0%, 100% { transform: scale(1); }
-  50%      { transform: scale(1.12); }
-}
-
-.ready-label {
-  color: inherit;
-  line-height: 1.2;
 }
 
 // ── Friends panel ─────────────────────────────────────────────────────────────
@@ -1010,42 +1107,6 @@ $friends-embed-bg: #0f0f11;
   background: var(--edr-bg, $friends-embed-bg);
   border: 1px solid #262627;
   animation: hub-fade 900ms ease 1100ms both;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-}
-
-.maintenance-notice {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  max-width: 480px;
-}
-
-.maintenance-icon {
-  flex-shrink: 0;
-  color: $warning;
-}
-
-.maintenance-text {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.maintenance-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #fff;
-  font-family: $font-family;
-}
-
-.maintenance-body {
-  font-size: 12px;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, 0.5);
-  font-family: $font-family;
 }
 
 .friends-card {

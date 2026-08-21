@@ -1013,6 +1013,8 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
+@import '../styles/motion';
+
 @font-face {
   src: url('../assets/fonts/mojangles.ttf') format('truetype');
   font-weight: normal;
@@ -1045,7 +1047,8 @@ onMounted(() => {
 }
 
 // ── Tab row ───────────────────────────────────────────────────────────────────
-// Same pill style as the Explore tab's category row.
+// Glass controls — same recipe as HomePage's .voice-btn/.create-lobby-btn:
+// translucent tint + backdrop blur + inset top highlight + soft outer shadow.
 .tab-row {
   position: relative;
   display: flex;
@@ -1056,19 +1059,24 @@ onMounted(() => {
 
 .tab-pill {
   height: 38px;
-  padding: 0 22px;
-  background: #1a1a1e;
-  border: none;
-  border-radius: 999px;
+  padding: 0 20px;
+  border-radius: $radius;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(32, 32, 36, 0.2);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 12px 32px rgba(0, 0, 0, 0.55);
   color: rgba(255, 255, 255, 0.7);
   font-size: 13px;
   cursor: pointer;
   letter-spacing: 0.02em;
-  transition: background 120ms, color 120ms;
+  transition: background 160ms $ease-out, color 160ms $ease-out;
 
-  &:hover { background: #232328; color: rgba(255, 255, 255, 0.9); }
+  &:hover { background: rgba(48, 48, 52, 0.55); color: rgba(255, 255, 255, 0.9); }
   &.active {
-    background: #2a2a30;
+    background: rgba(48, 48, 52, 0.55);
     color: #fff;
   }
 }
@@ -1077,13 +1085,22 @@ onMounted(() => {
 .search-bar {
   display: flex;
   align-items: center;
-  background: none;
-  border: none;
   height: 36px;
-  padding: 0 2px;
+  padding: 0 12px;
+  border-radius: $radius;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(32, 32, 36, 0.2);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 12px 32px rgba(0, 0, 0, 0.55);
   flex-shrink: 0;
-  max-width: 360px;
+  max-width: 320px;
   gap: 8px;
+  transition: background 160ms $ease-out;
+
+  &:focus-within { background: rgba(48, 48, 52, 0.55); }
 }
 
 .search-input {
@@ -1092,9 +1109,9 @@ onMounted(() => {
   border: none;
   outline: none;
   font-size: 11px;
-  color: #aaa;
+  color: rgba(255, 255, 255, 0.75);
   letter-spacing: 0.03em;
-  &::placeholder { color: #555; }
+  &::placeholder { color: rgba(255, 255, 255, 0.3); }
 }
 
 .search-icon {
@@ -1496,19 +1513,17 @@ onMounted(() => {
 }
 
 .add-modal {
-  background: #111;
-  border: 1px solid #444;
+  @extend %glass-panel;
   padding: 22px 24px;
   display: flex;
   flex-direction: column;
   gap: 12px;
   min-width: 300px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.8);
 }
 
 .modal-title {
   font-size: 13px;
-  color: #ccc;
+  color: $text-primary;
   margin: 0;
   letter-spacing: 0.04em;
 }
@@ -1516,12 +1531,13 @@ onMounted(() => {
 .modal-input-wrap {
   display: flex;
   align-items: center;
-  background: #0d0d0d;
-  border: 1px solid #3a3a3a;
+  background: $surface-elevated;
+  border: 1px solid $border;
+  border-radius: $radius;
   height: 36px;
   padding: 0 10px;
   transition: border-color 100ms;
-  &.focused { border-color: #777; }
+  &.focused { border-color: $border-strong; }
 }
 
 .modal-input {
@@ -1530,13 +1546,13 @@ onMounted(() => {
   border: none;
   outline: none;
   font-size: 11px;
-  color: #ccc;
-  &::placeholder { color: #444; }
+  color: $text-primary;
+  &::placeholder { color: $muted; }
 }
 
 .modal-error {
   font-size: 10px;
-  color: #c05050;
+  color: $error;
   margin: 0;
   letter-spacing: 0.03em;
 }
@@ -1546,7 +1562,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #444;
+  color: $muted;
   font-size: 9px;
   letter-spacing: 0.06em;
 
@@ -1554,7 +1570,7 @@ onMounted(() => {
     content: '';
     flex: 1;
     height: 1px;
-    background: #333;
+    background: $border;
   }
 }
 
@@ -1563,13 +1579,14 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: #0d0d0d;
-  border: 1px dashed #3a3a3a;
-  color: #999;
+  background: $surface-elevated;
+  border: 1px dashed $border-strong;
+  border-radius: $radius;
+  color: $text-secondary;
   font-size: 11px;
   padding: 10px;
   cursor: pointer;
-  transition: background 100ms, border-color 100ms, color 100ms;
+  transition: background $transition, border-color $transition, color $transition;
 
   img {
     width: 14px;
@@ -1579,15 +1596,15 @@ onMounted(() => {
   }
 
   &:hover {
-    background: #161616;
-    border-color: #666;
-    color: #ccc;
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: $text-primary;
   }
 }
 
 .upload-skin-hint {
   font-size: 8px;
-  color: #444;
+  color: $muted;
   letter-spacing: 0.03em;
   text-align: center;
 }
@@ -1605,7 +1622,8 @@ onMounted(() => {
   image-rendering: pixelated;
   background:
     repeating-conic-gradient(#1a1a1a 0% 25%, #111 0% 50%) 50% / 10px 10px;
-  border: 1px solid #333;
+  border: 1px solid $border;
+  border-radius: $radius;
   flex-shrink: 0;
 }
 
@@ -1618,8 +1636,9 @@ onMounted(() => {
 }
 
 .upload-name-input {
-  background: #0d0d0d;
-  border: 1px solid #3a3a3a;
+  background: $surface-elevated;
+  border: 1px solid $border;
+  border-radius: $radius;
   height: 32px;
   padding: 0 10px;
 }
@@ -1631,20 +1650,21 @@ onMounted(() => {
   button {
     flex: 1;
     padding: 6px 0;
-    background: #0d0d0d;
-    border: 1px solid #3a3a3a;
-    color: #777;
+    background: $surface-elevated;
+    border: 1px solid $border;
+    border-radius: $radius;
+    color: $muted;
     font-size: 9px;
     letter-spacing: 0.03em;
     cursor: pointer;
-    transition: background 100ms, border-color 100ms, color 100ms;
+    transition: background $transition, border-color $transition, color $transition;
 
-    &:hover { color: #aaa; }
+    &:hover { color: $text-secondary; }
 
     &.active {
-      background: #1c1c1c;
-      border-color: #888;
-      color: #ddd;
+      background: rgba(255, 255, 255, 0.08);
+      border-color: $border-strong;
+      color: $text-primary;
     }
   }
 }
@@ -1659,33 +1679,42 @@ onMounted(() => {
   padding: 7px 18px;
   font-size: 11px;
   cursor: pointer;
-  border: 1px solid #444;
+  border: 1px solid $border;
+  border-radius: $radius;
   letter-spacing: 0.04em;
-  transition: background 80ms, border-color 80ms;
+  transition: background $transition, border-color $transition, transform 140ms $ease-out;
   display: flex;
   align-items: center;
   gap: 6px;
 
   &--cancel {
-    background: #0d0d0d;
-    color: #777;
-    &:hover { background: #1a1a1a; color: #aaa; }
+    background: $surface-elevated;
+    color: $muted;
+    &:hover { background: rgba(255, 255, 255, 0.06); color: $text-secondary; }
   }
 
   &--confirm {
-    background: #222;
-    color: #ccc;
-    border-color: #666;
-    &:hover:not(:disabled) { background: #2a2a2a; border-color: #999; }
-    &:disabled { opacity: 0.35; cursor: not-allowed; }
+    background: $text-primary;
+    background-image: $gradient-sheen;
+    color: $bg;
+    border-color: transparent;
+    &:hover:not(:disabled) { background: $text-secondary; background-image: $gradient-sheen; transform: translateY(-1px); }
+    &:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+    // Light button bg — spinner needs a dark ring instead of .btn-spinner's
+    // default light-on-dark colors.
+    .btn-spinner {
+      border-color: rgba(0, 0, 0, 0.25);
+      border-top-color: $bg;
+    }
   }
 }
 
 .btn-spinner {
   width: 11px;
   height: 11px;
-  border: 1.5px solid #444;
-  border-top-color: #ccc;
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #fff;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }

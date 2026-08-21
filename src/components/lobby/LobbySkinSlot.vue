@@ -483,15 +483,14 @@ watch(dims, () => {
   align-items: center;
   gap: 5px;
   padding: 4px 10px;
-  background: rgba(80, 80, 80, 0.4);
+  background: rgba(0, 0, 0, 0.28);
   font-size: 11px;
-  color: #b0b0b0;
+  color: #fff;
   white-space: nowrap;
-  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.6);
   pointer-events: none;
 
   &--speaking {
-    background: rgba(80, 80, 80, 0.55);
+    background: rgba(0, 0, 0, 0.4);
   }
 }
 

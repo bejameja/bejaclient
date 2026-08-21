@@ -1,5 +1,5 @@
 <template>
-  <div ref="containerRef" class="hero-viewer">
+  <div ref="containerRef" class="hero-viewer" :class="{ 'hero-viewer--pop': props.pop }">
     <canvas ref="canvasRef" class="viewer-canvas" />
   </div>
 </template>
@@ -23,6 +23,14 @@ const props = withDefaults(defineProps<{
   initialRotationY?: number
   showWings?:        boolean
   autoRotateSpeed?:  number
+  // Smoothly scales the root down while true (e.g. while the local player
+  // is in a party) via a plain CSS `transition`, so toggling it eases the
+  // character between its normal and shrunk size in either direction. Uses
+  // `transform` specifically so it can't disturb the ResizeObserver-driven
+  // canvas sizing below (unlike wrapping this component in an extra sized
+  // element, which collapses since .hero-viewer's own width/height:100% then
+  // has no definite size to resolve against).
+  pop?:              boolean
 }>(), {
   model:            'auto-detect',
   animation:        'walk',
@@ -30,6 +38,7 @@ const props = withDefaults(defineProps<{
   initialRotationY: 0,
   showWings:        false,
   autoRotateSpeed:  0,
+  pop:              false,
 })
 
 const containerRef = ref<HTMLDivElement | null>(null)
@@ -320,6 +329,22 @@ defineExpose({ triggerEmote })
   position: relative;
   overflow: hidden;
   user-select: none;
+  /* `pop` toggles a persistent state (shifted down while in a party,
+     normal while not) — plain `transition`, not `@keyframes`. A
+     keyframe animation SNAPS instantly to its 0% value the moment it starts
+     (no smooth transition into that starting state, only smooth
+     interpolation between keyframes); `transition` instead always animates
+     smoothly from whatever the current computed value actually is, in
+     either direction, whichever way `pop` flips. Steep cubic-bezier (same
+     curve as the rest of the hub's entrance animations, e.g. hub-rise/
+     launch-drop-y in HomePage.vue) instead of a shallow ease-out — starts at
+     full speed and decelerates sharply into its resting point, so it stays
+     smooth either way `pop` flips without a slow ramp-up at the start. */
+  transition: transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hero-viewer--pop {
+  transform: translateY(16px);
 }
 
 .viewer-canvas {
