@@ -25,8 +25,8 @@
           <!-- Center: local player — preserves original HeroSkinViewer positioning/animation -->
           <div class="skin-wrap">
             <div v-if="lobbyStore.isLeader" class="slot-crown">
-              <svg width="22" height="17" viewBox="0 0 22 17" fill="none">
-                <path d="M1 15L4.5 5.5L11 10L17.5 2L21 9.5V15H1Z" fill="#FFD700" stroke="#E8A800" stroke-width="1"/>
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+                <path d="M12 6l4 6l5 -4l-2 10h-14l-2 -10l5 4z" fill="#FFD700" stroke="#E8A800" stroke-width="1" stroke-linejoin="round"/>
               </svg>
             </div>
             <HeroSkinViewer
@@ -171,10 +171,11 @@
           <div class="launch-drop" @animationend="onLaunchDropSettled">
             <LaunchButton v-if="lobbyStore.isLeader || !lobbyStore.party" />
             <button v-else class="ready-btn" :class="{ 'ready-btn--ready': lobbyStore.isReady }" @click="lobbyStore.toggleReady()">
-              <svg v-if="lobbyStore.isReady" width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M2 7l3.5 3.5 6.5-6.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <svg class="ready-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path v-if="lobbyStore.isReady" d="M4 12l5 5L20 6"/>
+                <circle v-else cx="12" cy="12" r="9"/>
               </svg>
-              {{ lobbyStore.isReady ? 'Ready' : 'Not Ready' }}
+              <span class="ready-label">{{ lobbyStore.isReady ? 'Ready' : 'Not Ready' }}</span>
             </button>
           </div>
         </div>
@@ -643,7 +644,7 @@ function onVideoError(e: Event) {
 }
 
 .slot-crown {
-  margin-top: 40px;
+  margin-top: 54px;
   margin-bottom: -4px;
   filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.65));
   animation: crown-float 3s ease-in-out infinite;
@@ -850,40 +851,63 @@ function onVideoError(e: Event) {
   &:disabled { opacity: 0.4; cursor: default; }
 }
 
-// ── Ready button (non-leader) ─────────────────────────────────────────────────
+// ── Ready button (non-leader) ───────────────────────────────────────────────
+// Same glass-panel footprint/blur/shadow/hover-brightness/active-scale as
+// LaunchButton's .launch-split + .launch-main (see LaunchButton.vue) — this
+// sits in the same .launch-drop slot as a straight swap for non-leaders.
 .ready-btn {
-  height: 34px;
-  padding: 0 28px;
-  border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(32, 32, 36, 0.2);
-  backdrop-filter: blur(14px) saturate(160%);
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 12px 32px rgba(0, 0, 0, 0.55);
-  color: rgba(255, 255, 255, 0.6);
-  font-family: $font-family;
-  font-size: 13px;
-  font-weight: 400;
-  letter-spacing: 0.04em;
-  cursor: pointer;
+  width: 272px;
+  height: 72px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  transition: background 150ms, border-color 150ms, color 150ms;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 16px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(24, 24, 27, 0.2);
+  backdrop-filter: blur(10px) saturate(160%);
+  -webkit-backdrop-filter: blur(10px) saturate(160%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.4),
+    0 24px 60px rgba(0, 0, 0, 0.65),
+    $glass-shadow;
+  color: #fff;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  filter: brightness(1);
+  transition: filter 150ms ease-out, transform 100ms cubic-bezier(0.34, 1.56, 0.64, 1), background 150ms, color 150ms;
 
-  &:hover { background: rgba(48, 48, 52, 0.55); }
+  &:hover { filter: brightness(1.1); }
+  &:active { transform: scale(0.98); }
 
   // Same toggle pattern as .voice-btn.muted (color + a tinted translucent
-  // background, no border/hover override), just green instead of red.
-  // Compounded with the base class (&.ready-btn--ready, not just &--ready)
-  // so its specificity matches &:hover above, same as .voice-btn.muted does
-  // against .voice-btn:hover — otherwise :hover's background always wins.
+  // background), just green instead of red.
   &.ready-btn--ready {
     color: #34c759;
     background: rgba(52, 199, 89, 0.12);
   }
+}
+
+.ready-icon {
+  flex-shrink: 0;
+  color: inherit;
+
+  .ready-btn:hover & { animation: check-nudge 900ms ease-in-out infinite; }
+}
+
+@keyframes check-nudge {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.12); }
+}
+
+.ready-label {
+  color: inherit;
+  line-height: 1.2;
 }
 
 // ── Friends panel ─────────────────────────────────────────────────────────────

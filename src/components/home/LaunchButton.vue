@@ -30,7 +30,7 @@
           <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
         </svg>
         <div class="launch-text">
-          <span class="launch-label launch-label--title">LAUNCH</span>
+          <span class="launch-label launch-label--title">Launch</span>
           <span v-if="activeProfile" class="launch-version">{{ versionLabel }}</span>
         </div>
       </template>
@@ -288,13 +288,11 @@ $btn-error:  #ff453a;
 
 .launch-rocket {
   flex-shrink: 0;
-  color: #6b6b70;
+  color: #fff;
 
   .launch-main:hover:not(:disabled) & {
     animation: rocket-nudge 900ms ease-in-out infinite;
   }
-
-  &--maint { color: #fff; }
 }
 
 .launch-text {
@@ -319,7 +317,7 @@ $btn-error:  #ff453a;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 200px;
-    color: rgba(255, 255, 255, 0.9);
+    color: #fff;
   }
 
   &--error { color: #fff; }
@@ -338,11 +336,9 @@ $btn-error:  #ff453a;
   font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 12px;
   font-weight: 500;
-  color: #6b6b70;
+  color: #fff;
   line-height: 1.2;
   background: transparent;
-
-  &--maint { color: #fff; }
 }
 
 .launch-state-overlay {
@@ -363,12 +359,11 @@ $btn-error:  #ff453a;
   background: none;
   border: none;
   outline: none;
-  color: rgba(255, 255, 255, 0.7);
+  color: #fff;
   cursor: pointer;
   transition: color 120ms;
   flex-shrink: 0;
 
-  &:hover:not(:disabled) { color: #fff; }
   &:disabled { cursor: not-allowed; opacity: 0.5; }
 }
 

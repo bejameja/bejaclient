@@ -22,49 +22,54 @@
 
     <!-- ── Filled player slot ─────────────────────────────────────────── -->
     <template v-else>
-      <div class="slot-player" :class="{ 'slot-player--entering': isEntering }">
+      <div class="slot-player">
 
-        <!-- Crown -->
+        <!-- Crown — kept out of the bounce-in transform below so its fixed
+             -68px offset never gets carried past .video-card's clipped top
+             edge during the entrance animation. -->
         <div v-if="member.isLeader" class="slot-crown">
-          <svg width="22" height="17" viewBox="0 0 22 17" fill="none">
-            <path d="M1 15L4.5 5.5L11 10L17.5 2L21 9.5V15H1Z" fill="#FFD700" stroke="#E8A800" stroke-width="1"/>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+            <path d="M12 6l4 6l5 -4l-2 10h-14l-2 -10l5 4z" fill="#FFD700" stroke="#E8A800" stroke-width="1" stroke-linejoin="round"/>
           </svg>
         </div>
 
-        <!-- Glow halo (speaking) — sits BEHIND the canvas -->
-        <div class="slot-glow-wrap">
-          <Transition name="glow-fade">
-            <div v-if="member.isSpeaking" class="slot-speaking-glow" />
-          </Transition>
+        <div class="slot-body" :class="{ 'slot-body--entering': isEntering }">
 
-          <!-- Shimmer skeleton shown while skin loads -->
-          <div v-if="isLoadingSkin" class="slot-shimmer" :style="{ width: dims.w + 'px', height: dims.h + 'px' }" />
+          <!-- Glow halo (speaking) — sits BEHIND the canvas -->
+          <div class="slot-glow-wrap">
+            <Transition name="glow-fade">
+              <div v-if="member.isSpeaking" class="slot-speaking-glow" />
+            </Transition>
 
-          <!-- 3D canvas — always rendered, opacity-hidden while loading -->
-          <canvas
-            ref="canvasEl"
-            class="slot-canvas"
-            :class="{ 'slot-canvas--ready': !isLoadingSkin }"
-            :width="dims.w"
-            :height="dims.h"
-          />
+            <!-- Shimmer skeleton shown while skin loads -->
+            <div v-if="isLoadingSkin" class="slot-shimmer" :style="{ width: dims.w + 'px', height: dims.h + 'px' }" />
 
-          <!-- Minecraft-style nametag above head -->
-          <div class="slot-nametag" :class="{ 'slot-nametag--speaking': member.isSpeaking }">
-            <span v-if="member.isSpeaking" class="speak-waves">
-              <span /><span /><span />
-            </span>
-            {{ member.username }}
+            <!-- 3D canvas — always rendered, opacity-hidden while loading -->
+            <canvas
+              ref="canvasEl"
+              class="slot-canvas"
+              :class="{ 'slot-canvas--ready': !isLoadingSkin }"
+              :width="dims.w"
+              :height="dims.h"
+            />
+
+            <!-- Minecraft-style nametag above head -->
+            <div class="slot-nametag" :class="{ 'slot-nametag--speaking': member.isSpeaking }">
+              <span v-if="member.isSpeaking" class="speak-waves">
+                <span /><span /><span />
+              </span>
+              {{ member.username }}
+            </div>
           </div>
-        </div>
 
-        <!-- Ready badge -->
-        <div class="slot-footer">
-          <div class="slot-ready-badge" :class="{ 'ready': member.isReady }">
-            <svg v-if="member.isReady" width="10" height="10" viewBox="0 0 10 10" fill="none">
-              <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            {{ member.isReady ? 'Ready' : 'Not Ready' }}
+          <!-- Ready badge -->
+          <div class="slot-footer">
+            <div class="slot-ready-badge" :class="{ 'ready': member.isReady }">
+              <svg v-if="member.isReady" width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              {{ member.isReady ? 'Ready' : 'Not Ready' }}
+            </div>
           </div>
         </div>
 
@@ -365,6 +370,15 @@ watch(dims, () => {
   flex-direction: column;
   align-items: center;
   position: relative;
+}
+
+// Everything except the crown — the crown stays out of this so the
+// entrance bounce's translateY(-48px) doesn't carry it past .video-card's
+// clipped top edge (see .slot-crown's top offset below).
+.slot-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 
   // Entrance animation — drop + bounce
   &--entering {
