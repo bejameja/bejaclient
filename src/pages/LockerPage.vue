@@ -1,27 +1,26 @@
 <template>
   <div class="locker-page">
 
-    <h2 class="locker-heading">Locker</h2>
+    <!-- Search + tabs -->
+    <div class="locker-toolbar">
+      <div class="search-bar">
+        <input
+          v-model="search"
+          class="search-input"
+          :placeholder="searchPlaceholder"
+        />
+        <img :src="searchIcon" class="search-icon" alt="" />
+      </div>
 
-    <!-- Tabs -->
-    <div class="tab-row">
-      <button
-        v-for="t in tabs"
-        :key="t"
-        class="tab-pill"
-        :class="{ active: activeTab === t }"
-        @click="activeTab = t"
-      >{{ t }}</button>
-    </div>
-
-    <!-- Search -->
-    <div class="search-bar">
-      <input
-        v-model="search"
-        class="search-input"
-        :placeholder="searchPlaceholder"
-      />
-      <img :src="searchIcon" class="search-icon" alt="" />
+      <div class="tab-row">
+        <button
+          v-for="t in tabs"
+          :key="t"
+          class="tab-pill"
+          :class="{ active: activeTab === t }"
+          @click="activeTab = t"
+        >{{ t }}</button>
+      </div>
     </div>
 
     <Transition name="tab-fade" mode="out-in">
@@ -71,12 +70,14 @@
             />
           </div>
         </template>
-        <!-- Fallback: 2D body image -->
+        <!-- Fallback: 2D body image — a fixed default (not keyed to the looked-up
+             player's UUID), so a player with no captured custom skin at add-time
+             doesn't silently start reflecting their live current skin later. -->
         <template v-else>
           <div class="skin-body-wrap">
             <img
               class="skin-body-img"
-              :src="`https://mc-heads.net/player/${skin.uuid}/120`"
+              :src="`https://mc-heads.net/player/${skin.model === 'slim' ? 'MHF_Alex' : 'MHF_Steve'}/120`"
               :alt="skin.username"
             />
           </div>
@@ -91,17 +92,6 @@
 
     <!-- ── Capes tab ──────────────────────────────────────────────────── -->
     <div v-else-if="activeTab === 'Capes'" key="capes" class="skin-grid">
-
-      <!-- No cape card -->
-      <div
-        class="skin-card"
-        :class="{ 'skin-card--active': selectedCapeUuid === null }"
-        @click="equipNoCape"
-      >
-        <div class="no-cape-wrap">
-          <span class="no-cape-label">None</span>
-        </div>
-      </div>
 
       <div v-if="capesLoading" class="empty-tab">
         <span class="btn-spinner" style="width:18px;height:18px;border-width:2px" />
@@ -172,66 +162,6 @@
       </EditableRegion>
     </div>
 
-    <!-- ── Community tab ──────────────────────────────────────────────── -->
-    <div v-else-if="activeTab === 'Community'" key="community" class="skin-grid">
-
-      <!-- Upload new cape card -->
-      <button class="skin-card skin-card--add" @click="communityUploadModalOpen = true">
-        <div class="add-card-content">
-          <img :src="addIcon" class="add-icon-img" alt="" />
-          <span class="add-title">Upload a cape</span>
-          <span class="add-sub">Share a design with everyone</span>
-        </div>
-      </button>
-
-      <div v-if="communityLoading && !communityCapes.length" class="empty-tab">
-        <span class="btn-spinner" style="width:18px;height:18px;border-width:2px" />
-      </div>
-
-      <div
-        v-for="cape in filteredCommunityCapes"
-        :key="cape.id"
-        class="skin-card"
-        :class="{ 'skin-card--active': cape.url === lockerStore.capeUrl }"
-      >
-        <button class="skin-del-btn" title="Report" @click.stop="reportCommunityCape(cape)">
-          <img :src="removeIcon" alt="" />
-        </button>
-        <div class="cape-front-wrap">
-          <div class="cape-front" :style="capeFrontStyle(cape.url)" />
-        </div>
-        <div class="skin-label-row">
-          <span class="skin-username">{{ cape.name }}</span>
-          <span class="skin-model-tag">by {{ cape.uploader_username }}</span>
-        </div>
-        <div class="shop-card-footer">
-          <button
-            class="shop-buy-btn"
-            :class="{ 'shop-buy-btn--confirm': cape.url === lockerStore.capeUrl }"
-            :disabled="equippingCommunityId === cape.id"
-            @click="equipCommunityCape(cape)"
-          >
-            <span v-if="equippingCommunityId === cape.id" class="btn-spinner" />
-            <template v-else-if="cape.url === lockerStore.capeUrl">Equipped ✓</template>
-            <template v-else>Equip</template>
-          </button>
-        </div>
-      </div>
-
-      <div v-if="!communityLoading && communityError" class="empty-tab" style="width:100%">
-        <span class="empty-tab-text" style="color:#c05050">{{ communityError }}</span>
-      </div>
-      <div v-else-if="!communityLoading && !communityCapes.length" class="empty-tab" style="width:100%">
-        <span class="empty-tab-text">No community capes yet — be the first to upload one</span>
-      </div>
-
-      <button
-        v-if="!communityLoading && communityCapes.length < communityTotal"
-        class="shop-cancel-btn"
-        style="width:100%; margin-top: 8px;"
-        @click="loadCommunityCapes(false)"
-      >Load more</button>
-    </div>
     </Transition>
 
     <!-- ── Add skin modal ─────────────────────────────────────────────── -->
@@ -301,56 +231,6 @@
       </Transition>
     </Teleport>
 
-    <!-- ── Upload community cape modal ──────────────────────────────────── -->
-    <Teleport to="body">
-      <Transition name="modal">
-        <div v-if="communityUploadModalOpen" class="modal-overlay" @click.self="closeCommunityUploadModal">
-          <div class="add-modal">
-            <p class="modal-title">Upload a cape</p>
-
-            <input ref="communityUploadInputRef" type="file" accept="image/png,image/jpeg" style="display:none" @change="onCommunityCapeFileSelected" />
-
-            <template v-if="!communityUploadPreviewUrl">
-              <button class="upload-skin-btn" @click="pickCommunityCapeFile">
-                <img :src="addIcon" alt="" />
-                Choose a PNG or JPG
-              </button>
-              <span class="upload-skin-hint">Max 5MB &middot; reviewed for content before going public</span>
-
-              <Transition name="fade">
-                <p v-if="communityUploadError" class="modal-error">{{ communityUploadError }}</p>
-              </Transition>
-
-              <div class="modal-footer">
-                <button class="modal-btn modal-btn--cancel" @click="closeCommunityUploadModal">Cancel</button>
-              </div>
-            </template>
-
-            <template v-else>
-              <div class="upload-preview-row">
-                <img :src="communityUploadPreviewUrl" class="upload-preview-img" alt="" />
-                <div class="upload-preview-info">
-                  <input v-model="communityUploadName" class="modal-input upload-name-input" placeholder="Cape name" maxlength="32" />
-                </div>
-              </div>
-
-              <Transition name="fade">
-                <p v-if="communityUploadError" class="modal-error">{{ communityUploadError }}</p>
-              </Transition>
-
-              <div class="modal-footer">
-                <button class="modal-btn modal-btn--cancel" @click="communityUploadPreviewUrl = null">Back</button>
-                <button class="modal-btn modal-btn--confirm" :disabled="communityUploading" @click="confirmCommunityUpload">
-                  <span v-if="communityUploading" class="btn-spinner" />
-                  <template v-else>Upload</template>
-                </button>
-              </div>
-            </template>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
-
   </div>
 </template>
 
@@ -361,6 +241,7 @@ import { useAccountStore } from '../store/accountStore'
 import addIcon    from '../assets/icons8-add-64.png'
 import removeIcon from '../assets/icons8-remove-24.png'
 import searchIcon from '../assets/icons8-search-50.png'
+import bejaDefaultCape from '../assets/capes/beja-default.png'
 import StaticSkinViewer from '../components/skin/StaticSkinViewer.vue'
 import CosmeticModelViewer from '../components/cosmetics/CosmeticModelViewer.vue'
 import EditableRegion from '../components/common/EditableRegion.vue'
@@ -368,7 +249,6 @@ import { useLockerStore } from '../store/lockerStore'
 import { useLobbyStore } from '../store/lobbyStore'
 import { useShopStore } from '../store/shopStore'
 import type { Rarity, PlayerCosmetic } from '../types/cosmetics'
-import type { CommunityCape } from '../types'
 import { RARITIES } from '../types/cosmetics'
 
 const lockerStore = useLockerStore()
@@ -394,7 +274,7 @@ function cosmeticCardStyle(rarity: Rarity) {
   const r = RARITIES[rarity]
   if (!r) return {}
   return {
-    background:   r.bg,
+    background:   '#111',
     borderColor:  r.color + '50',
     boxShadow:    `0 0 12px ${r.glow}`,
   }
@@ -419,7 +299,7 @@ async function loadCosmetics() {
   }
 }
 
-const tabs        = ['Skins', 'Capes', 'Cosmetics', 'Community'] as const
+const tabs        = ['Skins', 'Capes', 'Cosmetics'] as const
 type Tab          = typeof tabs[number]
 const activeTab   = ref<Tab>('Skins')
 const search      = ref('')
@@ -458,7 +338,15 @@ interface CapeEntry {
 }
 
 const BEJA_ORIGINAL_ID  = 'beja-original'
-const BEJA_ORIGINAL_URL = 'http://127.0.0.1:25588/beja-default.png'
+// Bundled by Vite rather than fetched over HTTP: the old Electron build served
+// this from a local static server on :25588, which the Tauri port never brought
+// across — so the URL resolved to nothing and the cape rendered blank.
+const BEJA_ORIGINAL_URL = bejaDefaultCape
+// What the Original cape's URL used to be. Anyone who equipped it before the
+// switch above still has this dead URL persisted as their cape_url (backend or
+// localStorage), so it has to keep resolving to the Original cape — otherwise
+// it fails the dedupe check below and gets listed as a second, unloadable card.
+const BEJA_ORIGINAL_LEGACY_URL = 'http://127.0.0.1:25588/beja-default.png'
 
 const ownedCapes    = ref<CapeEntry[]>([])
 const capesLoading  = ref(false)
@@ -471,139 +359,6 @@ const filteredCapes = computed(() => {
 })
 
 const capesError = ref<string | null>(null)
-
-// ── Community capes (browse/upload/report — routes/capes.js) ──────────────────
-const communityCapes       = ref<CommunityCape[]>([])
-const communityTotal       = ref(0)
-const communityLoading     = ref(false)
-const communityError       = ref<string | null>(null)
-const equippingCommunityId = ref<number | null>(null)
-const reportedCommunityIds = new Set<number>()
-
-const filteredCommunityCapes = computed(() => {
-  const q = search.value.trim().toLowerCase()
-  if (!q) return communityCapes.value
-  return communityCapes.value.filter(c =>
-    c.name.toLowerCase().includes(q) || c.uploader_username.toLowerCase().includes(q)
-  )
-})
-
-async function loadCommunityCapes(reset = true) {
-  if (communityLoading.value) return
-  communityLoading.value = true
-  communityError.value   = null
-  try {
-    const offset = reset ? 0 : communityCapes.value.length
-    const res = await window.api.capes.list(offset)
-    communityTotal.value = res.total ?? 0
-    communityCapes.value = reset ? (res.capes ?? []) : [...communityCapes.value, ...(res.capes ?? [])]
-  } catch {
-    communityError.value = 'Could not load community capes.'
-  } finally {
-    communityLoading.value = false
-  }
-}
-
-async function equipCommunityCape(cape: CommunityCape) {
-  if (equippingCommunityId.value) return
-  equippingCommunityId.value = cape.id
-  try {
-    saveLocalCapeUrl(cape.url)
-    lockerStore.selectSkin({ skinUrl: lockerStore.skinUrl, capeUrl: cape.url, model: lockerStore.model })
-    syncLocalCosmetics({ capeUrl: cape.url })
-    await window.api.cosmetics.update({ cape_url: cape.url })
-  } catch (e) {
-    console.error('[Community] equip failed:', e)
-  } finally {
-    equippingCommunityId.value = null
-  }
-}
-
-async function reportCommunityCape(cape: CommunityCape) {
-  if (reportedCommunityIds.has(cape.id)) return
-  reportedCommunityIds.add(cape.id)
-  try { await window.api.capes.report(cape.id) } catch { /* non-fatal */ }
-}
-
-// ── Upload community cape modal ────────────────────────────────────────────────
-const communityUploadModalOpen  = ref(false)
-const communityUploadInputRef   = ref<HTMLInputElement | null>(null)
-const communityUploadPreviewUrl = ref<string | null>(null)
-const communityUploadBase64     = ref('')
-const communityUploadFilename   = ref('')
-const communityUploadName       = ref('')
-const communityUploading        = ref(false)
-const communityUploadError      = ref('')
-
-function pickCommunityCapeFile() {
-  communityUploadInputRef.value?.click()
-}
-
-async function onCommunityCapeFileSelected(e: Event) {
-  const input = e.target as HTMLInputElement
-  const file = input.files?.[0]
-  input.value = ''
-  if (!file) return
-  communityUploadError.value = ''
-
-  if (file.type !== 'image/png' && file.type !== 'image/jpeg') {
-    communityUploadError.value = 'Please choose a PNG or JPG file'
-    return
-  }
-  if (file.size > 5 * 1024 * 1024) {
-    communityUploadError.value = 'File too large (max 5MB)'
-    return
-  }
-
-  try {
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onerror = () => reject(reader.error)
-      reader.onload   = () => resolve(reader.result as string)
-      reader.readAsDataURL(file)
-    })
-    communityUploadPreviewUrl.value = dataUrl
-    communityUploadBase64.value     = dataUrl.slice(dataUrl.indexOf(',') + 1)
-    communityUploadFilename.value   = file.name
-    communityUploadName.value       = file.name.replace(/\.(png|jpe?g)$/i, '').trim() || 'Custom Cape'
-  } catch {
-    communityUploadError.value = 'Could not read that file'
-  }
-}
-
-function closeCommunityUploadModal() {
-  communityUploadModalOpen.value  = false
-  communityUploadPreviewUrl.value = null
-  communityUploadBase64.value     = ''
-  communityUploadFilename.value   = ''
-  communityUploadName.value       = ''
-  communityUploadError.value      = ''
-}
-
-async function confirmCommunityUpload() {
-  if (!communityUploadBase64.value || communityUploading.value) return
-  communityUploading.value   = true
-  communityUploadError.value = ''
-  try {
-    const res = await window.api.capes.upload(
-      communityUploadBase64.value,
-      communityUploadFilename.value,
-      communityUploadName.value.trim() || 'Custom Cape'
-    )
-    if (!res?.ok) {
-      communityUploadError.value = res?.error === 'content_rejected'
-        ? 'That image was rejected by content moderation.'
-        : 'Upload failed — try again.'
-      return
-    }
-    closeCommunityUploadModal()
-    await loadCommunityCapes(true)
-  } catch {
-    communityUploadError.value = 'Upload failed — try again.'
-  } finally {
-    communityUploading.value = false
-  }
-}
 
 async function loadOwnedCapes() {
   capesLoading.value = true
@@ -624,6 +379,12 @@ async function loadOwnedCapes() {
     if (!bejaActiveUrl) {
       const local = loadLocalCapeUrl()
       if (local) { bejaActiveUrl = local; debugLines.push('cape_url from local fallback') }
+    }
+    // Migrate the pre-bundling Original-cape URL onto its current one.
+    if (bejaActiveUrl === BEJA_ORIGINAL_LEGACY_URL) {
+      bejaActiveUrl = BEJA_ORIGINAL_URL
+      saveLocalCapeUrl(BEJA_ORIGINAL_URL)
+      debugLines.push('migrated legacy beja-original cape_url')
     }
   } else {
     debugLines.push('no uuid on account')
@@ -711,7 +472,10 @@ async function loadOwnedCapes() {
 
 function capeFrontStyle(url: string | null) {
   if (!url) return {}
-  const s = 20
+  // Scale factor for the 10x16 front face. Sized to stay inside the card at the
+  // narrowest column width (1100px min window / 5 columns), since the rendered
+  // cape is fixed-size and flex-shrink: 0.
+  const s = 15
   return {
     backgroundImage:    `url(${url})`,
     backgroundSize:     `${64 * s}px ${32 * s}px`,
@@ -764,20 +528,6 @@ function syncLocalCosmetics(patch: { skinUrl?: string | null; capeUrl?: string |
     capeUrl:   acc?.capeUrl   ?? null,
     skinModel: acc?.skinModel ?? 'default',
   }).catch(() => {})
-}
-
-async function equipNoCape() {
-  selectedCapeUuid.value = null
-  saveLocalCapeUrl(null)
-  lockerStore.selectSkin({ skinUrl: lockerStore.skinUrl, capeUrl: null, model: lockerStore.model })
-  syncLocalCosmetics({ capeUrl: null })
-  try { await window.api.cosmetics.update({ cape_url: null }) } catch { /* non-fatal */ }
-  // Clears the *official* Mojang cape selection too — otherwise a previously
-  // equipped real cape would keep showing in vanilla Minecraft even though
-  // BejaClient itself now shows no cape.
-  if (account.value?.accessToken) {
-    try { await window.api.players.clearCape(account.value.accessToken) } catch (e) { console.warn('[Capes] clear official cape failed', e) }
-  }
 }
 
 async function equipCape(cape: CapeEntry) {
@@ -990,9 +740,6 @@ watch(activeTab, async (tab) => {
   if (tab === 'Cosmetics' && !cosmeticsLoading.value) {
     await loadCosmetics()
   }
-  if (tab === 'Community' && communityCapes.value.length === 0 && !communityLoading.value) {
-    await loadCommunityCapes(true)
-  }
 })
 watch(addModalOpen, async (v) => {
   if (v) { await nextTick(); modalInputRef.value?.focus() }
@@ -1026,29 +773,24 @@ onMounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 16px 20px;
+  padding: 0 8px 12px;
   gap: 12px;
   overflow: hidden;
   position: relative;
 }
 
-.locker-heading {
-  display: inline-block;
-  align-self: flex-start;
-  font-size: 17px;
-  font-weight: 800;
-  color: #62E13F;
-  background: #0F230A;
-  border-radius: 4px;
-  padding: 1px 6px;
-  margin: 0;
-  font-family: 'Minecrafter', 'Plus Jakarta Sans', sans-serif;
-  letter-spacing: 0.12em;
-}
-
 // ── Tab row ───────────────────────────────────────────────────────────────────
 // Glass controls — same recipe as HomePage's .voice-btn/.create-lobby-btn:
 // translucent tint + backdrop blur + inset top highlight + soft outer shadow.
+.locker-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
 .tab-row {
   position: relative;
   display: flex;
@@ -1061,22 +803,17 @@ onMounted(() => {
   height: 38px;
   padding: 0 20px;
   border-radius: $radius;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(32, 32, 36, 0.2);
-  backdrop-filter: blur(14px) saturate(160%);
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 12px 32px rgba(0, 0, 0, 0.55);
+  border: 1px solid #262627;
+  background: #0f0f11;
   color: rgba(255, 255, 255, 0.7);
   font-size: 13px;
   cursor: pointer;
   letter-spacing: 0.02em;
   transition: background 160ms $ease-out, color 160ms $ease-out;
 
-  &:hover { background: rgba(48, 48, 52, 0.55); color: rgba(255, 255, 255, 0.9); }
+  &:hover { background: #17171a; color: rgba(255, 255, 255, 0.9); }
   &.active {
-    background: rgba(48, 48, 52, 0.55);
+    background: #1c1c1f;
     color: #fff;
   }
 }
@@ -1088,19 +825,15 @@ onMounted(() => {
   height: 36px;
   padding: 0 12px;
   border-radius: $radius;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(32, 32, 36, 0.2);
-  backdrop-filter: blur(14px) saturate(160%);
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 12px 32px rgba(0, 0, 0, 0.55);
-  flex-shrink: 0;
+  border: 1px solid #262627;
+  background: #0f0f11;
+  flex: 1 1 260px;
+  min-width: 180px;
   max-width: 320px;
   gap: 8px;
   transition: background 160ms $ease-out;
 
-  &:focus-within { background: rgba(48, 48, 52, 0.55); }
+  &:focus-within { background: #17171a; }
 }
 
 .search-input {
@@ -1108,7 +841,7 @@ onMounted(() => {
   background: none;
   border: none;
   outline: none;
-  font-size: 11px;
+  font-size: 13px;
   color: rgba(255, 255, 255, 0.75);
   letter-spacing: 0.03em;
   &::placeholder { color: rgba(255, 255, 255, 0.3); }
@@ -1123,10 +856,18 @@ onMounted(() => {
 }
 
 // ── Skin grid ─────────────────────────────────────────────────────────────────
+// Grid (not flex-wrap) so the row is always exactly 5 even columns — the cards
+// size themselves to the available width instead of carrying a fixed width that
+// only fits 3 across.
 .skin-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 32px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  // Explicit row height rather than letting the card's ratio drive it: an auto
+  // row resolves its height before the 1fr column width is known, which is what
+  // made rows come out short and overlap. Definite height = no overlap, and the
+  // cards can still stretch to fill whatever width the column ends up being.
+  grid-auto-rows: 300px;
+  gap: 10px;
   overflow-y: auto;
   flex: 1;
   min-height: 0;
@@ -1135,6 +876,9 @@ onMounted(() => {
   scrollbar-color: #333 transparent;
   &::-webkit-scrollbar { width: 4px; }
   &::-webkit-scrollbar-thumb { background: #333; }
+
+  // Status/empty rows span the full row rather than taking one column slot.
+  > .empty-tab { grid-column: 1 / -1; }
 }
 
 // ── Base card ─────────────────────────────────────────────────────────────────
@@ -1145,8 +889,10 @@ onMounted(() => {
 }
 
 .skin-card {
-  width: 320px;
-  height: 460px;
+  // Fills its grid cell — the column supplies the width, .skin-grid's
+  // grid-auto-rows supplies the height.
+  width: 100%;
+  height: 100%;
   border-radius: 4px;
   border: 1px solid transparent;
   background-image:
@@ -1349,30 +1095,6 @@ onMounted(() => {
   color: #fff;
   background: rgba(255,179,0,0.18);
   border-color: rgba(255,179,0,0.55);
-}
-
-// ── No-cape card ─────────────────────────────────────────────────────────────
-.no-cape-wrap {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.no-cape-label {
-  font-size: 13px;
-  color: #555;
-  letter-spacing: 0.06em;
-  position: relative;
-  &::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 50%;
-    width: 100%;
-    height: 1px;
-    background: #444;
-  }
 }
 
 // ── Cape display ─────────────────────────────────────────────────────────────
