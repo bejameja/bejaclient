@@ -32,12 +32,12 @@
 
           <!-- Left flanking member -->
           <div class="flank-slot flank-slot--left" :class="{ 'flank-slot--passthrough': frontLeftPassthrough }">
-            <LobbySkinSlot :member="lobbySlots[0]" size="2xl" :initial-rotation-y="0.524" @invite="openInvite" />
+            <LobbySkinSlot :member="lobbySlots[0]" size="2xl" :initial-rotation-y="0.524" />
           </div>
 
           <!-- Inner-left invite slot — only once both outer flanks are filled -->
           <div v-if="innerSlotsVisible" ref="innerLeftEl" class="flank-slot flank-slot--inner-left">
-            <LobbySkinSlot :member="lobbySlots[1]" size="lg" :initial-rotation-y="0.524" @invite="openInvite" />
+            <LobbySkinSlot :member="lobbySlots[1]" size="lg" :initial-rotation-y="0.524" />
           </div>
 
           <!-- Center: local player — preserves original HeroSkinViewer positioning/animation -->
@@ -120,12 +120,12 @@
 
           <!-- Inner-right invite slot — only once both outer flanks are filled -->
           <div v-if="innerSlotsVisible" ref="innerRightEl" class="flank-slot flank-slot--inner-right">
-            <LobbySkinSlot :member="lobbySlots[2]" size="lg" :initial-rotation-y="-0.524" @invite="openInvite" />
+            <LobbySkinSlot :member="lobbySlots[2]" size="lg" :initial-rotation-y="-0.524" />
           </div>
 
           <!-- Right flanking member -->
           <div class="flank-slot flank-slot--right" :class="{ 'flank-slot--passthrough': frontRightPassthrough }">
-            <LobbySkinSlot :member="lobbySlots[3]" size="2xl" :initial-rotation-y="-0.524" @invite="openInvite" />
+            <LobbySkinSlot :member="lobbySlots[3]" size="2xl" :initial-rotation-y="-0.524" />
           </div>
 
           <!-- Voice controls (shown when party has ≥2 members or voice is active) -->
@@ -213,9 +213,6 @@
               title="Join a party using its code"
               @click="openJoin"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>
-              </svg>
               Join Party
             </button>
             <input
@@ -223,7 +220,6 @@
               ref="joinInputEl"
               v-model="joinCodeInline"
               class="join-lobby-input"
-              :class="{ 'join-lobby-input--busy': joiningInline }"
               placeholder="XXXXXX"
               maxlength="6"
               spellcheck="false"
@@ -303,9 +299,6 @@
       </EditableRegion>
     </div>
 
-    <!-- Invite overlay -->
-    <InviteOverlay :visible="inviteOpen" :initial-tab="inviteInitTab" @close="inviteOpen = false" />
-
   </div>
 </template>
 
@@ -321,7 +314,6 @@ import type { ShopItem }    from '../types'
 import { useLobbyVoice }    from '../composables/useLobbyVoice'
 import { showToast }        from '../composables/useToasts'
 import LobbySkinSlot  from '../components/lobby/LobbySkinSlot.vue'
-import InviteOverlay  from '../components/lobby/InviteOverlay.vue'
 import HeroSkinViewer from '../components/skin/HeroSkinViewer.vue'
 import LaunchButton   from '../components/home/LaunchButton.vue'
 import Icon           from '../components/common/Icon.vue'
@@ -482,7 +474,7 @@ function isTypingTarget(el: EventTarget | null): boolean {
 function onEmoteKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape' && emotePickerOpen.value) { emotePickerOpen.value = false; return }
   if (e.key.toLowerCase() !== 'b' || e.ctrlKey || e.metaKey || e.altKey) return
-  if (isTypingTarget(e.target) || inviteOpen.value) return
+  if (isTypingTarget(e.target)) return
   if (!ownedEmotes.value.length) return
   emotePickerOpen.value = !emotePickerOpen.value
 }
@@ -507,20 +499,8 @@ onDeactivated(() => {
 
 onMounted(() => {
   if (!shopStore.items.length) shopStore.load()
+  if (!friendsStore.friends.length) friendsStore.refresh()
 })
-
-// ── Invite overlay ────────────────────────────────────────────────────────────
-
-const inviteOpen    = ref(false)
-const inviteInitTab = ref<'invite' | 'join'>('invite')
-
-async function openInvite() {
-  // Clicking an empty slot to invite someone creates the lobby on demand,
-  // rather than one existing silently for every user from page load.
-  if (!lobbyStore.party) await lobbyStore.createParty()
-  inviteInitTab.value = 'invite'
-  inviteOpen.value = true
-}
 
 // ── Inline join-by-code (the "Join Party" button morphs into this) ────────────
 
@@ -540,10 +520,8 @@ function cancelJoinInline(): void {
   joinCodeInline.value  = ''
 }
 
-// blur cancels only when empty — mid-code, a stray focus loss (e.g. alt-tab)
-// shouldn't silently discard what they typed; keydown.esc is the explicit cancel.
 function onJoinInputBlur(): void {
-  if (!joinCodeInline.value) cancelJoinInline()
+  cancelJoinInline()
 }
 
 async function submitJoinInline(): Promise<void> {
@@ -1130,12 +1108,11 @@ function onVideoError(e: Event) {
 // swapping button↔input on click doesn't resize/jump in the toolbar.
 .join-lobby-btn {
   position: relative;
-  width: 96px;
+  width: 84px;
   height: 34px;
   justify-content: center;
   border-radius: 4px;
-  padding: 0 8px;
-  gap: 5px;
+  padding: 0 6px;
   font-size: 11px;
   font-weight: 400;
   letter-spacing: 0.02em;
@@ -1158,29 +1135,26 @@ function onVideoError(e: Event) {
 // (34px tall, glass style) so the toolbar row doesn't jump.
 .join-lobby-input {
   height: 34px;
-  width: 96px;
+  width: 84px;
   border-radius: 4px;
-  padding: 0 10px;
+  padding: 0 8px;
   background: rgba(32, 32, 36, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(14px) saturate(160%);
   -webkit-backdrop-filter: blur(14px) saturate(160%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.14),
     0 12px 32px rgba(0, 0, 0, 0.55);
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.25em;
+  font-size: 10px;
+  letter-spacing: 0.16em;
   text-align: center;
   text-transform: uppercase;
   color: $text-primary;
   outline: none;
-  transition: border-color 200ms, opacity 200ms;
+  transition: border-color 200ms;
 
-  &::placeholder { color: rgba(255, 255, 255, 0.15); letter-spacing: 0.2em; }
-  &:focus { border-color: rgba(255, 255, 255, 0.61); }
-  &--busy { opacity: 0.5; }
+  &::placeholder { color: rgba(255, 255, 255, 0.15); letter-spacing: 0.16em; }
 }
 
 .create-lobby-info {
