@@ -341,6 +341,7 @@ onMounted(load)
   font-size: 11px;
   background: #111;
   border: 1px solid #2a2a2a;
+  border-radius: 12px;
   color: #444;
   cursor: not-allowed;
   letter-spacing: 0.06em;
@@ -437,6 +438,7 @@ onMounted(load)
   font-size: 11px;
   background: #1a1a1a;
   border: none;
+  border-radius: 12px;
   color: #ccc;
   cursor: pointer;
   letter-spacing: 0.05em;

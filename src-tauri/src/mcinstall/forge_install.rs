@@ -79,7 +79,7 @@ fn ensure_launcher_profiles_stub(game_dir: &Path) {
 async fn run_installer_jar(installer_jar_path: &Path, game_dir: &Path, java_path: &str, on_log: &impl Fn(String)) -> Result<String, String> {
     if !has_valid_zip_end(installer_jar_path) {
         let _ = std::fs::remove_file(installer_jar_path);
-        return Err("Downloaded installer jar is corrupted (truncated download) — retry the install.".to_string());
+        return Err("Downloaded installer jar is corrupted (truncated download) - retry the install.".to_string());
     }
 
     ensure_launcher_profiles_stub(game_dir);

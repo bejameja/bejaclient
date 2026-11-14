@@ -26,50 +26,6 @@
         </div>
         <Toggle v-model="settings.launcher.autoUpdate" @update:model-value="save" />
       </div>
-      <div class="setting-row">
-        <div class="setting-info">
-          <span class="setting-label">UI Sounds</span>
-          <span class="setting-desc">Play subtle sounds on hover, click, and launch</span>
-        </div>
-        <Toggle v-model="settings.launcher.soundEnabled" @update:model-value="save" />
-      </div>
-      <div v-if="settings.launcher.soundEnabled" class="setting-row">
-        <div class="setting-info">
-          <span class="setting-label">Sound Style</span>
-          <span class="setting-desc">Choose the click sound character</span>
-        </div>
-        <div class="sound-style-picker">
-          <button
-            class="style-opt"
-            :class="{ active: settings.launcher.soundStyle === 'soft' }"
-            @click="settings.launcher.soundStyle = 'soft'; save()"
-          >Soft</button>
-          <button
-            class="style-opt"
-            :class="{ active: settings.launcher.soundStyle === 'clicky' }"
-            @click="settings.launcher.soundStyle = 'clicky'; save()"
-          >Clicky</button>
-        </div>
-      </div>
-      <div v-if="settings.launcher.soundEnabled" class="setting-row">
-        <div class="setting-info">
-          <span class="setting-label">Sound Volume</span>
-          <span class="setting-desc">Adjust UI sound effect volume</span>
-        </div>
-        <div class="setting-control">
-          <span class="value-display">{{ settings.launcher.soundVolume }}%</span>
-          <Slider
-            v-model="settings.launcher.soundVolume"
-            :min="0"
-            :max="100"
-            :step="5"
-            :format="(v) => `${v}%`"
-            class="ram-slider"
-            @change="save"
-          />
-          <button class="test-sound-btn" @click="testSound">Test</button>
-        </div>
-      </div>
     </div>
 
     <div class="settings-group">
@@ -92,15 +48,64 @@
         </div>
       </div>
     </div>
+
+    <div class="settings-group">
+      <h3 class="group-title">BejaClient Version (MC 1.21.x)</h3>
+      <div class="setting-row">
+        <div class="setting-info">
+          <span class="setting-label">Adapter / Sodium Version</span>
+          <span class="setting-desc">
+            Pin a specific release if the latest one conflicts with mods like Iris. Pinned
+            versions are never auto-updated.
+          </span>
+        </div>
+        <div class="setting-control">
+          <select
+            class="version-select"
+            :disabled="versionsLoading || installing"
+            :value="pinnedVersion ?? ''"
+            @change="onVersionPicked(($event.target as HTMLSelectElement).value)"
+          >
+            <option value="">Latest (auto-update)</option>
+            <option v-for="v in versions" :key="v.version" :value="v.version">
+              {{ v.version }}{{ v.isCurrent ? ' (current)' : '' }} - {{ v.releaseDate }}
+            </option>
+          </select>
+          <span v-if="installing" class="version-status">installing…</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <h3 class="group-title">World Backups</h3>
+      <div class="setting-row">
+        <div class="setting-info">
+          <span class="setting-label">Auto-backup Worlds</span>
+          <span class="setting-desc">Zip every singleplayer world right after each play session</span>
+        </div>
+        <Toggle v-model="settings.launcher.autoBackupWorlds" @update:model-value="save" />
+      </div>
+      <div v-if="settings.launcher.autoBackupWorlds" class="setting-row">
+        <div class="setting-info">
+          <span class="setting-label">Keep Last</span>
+          <span class="setting-desc">Older automatic backups beyond this count are deleted per world</span>
+        </div>
+        <div class="setting-control">
+          <span class="value-display">{{ settings.launcher.autoBackupRetention }}</span>
+          <Slider v-model="settings.launcher.autoBackupRetention" :min="1" :max="10" :step="1" @change="save" />
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import Toggle from '../../components/common/Toggle.vue'
 import Slider from '../../components/common/Slider.vue'
 import { useSettingsStore } from '../../store/settingsStore'
-import { playClick } from '../../composables/useSounds'
+import { showToast } from '../../composables/useToasts'
+import type { ClientJarVersion } from '../../types'
 
 const settingsStore = useSettingsStore()
 const settings = computed(() => settingsStore.settings)
@@ -109,9 +114,49 @@ async function save() {
   await settingsStore.save()
 }
 
-function testSound() {
-  playClick()
+
+const CLIENT_FAMILY = 'v1_21'
+const versions = ref<ClientJarVersion[]>([])
+const versionsLoading = ref(false)
+const installing = ref(false)
+const pinnedVersion = ref<string | null>(null)
+
+async function loadVersions() {
+  versionsLoading.value = true
+  try {
+    const [list, pinned] = await Promise.all([
+      window.api.clientVersions.list(CLIENT_FAMILY),
+      window.api.clientVersions.pinned(CLIENT_FAMILY),
+    ])
+    versions.value = list
+    pinnedVersion.value = pinned
+  } catch (e) {
+    showToast({ title: 'Could not load client versions', body: String(e), variant: 'error' })
+  } finally {
+    versionsLoading.value = false
+  }
 }
+
+async function onVersionPicked(version: string) {
+  installing.value = true
+  try {
+    if (version === '') {
+      await window.api.clientVersions.useLatest(CLIENT_FAMILY)
+      pinnedVersion.value = null
+      showToast({ title: 'Switched to latest BejaClient version', variant: 'success' })
+    } else {
+      await window.api.clientVersions.install(CLIENT_FAMILY, version)
+      pinnedVersion.value = version
+      showToast({ title: `Pinned BejaClient to ${version}`, variant: 'success' })
+    }
+  } catch (e) {
+    showToast({ title: 'Failed to switch client version', body: String(e), variant: 'error' })
+  } finally {
+    installing.value = false
+  }
+}
+
+onMounted(loadVersions)
 </script>
 
 <style lang="scss" scoped>
@@ -232,11 +277,30 @@ function testSound() {
   }
 }
 
+.version-select {
+  padding: 6px 10px;
+  font-size: 12px;
+  color: $text-primary;
+  background: $surface-elevated;
+  border: 1px solid $border;
+  border-radius: $radius;
+  cursor: pointer;
+  min-width: 220px;
+
+  &:disabled { opacity: 0.6; cursor: wait; }
+}
+
+.version-status {
+  font-size: 11px;
+  color: $muted;
+  white-space: nowrap;
+}
+
 .test-sound-btn {
   padding: 4px 10px;
   background: $surface-elevated;
   border: 1px solid $border;
-  border-radius: $radius;
+  border-radius: 12px;
   color: $text-secondary;
   font-size: 11px;
   font-weight: 500;

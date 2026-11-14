@@ -111,7 +111,7 @@
               <line x1="6.5" y1="5" x2="6.5" y2="8" stroke="#e8a030" stroke-width="1.3" stroke-linecap="round"/>
               <circle cx="6.5" cy="9.5" r="0.6" fill="#e8a030"/>
             </svg>
-            Use headphones — speakers will cause feedback loop
+            Use headphones - speakers will cause feedback loop
           </div>
         </div>
 
@@ -555,7 +555,6 @@ init()
 // ── Setting groups ────────────────────────────────────────────────────────────
 .setting-group {
   background: $surface;
-  border: 1px solid $border;
   border-radius: $radius-lg;
   overflow: hidden;
 }
@@ -622,14 +621,14 @@ init()
   flex: 1;
   height: 8px;
   background: $surface-elevated;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   overflow: hidden;
   border: 1px solid $border;
 }
 
 .meter-fill {
   height: 100%;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   transition: width 60ms linear, background 200ms;
 
   &.meter--low  { background: $text-muted; }
@@ -664,7 +663,7 @@ init()
   flex: 1;
   justify-content: center;
   padding: 7px 14px;
-  border-radius: 4px;
+  border-radius: 12px;
   border: none;
   background: transparent;
   color: $text-muted;
@@ -730,7 +729,7 @@ init()
   align-items: center;
   gap: 7px;
   padding: 8px 18px;
-  border-radius: $radius-sm;
+  border-radius: 12px;
   border: 1px solid $border-strong;
   background: rgba(255,255,255,0.05);
   color: $text-secondary;
@@ -834,7 +833,7 @@ init()
 .rec-bar {
   width: 3px;
   background: $error;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   transition: height 80ms ease;
   opacity: 0.85;
 }

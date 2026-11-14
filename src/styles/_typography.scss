@@ -26,11 +26,11 @@
 .text-warning   { color: $warning; }
 .text-error     { color: $error; }
 
-// ── Playful word accents — apply to individual standout words/text only,
+// ── Playful word accents - apply to individual standout words/text only,
 // never to UI chrome (buttons, borders, backgrounds, icons). Sprinkle sparingly.
 .accent-pink   { color: #F999E6; }
 .accent-orange { color: #F6AE35; }
-.accent-blue   { color: #4660FE; background: #090C20; border-radius: 4px; padding: 1px 6px; }
+.accent-blue   { color: #4660FE; background: #090C20; border-radius: $radius-sm; padding: 1px 6px; }
 .accent-green  { color: #62E13F; }
 
 // ── Transform utilities ───────────────────────────────────────────────────────
@@ -40,7 +40,7 @@
 .tracking-wider { letter-spacing: 0.10em; }
 .tracking-label { letter-spacing: 0.08em; }
 
-// ── Heading defaults — applied globally ───────────────────────────────────────
+// ── Heading defaults - applied globally ───────────────────────────────────────
 h1, h2, h3 {
   font-family: $font-display;
   font-weight: 900;

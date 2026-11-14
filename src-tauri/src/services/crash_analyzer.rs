@@ -55,7 +55,7 @@ fn patterns() -> Vec<CrashPattern> {
             "Mapping Mismatch",
             |m| {
                 (
-                    format!("Obfuscated class reference \"class_{}\" in an exception — likely a yarn/intermediary mapping mismatch.", &m[1]),
+                    format!("Obfuscated class reference \"class_{}\" in an exception - likely a yarn/intermediary mapping mismatch.", &m[1]),
                     "Ensure the Fabric Loader version matches the yarn mappings version in build.gradle. Run `./gradlew --stop` then rebuild.".to_string(),
                 )
             }
@@ -66,7 +66,7 @@ fn patterns() -> Vec<CrashPattern> {
             "GameOptions NPE",
             |_| {
                 (
-                    "Minecraft's GameOptions failed to initialize — options.txt is likely corrupt.".to_string(),
+                    "Minecraft's GameOptions failed to initialize - options.txt is likely corrupt.".to_string(),
                     "Delete %APPDATA%\\.minecraft\\options.txt and let Minecraft recreate it.".to_string(),
                 )
             }
@@ -99,7 +99,7 @@ fn patterns() -> Vec<CrashPattern> {
             "StackOverflow (Mixin Loop)",
             |_| {
                 (
-                    "Stack overflow — almost always caused by a Mixin that calls itself recursively.".to_string(),
+                    "Stack overflow - almost always caused by a Mixin that calls itself recursively.".to_string(),
                     "Check for @Inject methods that call the original method and trigger the same injection again. Use @Unique helpers or @Redirect instead.".to_string(),
                 )
             }

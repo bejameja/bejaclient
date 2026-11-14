@@ -4,15 +4,22 @@
     <!-- Content -->
     <div class="section-content">
 
-      <div class="section-heading">
-        <span class="section-title">Settings</span>
-        <span class="section-divider" />
-        <div class="advanced-switch">
-          <span class="advanced-switch-label">Advanced Mode</span>
-          <div class="toggle" :class="{ 'toggle--on': s.launcher.advancedMode }" @click="s.launcher.advancedMode = !s.launcher.advancedMode; save()" />
-        </div>
+      <div class="settings-toolbar">
         <div class="settings-search">
-          <input v-model="settingsSearch" class="settings-search-input" placeholder="Search settings…" />
+          <input v-model="settingsSearch" class="settings-search-input" placeholder="Search settings..." />
+        </div>
+
+        <button
+          v-for="(name, i) in sectionNames"
+          :key="name"
+          class="settings-pill"
+          :class="{ active: activeSection === i }"
+          @click="jumpToSection(i)"
+        >{{ name }}</button>
+
+        <div class="advanced-switch">
+          <span class="advanced-switch-label">Advanced</span>
+          <div class="toggle" :class="{ 'toggle--on': s.launcher.advancedMode }" @click="s.launcher.advancedMode = !s.launcher.advancedMode; save()" />
         </div>
       </div>
 
@@ -309,6 +316,59 @@
           </div>
         </div>
 
+        <span class="group-label">Controller</span>
+        <div class="setting-group">
+          <div class="setting-row">
+            <div class="setting-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12a4 4 0 0 1 4 4v1a3 3 0 0 1-5.4 1.8L15 13H9l-1.6 1.8A3 3 0 0 1 2 13v-1a4 4 0 0 1 4-4z"/><path d="M8 10.5v2M7 11.5h2"/><circle cx="16" cy="11" r="0.6" fill="currentColor"/></svg>
+            </div>
+            <div class="setting-info">
+              <span class="setting-label">Haptic Feedback</span>
+              <span class="setting-desc">Rumble your controller when you move, select and go back in the launcher.</span>
+            </div>
+            <div class="setting-control">
+              <div class="toggle" :class="{ 'toggle--on': s.launcher.controllerHaptics }" @click="s.launcher.controllerHaptics = !s.launcher.controllerHaptics; save(); if (s.launcher.controllerHaptics) rumble('confirm')" />
+            </div>
+          </div>
+
+          <div class="setting-row" :class="{ 'setting-row--muted': !s.launcher.controllerHaptics }">
+            <div class="setting-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h2l2-5 3 10 3-8 2 3h6"/></svg>
+            </div>
+            <div class="setting-info">
+              <span class="setting-label">Strength</span>
+              <span class="setting-desc">{{ s.launcher.hapticsStrength }}%</span>
+            </div>
+            <div class="setting-control slider-control">
+              <span class="slider-val">{{ s.launcher.hapticsStrength }}%</span>
+              <input
+                type="range" class="slider" min="10" max="100" step="10"
+                :value="s.launcher.hapticsStrength"
+                :disabled="!s.launcher.controllerHaptics"
+                @input="s.launcher.hapticsStrength = +($event.target as HTMLInputElement).value; save()"
+                @change="rumble('confirm')"
+              />
+            </div>
+          </div>
+
+          <div class="setting-row" :class="{ 'setting-row--muted': !s.launcher.controllerHaptics }">
+            <div class="setting-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/></svg>
+            </div>
+            <div class="setting-info">
+              <span class="setting-label">Test</span>
+              <span class="setting-desc">{{ padPlugged ? 'Feel what a click, a back and a bump are like.' : 'Connect a controller and press a button on it first.' }}</span>
+            </div>
+            <div class="setting-control">
+              <div class="seg-control">
+                <button class="seg-btn" :disabled="!s.launcher.controllerHaptics" @click="rumble('move')">Move</button>
+                <button class="seg-btn" :disabled="!s.launcher.controllerHaptics" @click="rumble('confirm')">Select</button>
+                <button class="seg-btn" :disabled="!s.launcher.controllerHaptics" @click="rumble('bump')">Bump</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <span class="group-label">Integrations</span>
         <div class="setting-group">
           <div class="setting-row setting-row--tall">
@@ -367,7 +427,7 @@
             </div>
             <div class="setting-info">
               <span class="setting-label">Style</span>
-              <span class="setting-desc">Swaps the launcher's entire look. Windows 95 is a fun retro skin — give it a spin.</span>
+              <span class="setting-desc">Swaps the launcher's entire look. Windows 95 is a fun retro skin - give it a spin.</span>
             </div>
             <div class="setting-control">
               <div class="seg-control">
@@ -431,54 +491,6 @@
           </div>
         </div>
 
-        <span class="group-label">Experimental</span>
-        <div class="setting-group">
-          <div class="setting-row">
-            <div class="setting-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a5 5 0 0 0-5 5v4l-3.2 6.4A2 2 0 0 0 5.6 20h12.8a2 2 0 0 0 1.8-2.6L17 11V7a5 5 0 0 0-5-5z"/><path d="M9 16h6"/></svg>
-            </div>
-            <div class="setting-info">
-              <span class="setting-label">Experimental Features</span>
-              <span class="setting-desc">Unlocks features that are still in progress — currently Editor Mode. May contain bugs or unfinished UI.</span>
-            </div>
-            <div class="setting-control">
-              <div
-                class="toggle"
-                :class="{ 'toggle--on': s.customization.experimentalEnabled }"
-                @click="toggleExperimental"
-              />
-            </div>
-          </div>
-
-          <template v-if="s.customization.experimentalEnabled">
-            <div class="setting-row">
-              <div class="setting-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-              </div>
-              <div class="setting-info">
-                <span class="setting-label">Editor Mode</span>
-                <span class="setting-desc">Zeigt auf jeder Seite Stift-Symbole zum Anpassen von Farben, Ecken, Outlines, Schriftarten und Hintergründen direkt am Element. Die Topbar bleibt davon ausgenommen.</span>
-              </div>
-              <div class="setting-control">
-                <div class="toggle" :class="{ 'toggle--on': s.customization.editorMode }" @click="s.customization.editorMode = !s.customization.editorMode; save()" />
-              </div>
-            </div>
-
-            <div class="setting-row">
-              <div class="setting-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h4l3-8 4 16 3-8h4"/></svg>
-              </div>
-              <div class="setting-info">
-                <span class="setting-label">Wackel-Animation</span>
-                <span class="setting-desc">Das leichte Wackeln im Editor Mode, das zeigt welche Elemente anpassbar sind. Bei Unwohlsein einfach abschalten — Klicken, Ziehen und Skalieren funktionieren weiterhin normal.</span>
-              </div>
-              <div class="setting-control">
-                <div class="toggle" :class="{ 'toggle--on': s.customization.wiggleEnabled }" @click="s.customization.wiggleEnabled = !s.customization.wiggleEnabled; save()" />
-              </div>
-            </div>
-          </template>
-        </div>
-
       </div>
 
       <!-- ── ANIMATIONS ───────────────────────────────────────────────────── -->
@@ -539,6 +551,46 @@
 
       </div>
 
+      <!-- ── VOICE ────────────────────────────────────────────────────────── -->
+      <div class="page-section">
+        <h3 class="page-section-title">
+          <component :is="IconVoice" class="page-section-icon" />
+          Voice
+        </h3>
+
+        <span class="group-label">Lobby voice chat</span>
+        <div class="setting-group">
+          <div class="setting-row">
+            <div class="setting-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
+            </div>
+            <div class="setting-info">
+              <span class="setting-label">Microphone</span>
+              <span class="setting-desc">{{ micError || 'The input device used in party voice chat. Applies right away, also during a call.' }}</span>
+            </div>
+            <div class="setting-control">
+              <select class="select-input mic-select" :value="micId" @change="onMicChange(($event.target as HTMLSelectElement).value)">
+                <option value="">Default microphone</option>
+                <option v-for="d in micDevices" :key="d.deviceId" :value="d.deviceId">{{ d.label || `Microphone ${d.deviceId.slice(0, 6)}` }}</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h2M8 8v8M12 5v14M16 8v8M20 12h-2"/></svg>
+            </div>
+            <div class="setting-info">
+              <span class="setting-label">Input level</span>
+              <span class="setting-desc">Speak to check that this is the microphone you want.</span>
+            </div>
+            <div class="setting-control">
+              <div class="mic-meter"><div class="mic-meter-fill" :style="{ width: micLevel + '%' }" /></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- ── ACCOUNTS ─────────────────────────────────────────────────────── -->
       <div class="page-section">
         <h3 class="page-section-title">
@@ -570,10 +622,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, h, watch, nextTick } from 'vue'
+import { ref, computed, h, watch, nextTick, onMounted, onActivated, onDeactivated, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '../store/settingsStore'
 import AccountsSettings from './settings/AccountsSettings.vue'
+import { getVoiceInputId, setVoiceInputId } from '../composables/voiceDevice'
+import { rumble, padConnected as padPlugged } from '../composables/useGamepad'
 
 const settingsStore = useSettingsStore()
 const s = computed(() => settingsStore.settings)
@@ -598,18 +652,88 @@ async function pickJava()    { await settingsStore.chooseJava() }
 function clearGameDir() { s.value.game.defaultGameDir = ''; save() }
 function clearJava()    { s.value.game.defaultJavaPath = ''; save() }
 
-// Turning Experimental off also turns off Editor Mode — otherwise it'd stay
-// silently enabled with no UI left to disable it (the floating button and
-// this very toggle both hide behind Experimental).
-function toggleExperimental() {
-  s.value.customization.experimentalEnabled = !s.value.customization.experimentalEnabled
-  if (!s.value.customization.experimentalEnabled) s.value.customization.editorMode = false
-  save()
+// ── Voice: microphone choice + live level ──────────────────────────────────────
+const micDevices = ref<MediaDeviceInfo[]>([])
+const micId      = ref(getVoiceInputId())
+const micLevel   = ref(0)
+const micError   = ref('')
+let micStream: MediaStream | null = null
+let micCtx: AudioContext | null = null
+let micFrame: number | null = null
+
+async function listMics(): Promise<void> {
+  try {
+    micDevices.value = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput' && d.deviceId !== 'default' && d.deviceId !== 'communications')
+  } catch { micDevices.value = [] }
 }
+
+function stopMicMeter(): void {
+  if (micFrame !== null) cancelAnimationFrame(micFrame)
+  micFrame = null
+  micStream?.getTracks().forEach(t => t.stop())
+  micStream = null
+  micCtx?.close().catch(() => {})
+  micCtx = null
+  micLevel.value = 0
+}
+
+async function startMicMeter(): Promise<void> {
+  stopMicMeter()
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: micId.value ? { deviceId: { exact: micId.value } } : true,
+      video: false,
+    })
+    micError.value = ''
+  } catch (e) {
+    const name = (e as { name?: string })?.name
+    if (micId.value && name === 'OverconstrainedError') { micId.value = ''; setVoiceInputId(''); return startMicMeter() }
+    micError.value = name === 'NotAllowedError' ? 'Microphone access denied. Allow it in your system settings.' : 'No microphone found.'
+    await listMics()
+    return
+  }
+  await listMics()   // device names are only filled in once permission was granted
+  micCtx = new AudioContext()
+  const analyser = micCtx.createAnalyser()
+  analyser.fftSize = 512
+  micCtx.createMediaStreamSource(micStream).connect(analyser)
+  const buf = new Uint8Array(analyser.frequencyBinCount)
+  const tick = () => {
+    micFrame = requestAnimationFrame(tick)
+    analyser.getByteFrequencyData(buf)
+    const avg = buf.reduce((a, v) => a + v, 0) / buf.length
+    micLevel.value = Math.min(100, Math.round((avg / 128) * 250))
+  }
+  tick()
+}
+
+function onMicChange(id: string): void {
+  micId.value = id
+  setVoiceInputId(id)
+  void startMicMeter()
+}
+
+// The page is kept alive between visits: only hold the microphone open while it is on screen.
+onActivated(() => {
+  void startMicMeter()
+  navigator.mediaDevices?.addEventListener?.('devicechange', listMics)
+})
+onDeactivated(() => {
+  stopMicMeter()
+  navigator.mediaDevices?.removeEventListener?.('devicechange', listMics)
+})
+onUnmounted(stopMicMeter)
 
 const accentPresets = ['#27ade0', '#f97316', '#30d158', '#e879f9', '#fbbf24', '#f87171', '#60a5fa', '#a78bfa']
 
 // ── Section icons (inline SVG components) ─────────────────────────────────────
+const IconVoice = {
+  render: () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
+    h('rect', { x: 9, y: 2, width: 6, height: 12, rx: 3 }),
+    h('path', { d: 'M5 11a7 7 0 0 0 14 0' }),
+    h('line', { x1: 12, y1: 18, x2: 12, y2: 22 }),
+  ]),
+}
 const IconGame = {
   render: () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
     h('rect', { x: 2, y: 3, width: 20, height: 14, rx: 2 }),
@@ -675,6 +799,23 @@ function applySettingsFilter() {
 }
 
 watch(settingsSearch, () => nextTick(applySettingsFilter))
+
+// ── Section pills: jump to a section of the long page ─────────────────────────
+const sectionNames = ref<string[]>([])
+const activeSection = ref(0)
+
+function sectionEls(): HTMLElement[] {
+  return Array.from(sectionBodyRef.value?.querySelectorAll<HTMLElement>('.page-section') ?? [])
+}
+
+function jumpToSection(i: number): void {
+  activeSection.value = i
+  sectionEls()[i]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+onMounted(() => {
+  sectionNames.value = sectionEls().map(el => (el.querySelector('.page-section-title')?.textContent ?? '').trim()).filter(Boolean)
+})
 </script>
 
 <style lang="scss" scoped>
@@ -701,66 +842,67 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
   &::-webkit-scrollbar-thumb { background: #282828; }
 }
 
-.section-heading {
+// Header in the Explore look: search bar, section pills, advanced switch on one row.
+.settings-toolbar {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
-.section-title {
-  font-family: $font-family;
-  font-weight: 600;
-  font-size: 30px;
-  color: #e2e2e2;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.section-divider {
+.settings-search {
   flex: 1;
-  height: 1px;
-  background: rgba(255,255,255,0.06);
+  min-width: 200px;
+}
+
+.settings-search-input {
+  width: 100%;
+  height: 38px;
+  background: #13141A;
+  border: none;
+  border-radius: $radius-sm;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  padding: 0 14px;
+  outline: none;
+
+  &::placeholder { color: #666; }
+}
+
+.settings-pill {
+  height: 38px;
+  padding: 0 20px;
+  background: #13141A;
+  border: none;
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  transition: background 120ms, color 120ms;
+
+  &:hover { background: #232328; color: rgba(255, 255, 255, 0.9); }
+  &.active { background: #2a2a30; color: #fff; }
 }
 
 .advanced-switch {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-shrink: 0;
+  height: 38px;
+  padding: 0 14px;
+  background: #13141A;
+  border-radius: 12px;
 }
 
 .advanced-switch-label {
-  font-family: $font-family;
-  font-weight: 600;
-  font-size: 14px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #666;
-}
-
-.settings-search {
-  flex-shrink: 0;
-}
-
-.settings-search-input {
-  height: 28px;
-  width: 180px;
-  background: #0a0a0b;
-  border: none;
-  color: #aaa;
-  font-family: $font-family;
-  font-weight: 600;
-  font-size: 14px;
-  letter-spacing: 0.03em;
-  padding: 0 10px;
-  outline: none;
-  transition: background 160ms $ease-out, width 160ms $ease-out;
-
-  &:focus { background: #141416; color: #ccc; width: 220px; }
-  &::placeholder { color: #444; }
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .section-body {
@@ -774,10 +916,9 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding-top: 22px;
-  border-top: 1px solid rgba(255,255,255,0.06);
+  padding-top: 26px;
 
-  &:first-child { padding-top: 0; border-top: none; }
+  &:first-child { padding-top: 6px; }
 
   // Collapse a whole page section once search hides every row inside it.
   &:not(:has(.setting-row:not(.setting-row--hidden))) {
@@ -789,36 +930,35 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
   display: flex;
   align-items: center;
   gap: 8px;
-  font-family: $font-family;
-  font-weight: 600;
-  font-size: 23px;
-  color: #d9d9d9;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-family: 'Minecrafter', 'Mojangles', monospace;
+  font-weight: 700;
+  font-size: 14px;
+  color: #F6AE35;
+  letter-spacing: 0.06em;
   margin: 0;
+
+  .accent-green { color: inherit; }
 }
 
 .page-section-icon {
   width: 16px;
   height: 16px;
-  color: #555;
+  color: rgba(246, 174, 53, 0.6);
 }
 
 // ── Group label ───────────────────────────────────────────────────────────────
 .group-label {
-  font-family: $font-family;
+  font-size: 12px;
   font-weight: 600;
-  font-size: 15px;
-  color: #555;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  margin: 8px 2px -2px;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.06em;
+  margin: 10px 2px -2px;
 
   &:first-child { margin-top: 0; }
 }
 
 // ── Advanced-mode reveal ─────────────────────────────────────────────────────
-// Grid-rows trick animates height without measuring — the row track goes
+// Grid-rows trick animates height without measuring - the row track goes
 // 0fr → 1fr while the inner wrapper clips content during the transition.
 .advanced-reveal {
   display: grid;
@@ -873,14 +1013,14 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 13px 16px;
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 4px;
-  min-height: 56px;
-  transition: background 120ms, border-color 120ms;
+  padding: 14px 18px;
+  background: #13141A;
+  border: none;
+  border-radius: $radius-sm;
+  min-height: 60px;
+  transition: background 80ms;
 
-  &:hover { background: rgba(255, 255, 255, 0.055); border-color: rgba(255, 255, 255, 0.12); }
+  &:hover { background: #181920; }
   &--tall { align-items: flex-start; padding-top: 16px; padding-bottom: 16px; }
   &--tall .setting-icon { margin-top: 1px; }
   &--muted { opacity: 0.4; pointer-events: none; }
@@ -908,16 +1048,16 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
 
 // ── Row leading icon ──────────────────────────────────────────────────────────
 .setting-icon {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
-  color: #666;
+  background: #0f1014;
+  border: none;
+  border-radius: $radius-sm;
+  color: rgba(255, 255, 255, 0.55);
 
   svg { width: 16px; height: 16px; }
 }
@@ -932,18 +1072,16 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
 }
 
 .setting-label {
-  font-family: $font-family;
-  font-weight: 600;
-  font-size: 17px;
-  color: #d9d9d9;
+  font-weight: 500;
+  font-size: 14px;
+  color: #fff;
   letter-spacing: 0.02em;
 }
 
 .setting-desc {
-  font-family: $font-family;
-  font-weight: 600;
-  font-size: 12px;
-  color: #444;
+  font-weight: 500;
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.45);
   letter-spacing: 0.03em;
   line-height: 1.5;
 }
@@ -959,23 +1097,23 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
 
 // ── Toggle switch ─────────────────────────────────────────────────────────────
 .toggle {
-  width: 38px;
+  width: 40px;
   height: 22px;
-  background: #1a1a1a;
+  background: #232328;
   border: none;
-  box-shadow: inset 0 0 0 1px #333;
-  border-radius: 4px;
+  box-shadow: none;
+  border-radius: 12px;
   position: relative;
   cursor: pointer;
-  transition: background 150ms, box-shadow 150ms;
+  transition: background 150ms;
   flex-shrink: 0;
 
   &::after {
     content: '';
     position: absolute;
-    width: 14px;
-    height: 14px;
-    background: #444;
+    width: 16px;
+    height: 16px;
+    background: rgba(255, 255, 255, 0.55);
     border-radius: 50%;
     top: 3px;
     left: 3px;
@@ -984,11 +1122,11 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
 
   &--on {
     background: var(--accent, #27ade0);
-    box-shadow: inset 0 0 0 1px #fff;
+    box-shadow: none;
 
     &::after {
       background: #fff;
-      transform: translateX(16px);
+      transform: translateX(18px);
     }
   }
 }
@@ -999,12 +1137,11 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
 }
 
 .slider-val {
-  font-family: $font-family;
-  font-weight: 600;
-  font-size: 14px;
-  color: #555;
+  font-weight: 500;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
   letter-spacing: 0.04em;
-  min-width: 32px;
+  min-width: 36px;
   text-align: right;
   flex-shrink: 0;
 }
@@ -1014,7 +1151,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
   height: 3px;
   -webkit-appearance: none;
   background: #2a2a2a;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   outline: none;
   cursor: pointer;
 
@@ -1038,21 +1175,21 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
 
 // ── Text input ────────────────────────────────────────────────────────────────
 .text-input {
-  height: 32px;
-  background: #0a0a0b;
-  border: 1px solid rgba(118,119,120,0.5);
-  color: #aaa;
-  font-family: $font-family;
-  font-weight: 600;
-  font-size: 15px;
+  height: 34px;
+  background: #0f1014;
+  border: none;
+  border-radius: $radius-sm;
+  color: #fff;
+  font-weight: 500;
+  font-size: 13px;
   letter-spacing: 0.02em;
-  padding: 0 10px;
+  padding: 0 12px;
   outline: none;
-  transition: border-color 100ms;
+  transition: box-shadow 100ms;
   width: 200px;
 
-  &:focus { border-color: rgba(255,255,255,0.35); color: #ccc; }
-  &::placeholder { color: #333; }
+  &:focus { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3); }
+  &::placeholder { color: #555; }
 
   &.wide-input { width: 260px; }
 }
@@ -1060,29 +1197,28 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
 // ── Number input ──────────────────────────────────────────────────────────────
 .num-input {
   width: 64px;
-  height: 32px;
-  background: #0a0a0b;
-  border: 1px solid rgba(118,119,120,0.5);
-  color: #aaa;
-  font-family: $font-family;
-  font-weight: 600;
-  font-size: 15px;
+  height: 34px;
+  background: #0f1014;
+  border: none;
+  border-radius: $radius-sm;
+  color: #fff;
+  font-weight: 500;
+  font-size: 13px;
   letter-spacing: 0.02em;
   padding: 0 8px;
   outline: none;
   text-align: center;
-  transition: border-color 100ms;
+  transition: box-shadow 100ms;
 
-  &:focus { border-color: rgba(255,255,255,0.35); color: #ccc; }
+  &:focus { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3); }
   &::-webkit-inner-spin-button { -webkit-appearance: none; }
 }
 
 .res-control { gap: 6px; }
 .res-x {
-  font-family: $font-family;
-  font-weight: 600;
-  font-size: 17px;
-  color: #333;
+  font-weight: 500;
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.35);
 }
 
 // ── Path control ──────────────────────────────────────────────────────────────
@@ -1092,10 +1228,9 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
 }
 
 .path-text {
-  font-family: $font-family;
-  font-weight: 600;
-  font-size: 14px;
-  color: #555;
+  font-weight: 500;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.5);
   letter-spacing: 0.02em;
   white-space: nowrap;
   overflow: hidden;
@@ -1106,19 +1241,19 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
 }
 
 .browse-btn {
-  font-family: $font-family;
-  font-weight: 600;
+  font-weight: 500;
   font-size: 12px;
-  letter-spacing: 0.08em;
-  padding: 5px 12px;
-  background: #0d0d0d;
+  letter-spacing: 0.04em;
+  padding: 8px 16px;
+  background: #232328;
   border: none;
-  color: #888;
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.8);
   cursor: pointer;
-  transition: background 80ms, color 80ms;
+  transition: background 120ms, color 120ms;
   flex-shrink: 0;
 
-  &:hover { background: #1a1a1a; color: #ccc; }
+  &:hover { background: #2f2f36; color: #fff; }
 }
 
 .clear-btn {
@@ -1139,50 +1274,68 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
 }
 
 // ── Select ────────────────────────────────────────────────────────────────────
+.mic-select { max-width: 260px; text-overflow: ellipsis; }
+
+.mic-meter {
+  width: 200px;
+  height: 8px;
+  background: #0f1014;
+  border: none;
+  border-radius: $radius-sm;
+  overflow: hidden;
+}
+
+.mic-meter-fill {
+  height: 100%;
+  background: #30d158;
+  transition: width 60ms linear;
+}
+
 .select-input {
-  height: 32px;
-  background: #0a0a0b;
-  border: 1px solid rgba(118,119,120,0.5);
-  color: #aaa;
-  font-family: $font-family;
-  font-weight: 600;
-  font-size: 15px;
+  height: 34px;
+  background: #0f1014;
+  border: none;
+  border-radius: $radius-sm;
+  color: #fff;
+  font-weight: 500;
+  font-size: 13px;
   letter-spacing: 0.03em;
-  padding: 0 8px;
+  padding: 0 12px;
   outline: none;
   cursor: pointer;
   appearance: none;
   min-width: 120px;
-  transition: border-color 100ms;
+  transition: box-shadow 100ms;
 
-  &:focus { border-color: rgba(255,255,255,0.35); }
+  &:focus { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3); }
   option { background: #111; }
 }
 
 // ── Segmented control ─────────────────────────────────────────────────────────
 .seg-control {
   display: flex;
+  gap: 4px;
   border: none;
-  border-radius: 4px;
-  background: #0a0a0b;
+  border-radius: 12px;
+  background: #0f1014;
+  padding: 3px;
   overflow: hidden;
 }
 
 .seg-btn {
-  font-family: $font-family;
-  font-weight: 600;
-  font-size: 14px;
-  letter-spacing: 0.07em;
+  font-weight: 500;
+  font-size: 13px;
+  letter-spacing: 0.04em;
   padding: 6px 14px;
   background: none;
   border: none;
-  color: #555;
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.55);
   cursor: pointer;
-  transition: background 80ms, color 80ms;
+  transition: background 100ms, color 100ms;
 
-  & + & { border-left: 1px solid rgba(255,255,255,0.08); }
-  &:hover:not(:disabled) { background: #1a1a1a; color: #aaa; }
-  &.active { background: rgba(255,255,255,0.07); color: #d9d9d9; }
+  &:hover:not(:disabled) { background: #1d1d22; color: #fff; }
+  &.active { background: #2a2a30; color: #fff; }
   &:disabled { opacity: 0.3; cursor: not-allowed; }
 }
 
@@ -1204,7 +1357,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
   width: 20px;
   height: 20px;
   border: 2px solid transparent;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   cursor: pointer;
   transition: transform 100ms, border-color 100ms;
   flex-shrink: 0;
@@ -1219,7 +1372,7 @@ watch(settingsSearch, () => nextTick(applySettingsFilter))
   gap: 7px;
   cursor: pointer;
   border: none;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   padding: 4px 8px;
   background: #0a0a0b;
   transition: background 100ms;

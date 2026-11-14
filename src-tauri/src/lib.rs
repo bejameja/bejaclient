@@ -1,11 +1,11 @@
 mod commands;
 mod console_window;
 mod discord_rpc;
+mod dpapi;
 pub mod mcinstall;
 pub mod paths;
 pub mod services;
 mod updater;
-mod video;
 
 use std::sync::Mutex;
 use tauri::{Emitter, Manager};
@@ -29,8 +29,17 @@ fn handle_deep_link(app: &tauri::AppHandle, url: &str) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+    // Secondary instance (BEJA_INSTANCE=<name>, see scripts/second-instance.ps1): own data folder, own WebView2
+    // profile (so localStorage/cookies are separate too), no single-instance lock.
+    let secondary = paths::instance_name();
+    if let Some(name) = &secondary {
+        if std::env::var_os("WEBVIEW2_USER_DATA_FOLDER").is_none() {
+            std::env::set_var("WEBVIEW2_USER_DATA_FOLDER", paths::instance_dir().join("webview").join(name));
+        }
+    }
+    let mut builder = tauri::Builder::default();
+    if secondary.is_none() {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             // Windows/Linux: a second launch while already running arrives here instead of
             // spawning a new window.
             if let Some(win) = app.get_webview_window("main") {
@@ -40,7 +49,9 @@ pub fn run() {
             if let Some(url) = argv.iter().find(|a| a.starts_with("bejaclient://")) {
                 handle_deep_link(app, url);
             }
-        }))
+        }));
+    }
+    builder
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
@@ -79,6 +90,9 @@ pub fn run() {
             // just visible from the start (`visible: true` in tauri.conf.json) — maximize it
             // immediately instead.
             if let Some(win) = app.get_webview_window("main") {
+                if let Some(name) = paths::instance_name() {
+                    let _ = win.set_title(&format!("BejaClient [{name}]"));
+                }
                 let _ = win.maximize();
 
                 if let Some(share_id) = PENDING_DEEP_LINK.lock().unwrap().take() {
@@ -96,11 +110,13 @@ pub fn run() {
             }
 
             // ── Background services ───────────────────────────────────────────────────
-            discord_rpc::init_discord_rpc();
+            if paths::instance_name().is_none() {
+                discord_rpc::init_discord_rpc();   // only one launcher may own the Discord presence
+            }
             services::auth_service::start_token_auto_refresh(app.handle().clone());
 
             let settings = services::settings_service::get_settings();
-            if settings.launcher.auto_update {
+            if settings.launcher.auto_update && paths::instance_name().is_none() {
                 let app_handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
                     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
@@ -118,6 +134,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // auth
             commands::auth_login,
+            commands::auth_get_login_url,
+            commands::auth_login_with_code,
             commands::auth_logout,
             commands::auth_list_accounts,
             commands::auth_select_account,
@@ -130,6 +148,9 @@ pub fn run() {
             commands::versions_delete,
             commands::versions_list_fabric,
             commands::versions_list_forge,
+            commands::optifine_list_mc_versions,
+            commands::optifine_list_builds,
+            commands::optifine_launch_installer,
             // launch
             commands::launch_start,
             commands::launch_kill,
@@ -146,18 +167,48 @@ pub fn run() {
             commands::profiles_get_active,
             commands::profiles_set_active,
             commands::profiles_export,
+            commands::profiles_export_zip,
+            commands::profiles_export_curseforge,
             commands::profiles_import,
             commands::profiles_share,
             commands::profiles_peek_shared,
             commands::profiles_import_shared,
             // mods
             commands::mods_list,
+            commands::mods_count_enabled,
             commands::mods_check_conflicts,
             commands::mods_install,
             commands::mods_toggle,
             commands::mods_delete,
             commands::mods_open_folder,
             commands::mods_auto_fix,
+            // instance doctor
+            commands::doctor_run,
+            commands::doctor_repair,
+            // hardware
+            commands::system_hardware_info,
+            // worlds
+            commands::worlds_list,
+            commands::worlds_open_folder,
+            commands::worlds_rename,
+            commands::worlds_duplicate,
+            commands::worlds_delete,
+            commands::worlds_backup,
+            commands::worlds_restore,
+            commands::worlds_list_auto_backups,
+            commands::worlds_restore_auto_backup,
+            // screenshots
+            commands::screenshots_list,
+            commands::screenshots_thumbnail,
+            commands::screenshots_delete,
+            commands::screenshots_open,
+            commands::screenshots_open_folder,
+            commands::screenshots_export,
+            // client versions
+            commands::client_versions_list,
+            commands::client_version_pinned,
+            commands::client_version_install,
+            commands::client_version_use_latest,
             // settings
             commands::settings_get,
             commands::settings_set,
@@ -179,9 +230,15 @@ pub fn run() {
             commands::modrinth_install_datapack,
             commands::modrinth_swap_mod,
             commands::check_mod_update,
+            commands::mods_recent_updates,
+            commands::mods_rollback_last_update,
+            commands::mods_check_all_profiles_updates,
             // system
             commands::system_get_version,
             commands::system_java_versions,
+            commands::java_runtimes_list,
+            commands::java_runtime_install,
+            commands::java_runtime_remove,
             commands::system_open_external,
             // console
             console_window::console_ready,
@@ -205,6 +262,8 @@ pub fn run() {
             commands::friends_request,
             commands::friends_accept,
             commands::friends_remove,
+            commands::friends_block,
+            commands::friends_unblock,
             // stats
             commands::stats_online,
             // lobby
@@ -251,8 +310,6 @@ pub fn run() {
             commands::giphy_search,
             commands::discord_set_presence,
             // video
-            commands::video_get_scene,
-            commands::video_pick_custom_bg,
             // updater
             commands::updater_check,
             commands::updater_download,

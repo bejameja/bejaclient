@@ -36,6 +36,7 @@ export const useQuestsStore = defineStore('quests', () => {
       const res = await window.api.quests.leaderboard()
       leaderboard.value = res.entries ?? []
       myRank.value      = res.myRank ?? null
+      if (typeof res.myXp === 'number') totalXp.value = res.myXp
     } finally {
       lbLoading.value = false
     }
@@ -75,9 +76,9 @@ export const useQuestsStore = defineStore('quests', () => {
     const lobbyStore    = useLobbyStore()
     const lockerStore   = useLockerStore()
 
-    // launch_3 — each transition into 'running' counts one launch.
-    // playtime_60 — one tick per minute while the game runs.
-    // party_1 — launching while in a party with someone else.
+    // launch_3 - each transition into 'running' counts one launch.
+    // playtime_60 - one tick per minute while the game runs.
+    // party_1 - launching while in a party with someone else.
     let playtimeTimer: ReturnType<typeof setInterval> | null = null
     watch(() => launcherStore.status, (val, prev) => {
       if (val === 'running' && prev !== 'running') {
@@ -90,12 +91,12 @@ export const useQuestsStore = defineStore('quests', () => {
       }
     })
 
-    // friend_1 — friends list grew while the app is open
+    // friend_1 - friends list grew while the app is open
     watch(() => friendsStore.friends.length, (val, prev) => {
       if (prev !== undefined && val > prev) report('friend_1', 1)
     })
 
-    // cosmetic_1 — cape equipped after initial load settles
+    // cosmetic_1 - cape equipped after initial load settles
     let cosmeticArmed = false
     setTimeout(() => { cosmeticArmed = true }, 10_000)
     watch(() => lockerStore.capeUrl, (val, prev) => {

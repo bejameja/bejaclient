@@ -61,20 +61,31 @@ pub struct StoredAccount {
     pub country_code: Option<String>,
 }
 
+// accounts.json used to just be plain JSON; now it goes through DPAPI on Windows (see dpapi.rs)
+// since it's holding live MSA/Minecraft/Beja tokens. Old plaintext files get picked up and
+// migrated the first time they're loaded.
 pub fn load_accounts() -> Vec<StoredAccount> {
     let path = paths::accounts_path();
-    if !path.exists() {
-        return Vec::new();
+    let Ok(raw) = fs::read(&path) else { return Vec::new() };
+
+    if let Ok(text) = std::str::from_utf8(&raw) {
+        if let Ok(accounts) = serde_json::from_str::<Vec<StoredAccount>>(text) {
+            save_accounts(&accounts);
+            return accounts;
+        }
     }
-    fs::read_to_string(&path)
+
+    crate::dpapi::unprotect(&raw)
         .ok()
-        .and_then(|raw| serde_json::from_str(&raw).ok())
+        .and_then(|decrypted| serde_json::from_slice::<Vec<StoredAccount>>(&decrypted).ok())
         .unwrap_or_default()
 }
 
 pub fn save_accounts(accounts: &[StoredAccount]) {
-    if let Ok(json) = serde_json::to_string_pretty(accounts) {
-        let _ = fs::write(paths::accounts_path(), json);
+    let Ok(json) = serde_json::to_vec(accounts) else { return };
+    match crate::dpapi::protect(&json) {
+        Ok(encrypted) => { let _ = fs::write(paths::accounts_path(), encrypted); }
+        Err(e) => log::error!("[Auth] couldn't encrypt accounts.json, leaving the old file alone: {e}"),
     }
 }
 
@@ -309,14 +320,82 @@ async fn finalize_login(live_access_token: &str, live_refresh_token: &str, live_
     Ok(account)
 }
 
-/// Opens the Microsoft sign-in webview, intercepts the `oauth20_desktop.srf` redirect to pull
-/// the auth `code` out of the URL, then runs the XBL → XSTS → MC token chain.
-pub async fn login_with_microsoft(app: AppHandle) -> Result<StoredAccount, String> {
-    let auth_url = format!(
+/// The Microsoft sign-in URL, shared by both login paths: the embedded webview builds it inline
+/// and intercepts the redirect itself, while the browser-based flow hands this same URL to the
+/// caller to open in the system's real browser instead.
+pub fn build_microsoft_login_url() -> String {
+    format!(
         "{AZURE_AUTH_ENDPOINT}?client_id={AZURE_CLIENT_ID}&response_type=code&scope={}&redirect_uri={}&prompt=select_account",
         urlencoding::encode(AZURE_SCOPE),
         urlencoding::encode(LIVE_REDIRECT_URI),
-    );
+    )
+}
+
+/// Pulls the auth `code` (or `error`) out of either a pasted full URL (checks the query string,
+/// then the fragment — same two places Microsoft has been observed putting it) or a bare code
+/// pasted directly, for the browser-based login flow. Mirrors `login_with_microsoft`'s
+/// `on_navigation` extraction logic exactly, since both land on the same `oauth20_desktop.srf`
+/// redirect target.
+fn extract_code_from_pasted_input(input: &str) -> Result<String, String> {
+    let trimmed = input.trim();
+    log::info!("[Auth] browser-code paste received, {} chars, starts with: {:.40}", trimmed.len(), trimmed);
+    if trimmed.is_empty() {
+        return Err("Paste the code or the page URL you were redirected to".to_string());
+    }
+    if let Ok(url) = url::Url::parse(trimmed) {
+        log::info!("[Auth] parsed as URL - host={:?} query={:?} fragment={:?}", url.host_str(), url.query(), url.fragment());
+        let mut code = None;
+        let mut error = None;
+        for (k, v) in url.query_pairs() {
+            if k == "code" {
+                code = Some(v.to_string());
+            } else if k == "error" {
+                error = Some(v.to_string());
+            }
+        }
+        if code.is_none() && error.is_none() {
+            if let Some(fragment) = url.fragment() {
+                for pair in fragment.split('&') {
+                    if let Some(v) = pair.strip_prefix("code=") {
+                        code = Some(v.to_string());
+                    } else if let Some(v) = pair.strip_prefix("error=") {
+                        error = Some(v.to_string());
+                    }
+                }
+            }
+        }
+        return match (code, error) {
+            (Some(c), _) => { log::info!("[Auth] extracted code, {} chars", c.len()); Ok(c) }
+            (None, Some(e)) => { log::warn!("[Auth] URL carried an error param: {e}"); Err(e) }
+            _ => { log::warn!("[Auth] URL had neither code nor error param"); Err("No auth code found in that URL".to_string()) }
+        };
+    }
+    // Doesn't parse as a URL — treat it as a bare code the user copied directly.
+    log::info!("[Auth] input didn't parse as a URL, treating as a bare code ({} chars)", trimmed.len());
+    Ok(trimmed.to_string())
+}
+
+/// Browser-based alternative to `login_with_microsoft`: the frontend opens
+/// `build_microsoft_login_url()` in the system's real browser (full address bar, not an embedded
+/// popup) instead of the in-app webview, then the user pastes back either the raw `code` or the
+/// full URL they landed on. Same token exchange chain either way.
+pub async fn login_with_microsoft_code(input: String) -> Result<StoredAccount, String> {
+    log::info!("[Auth] login_with_microsoft_code invoked");
+    let code = extract_code_from_pasted_input(&input)?;
+    let tokens = exchange_live_code(&code).await.inspect_err(|e| log::error!("[Auth] exchange_live_code failed: {e}"))?;
+    log::info!("[Auth] live token exchange ok, finalizing login");
+    let result = finalize_login(&tokens.access_token, &tokens.refresh_token, tokens.expires_in).await;
+    match &result {
+        Ok(a) => log::info!("[Auth] browser-code login succeeded for {}", a.username),
+        Err(e) => log::error!("[Auth] finalize_login failed: {e}"),
+    }
+    result
+}
+
+/// Opens the Microsoft sign-in webview, intercepts the `oauth20_desktop.srf` redirect to pull
+/// the auth `code` out of the URL, then runs the XBL → XSTS → MC token chain.
+pub async fn login_with_microsoft(app: AppHandle) -> Result<StoredAccount, String> {
+    let auth_url = build_microsoft_login_url();
 
     let (tx, rx) = oneshot::channel::<Result<String, String>>();
     let tx: Arc<Mutex<Option<oneshot::Sender<Result<String, String>>>>> = Arc::new(Mutex::new(Some(tx)));
@@ -338,6 +417,7 @@ pub async fn login_with_microsoft(app: AppHandle) -> Result<StoredAccount, Strin
             if url.as_str().contains("oauth20_desktop.srf") {
                 let mut code = None;
                 let mut error = None;
+                let mut description = None;
                 // Check both the query string (the normal case) and the fragment — some
                 // Microsoft account flows (e.g. a silent SSO probe before the interactive
                 // form even renders) bounce through this redirect URI with neither, or with
@@ -349,6 +429,8 @@ pub async fn login_with_microsoft(app: AppHandle) -> Result<StoredAccount, Strin
                         code = Some(v.to_string());
                     } else if k == "error" {
                         error = Some(v.to_string());
+                    } else if k == "error_description" {
+                        description = Some(v.to_string());
                     }
                 }
                 if code.is_none() && error.is_none() {
@@ -358,6 +440,8 @@ pub async fn login_with_microsoft(app: AppHandle) -> Result<StoredAccount, Strin
                                 code = Some(v.to_string());
                             } else if let Some(v) = pair.strip_prefix("error=") {
                                 error = Some(v.to_string());
+                            } else if let Some(v) = pair.strip_prefix("error_description=") {
+                                description = Some(urlencoding::decode(&v.replace('+', " ")).map(|d| d.into_owned()).unwrap_or_else(|_| v.to_string()));
                             }
                         }
                     }
@@ -372,12 +456,16 @@ pub async fn login_with_microsoft(app: AppHandle) -> Result<StoredAccount, Strin
                 if let Some(sender) = tx_nav.lock().unwrap().take() {
                     let result = match (code, error) {
                         (Some(c), _) => Ok(c),
-                        (None, Some(e)) => Err(e),
+                        (None, Some(e)) => {
+                            // Microsoft puts the useful part (AADSTS code, reason) in error_description
+                            log::warn!("[Auth] Microsoft returned error={e} error_description={description:?}");
+                            Err(match description { Some(d) => format!("{e}: {d}"), None => e })
+                        }
                         _ => Err("No auth code received".to_string()),
                     };
                     let _ = sender.send(result);
                 }
-                return false; // veto navigation — we already have what we need
+                return false; // veto navigation - we already have what we need
             }
             true
         })
@@ -453,19 +541,31 @@ pub fn start_token_auto_refresh(app: AppHandle) {
 }
 
 pub async fn import_from_official_launcher() -> Result<Vec<StoredAccount>, String> {
-    let launcher_path = dirs::config_dir()
-        .ok_or("no config dir")?
-        .join(".minecraft")
-        .join("launcher_accounts.json");
-    if !launcher_path.exists() {
+    let minecraft_dir = dirs::config_dir().ok_or("no config dir")?.join(".minecraft");
+    // The desktop installer (minecraft.net) writes `launcher_accounts.json`; the Microsoft Store
+    // build writes the same data to `launcher_accounts_microsoft_store.json` in the same folder
+    // instead (its `launcher_profiles.json` gets the same `_microsoft_store` suffix treatment).
+    // Both are read and merged so accounts logged into either launcher get picked up.
+    let candidate_files = [
+        minecraft_dir.join("launcher_accounts.json"),
+        minecraft_dir.join("launcher_accounts_microsoft_store.json"),
+    ];
+
+    let mut entries = serde_json::Map::new();
+    for path in &candidate_files {
+        let Ok(contents) = fs::read_to_string(path) else { continue };
+        let Ok(raw) = serde_json::from_str::<Value>(&contents) else { continue };
+        if let Some(obj) = raw["accounts"].as_object() {
+            for (id, acc) in obj {
+                entries.insert(id.clone(), acc.clone());
+            }
+        }
+    }
+    if entries.is_empty() {
         return Err("Official Minecraft Launcher not found or not logged in".to_string());
     }
-    let raw: Value = serde_json::from_str(&fs::read_to_string(&launcher_path).map_err(|e| e.to_string())?)
-        .map_err(|e| e.to_string())?;
 
     let mut imported = Vec::new();
-    let empty = serde_json::Map::new();
-    let entries = raw["accounts"].as_object().unwrap_or(&empty);
 
     for acc in entries.values() {
         let Some(profile_id) = acc["minecraftProfile"]["id"].as_str() else { continue };
@@ -487,7 +587,7 @@ pub async fn import_from_official_launcher() -> Result<Vec<StoredAccount>, Strin
                     if skin.and_then(|s| s.variant.as_deref()) == Some("SLIM") { "slim".to_string() } else { "default".to_string() },
                 )
             }
-            Err(_) => (None, None, "default".to_string()), // expired token — proceed without skin
+            Err(_) => (None, None, "default".to_string()), // expired token - proceed without skin
         };
 
         let beja_token = fetch_beja_token(profile_id, &profile_name).await;

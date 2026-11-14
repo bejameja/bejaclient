@@ -31,8 +31,6 @@ export const useLobbyStore = defineStore('lobby', () => {
   const party         = ref<Party | null>(null)
   const isCreating    = ref(false)
   const pendingInvite = ref<PartyInvite | null>(null)
-  const lastEmote     = ref<{ uuid: string; emote: string; seq: number } | null>(null)
-  let emoteSeq = 0
 
   let _pendingJoin: ((r: { ok: boolean; error?: string }) => void) | null = null
   let _pendingJoinTimer: ReturnType<typeof setTimeout> | null = null
@@ -50,7 +48,7 @@ export const useLobbyStore = defineStore('lobby', () => {
 
   const isReady = computed(() => localMember.value?.isReady ?? false)
 
-  // UI capacity for the flanking slots (see `slots` below) — 1 leader + 4
+  // UI capacity for the flanking slots (see `slots` below) - 1 leader + 4
   // others (2 outer flanks + 2 inner invite slots). Readiness itself is
   // judged against whoever's actually in the party (`partyTotal`), not this
   // fixed number.
@@ -70,7 +68,7 @@ export const useLobbyStore = defineStore('lobby', () => {
 
   const canLaunch = computed(() => isLeader.value && allReady.value)
 
-  // Other party members — excludes the local player, who is always rendered
+  // Other party members - excludes the local player, who is always rendered
   // separately in the center "You" slot regardless of their position in the
   // raw members array (that array is ordered by join time, not by "who's local").
   const otherMembers = computed<PartyMember[]>(() => {
@@ -130,7 +128,7 @@ export const useLobbyStore = defineStore('lobby', () => {
     isCreating.value = false
   }
 
-  // Leaves the current party (if any) and creates a brand new one with a fresh code —
+  // Leaves the current party (if any) and creates a brand new one with a fresh code -
   // for a manual "regenerate code" action, unlike createParty()'s no-op-if-already-in-one guard.
   async function regenerateParty(): Promise<void> {
     if (isCreating.value) return
@@ -156,7 +154,7 @@ export const useLobbyStore = defineStore('lobby', () => {
       _pendingJoinTimer = setTimeout(() => {
         if (_pendingJoin) {
           _pendingJoin = null
-          resolve({ ok: false, error: 'Party not found — check the code and try again' })
+          resolve({ ok: false, error: 'Party not found - check the code and try again' })
         }
       }, 5000)
 
@@ -242,10 +240,6 @@ export const useLobbyStore = defineStore('lobby', () => {
     if (member) member.isSpeaking = data.isSpeaking
   }
 
-  function handlePartyEmote(data: { uuid: string; emote: string }): void {
-    lastEmote.value = { ...data, seq: ++emoteSeq }
-  }
-
   function handlePartyState(data: Party): void {
     party.value = data
     if (_pendingJoin) {
@@ -281,11 +275,11 @@ export const useLobbyStore = defineStore('lobby', () => {
   }
 
   return {
-    party, isCreating, pendingInvite, lastEmote,
+    party, isCreating, pendingInvite,
     localUuid, localMember, isLeader, isReady, allReady, canLaunch, readyCount, partyTotal, PARTY_SIZE, slots, memberCount,
     createParty, regenerateParty, leaveParty, joinParty, inviteFriend, toggleReady, launchParty,
     handleMemberJoined, handleMemberLeft, handleReadyUpdate,
-    handleSkinUpdate, handleDisbanded, handleSpeaking, handlePartyEmote, handlePartyState, handlePartyError,
+    handleSkinUpdate, handleDisbanded, handleSpeaking, handlePartyState, handlePartyError,
     handleInviteReceived, acceptInvite, declineInvite,
   }
 })

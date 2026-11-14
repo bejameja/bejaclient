@@ -114,7 +114,7 @@ pub fn create_profile(data: NewProfile) -> LaunchProfile {
     // Isolated profiles get their own game directory so worlds/mods/settings don't leak
     // between profiles. launchService falls back to the shared default dir when empty.
     if data.isolate_profile.unwrap_or(false) && game_dir.is_empty() {
-        game_dir = paths::user_data_dir()
+        game_dir = paths::instance_dir()
             .join("instances")
             .join(&id)
             .to_string_lossy()
@@ -174,4 +174,14 @@ pub fn delete_profile(id: &str) -> bool {
 
 pub fn get_profile(id: &str) -> Option<LaunchProfile> {
     list_profiles().into_iter().find(|p| p.id == id)
+}
+
+/// A profile's effective game directory — its own `gameDir` when set, else the app-wide
+/// default. Shared by every service that needs to locate a profile's `mods/`, `saves/`,
+/// `screenshots/` etc. so the fallback rule lives in exactly one place.
+pub fn resolve_game_dir(profile_id: &str) -> String {
+    get_profile(profile_id)
+        .map(|p| p.game_dir)
+        .filter(|d| !d.is_empty())
+        .unwrap_or_else(|| crate::services::settings_service::get_settings().game.default_game_dir)
 }

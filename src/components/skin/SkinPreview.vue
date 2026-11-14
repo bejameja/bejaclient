@@ -37,7 +37,7 @@ const src = computed(() =>
 
 <style lang="scss" scoped>
 .avatar-wrap {
-  border-radius: 4px;
+  border-radius: $radius-sm;
   overflow: hidden;
   flex-shrink: 0;
   display: flex;

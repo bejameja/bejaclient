@@ -39,7 +39,7 @@ pub async fn check_for_update(app: AppHandle) -> Result<(), String> {
 
 pub async fn download_update(app: AppHandle) -> Result<(), String> {
     let update = PENDING.lock().clone();
-    let Some(update) = update else { return Err("No update available to download — call check() first.".to_string()) };
+    let Some(update) = update else { return Err("No update available to download - call check() first.".to_string()) };
 
     let mut transferred: u64 = 0;
     let mut total: u64 = 0;
@@ -76,7 +76,7 @@ pub async fn download_update(app: AppHandle) -> Result<(), String> {
 }
 
 pub fn install_update(app: AppHandle) -> Result<(), String> {
-    let update = PENDING.lock().clone().ok_or("No update available to install — call check() and download() first.")?;
+    let update = PENDING.lock().clone().ok_or("No update available to install - call check() and download() first.")?;
     let bytes = DOWNLOADED_BYTES.lock().take().ok_or("Update hasn't finished downloading yet.")?;
     update.install(bytes).map_err(|e| e.to_string())?;
     app.restart();

@@ -2,7 +2,7 @@
   <!-- Outer wrapper handles slide animation -->
   <div class="friends-wrapper" :class="{ collapsed: panelHidden }">
 
-    <!-- Toggle tab — always visible, sits on the left edge of the wrapper -->
+    <!-- Toggle tab - always visible, sits on the left edge of the wrapper -->
     <button class="toggle-tab" @click="store.togglePanel()" :title="panelHidden ? 'Show friends' : 'Hide friends'">
       <svg
         class="tab-chevron"
@@ -170,9 +170,8 @@ async function send() {
   height: 52px;
   flex-shrink: 0;
   background: $surface;
-  border: 1px solid $border;
   border-right: none;
-  border-radius: 4px 0 0 4px;
+  border-radius: $radius-sm 0 0 $radius-sm;
   cursor: pointer;
   color: $text-secondary;
   padding: 0;
@@ -209,7 +208,6 @@ async function send() {
   display: flex;
   flex-direction: column;
   background: $surface;
-  border: 1px solid $border;
   border-radius: 0 $radius-lg $radius-lg 0;
   overflow: hidden;
 }
@@ -296,7 +294,7 @@ async function send() {
   background: $text-primary;
   color: $bg;
   border: none;
-  border-radius: $radius;
+  border-radius: 12px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -327,7 +325,7 @@ async function send() {
 
   &::-webkit-scrollbar { width: 4px; }
   &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb { background: $border; border-radius: 4px; }
+  &::-webkit-scrollbar-thumb { background: $border; border-radius: $radius-sm; }
 }
 
 .empty {
@@ -345,7 +343,7 @@ async function send() {
   align-items: center;
   gap: 9px;
   padding: 7px 6px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
 
   // Same hover treatment as the top bar's nav items (TopBar.vue's .nav-label):
   // no background fill, just the name dimming/brightening.
@@ -356,7 +354,7 @@ async function send() {
 .avatar {
   width: 30px;
   height: 30px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   background: $surface-elevated;
   border: 1px solid $border;
   color: $text-primary;

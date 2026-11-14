@@ -10,7 +10,7 @@
 // identifiers on both sides, not Rust symbols) so `emit("launch:log", line)` on the Rust side
 // lines up with `listen('launch:log', ...)` here.
 
-import { invoke, convertFileSrc } from '@tauri-apps/api/core'
+import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { platform as osPlatform } from '@tauri-apps/plugin-os'
@@ -35,6 +35,8 @@ export const api = {
 
   auth: {
     login: () => invoke('auth_login'),
+    getLoginUrl: () => invoke<string>('auth_get_login_url'),
+    loginWithCode: (input: string) => invoke('auth_login_with_code', { input }),
     logout: (id: string) => invoke('auth_logout', { id }),
     listAccounts: () => invoke('auth_list_accounts'),
     selectAccount: (id: string) => invoke('auth_select_account', { id }),
@@ -64,6 +66,12 @@ export const api = {
     listForgeVersions: (mcVersion: string) => invoke('versions_list_forge', { mcVersion }),
   },
 
+  optifine: {
+    listMcVersions: () => invoke('optifine_list_mc_versions'),
+    listBuilds: (mcVersion: string) => invoke('optifine_list_builds', { mcVersion }),
+    launchInstaller: (mcVersion: string, filename: string) => invoke('optifine_launch_installer', { mcVersion, filename }),
+  },
+
   launch: {
     start: (profileId: string) => invoke('launch_start', { profileId }),
     kill: () => invoke('launch_kill'),
@@ -84,9 +92,11 @@ export const api = {
     delete: (id: string) => invoke('profiles_delete', { id }),
     getActive: () => invoke('profiles_get_active'),
     setActive: (id: string) => invoke('profiles_set_active', { id }),
-    exportPack: (id: string) => invoke('profiles_export', { id }),
+    exportPack: (id: string, withoutBejaClient = false) => invoke('profiles_export', { id, withoutBejaClient }),
+    exportZip: (id: string, withoutBejaClient = false) => invoke('profiles_export_zip', { id, withoutBejaClient }),
+    exportCurseforge: (id: string) => invoke('profiles_export_curseforge', { id }),
     importPack: () => invoke('profiles_import'),
-    share: (id: string) => invoke('profiles_share', { id }),
+    share: (id: string, withoutBejaClient = false) => invoke('profiles_share', { id, withoutBejaClient }),
     importShared: (shareId: string) => invoke('profiles_import_shared', { shareId }),
     peekShared: (shareId: string) => invoke('profiles_peek_shared', { shareId }),
     onSharedLink: (cb: (shareId: string) => void) => {
@@ -98,6 +108,7 @@ export const api = {
 
   mods: {
     list: (profileId: string) => invoke('mods_list', { profileId }),
+    countEnabled: (profileId: string) => invoke('mods_count_enabled', { profileId }),
     checkConflicts: (profileId: string) => invoke('mods_check_conflicts', { profileId }),
     install: (profileId: string, filePath: string) => invoke('mods_install', { profileId, filePath }),
     toggle: (profileId: string, modId: string) => invoke('mods_toggle', { profileId, modId }),
@@ -105,6 +116,46 @@ export const api = {
     openFolder: (profileId: string) => invoke('mods_open_folder', { profileId }),
     autoFix: (profileId: string) => invoke('mods_auto_fix', { profileId }),
     checkUpdate: (profileId: string, modId: string) => invoke('check_mod_update', { profileId, modId }),
+    recentUpdates: (profileId: string) => invoke('mods_recent_updates', { profileId }),
+    rollbackLastUpdate: (profileId: string) => invoke('mods_rollback_last_update', { profileId }),
+    checkAllProfilesUpdates: () => invoke('mods_check_all_profiles_updates'),
+  },
+
+  worlds: {
+    list: (profileId: string) => invoke('worlds_list', { profileId }),
+    openFolder: (profileId: string, worldId: string) => invoke('worlds_open_folder', { profileId, worldId }),
+    rename: (profileId: string, worldId: string, newName: string) => invoke('worlds_rename', { profileId, worldId, newName }),
+    duplicate: (profileId: string, worldId: string, newName: string) => invoke('worlds_duplicate', { profileId, worldId, newName }),
+    delete: (profileId: string, worldId: string) => invoke('worlds_delete', { profileId, worldId }),
+    backup: (profileId: string, worldId: string) => invoke('worlds_backup', { profileId, worldId }),
+    restore: (profileId: string) => invoke('worlds_restore', { profileId }),
+    listAutoBackups: (profileId: string, worldId: string) => invoke('worlds_list_auto_backups', { profileId, worldId }),
+    restoreAutoBackup: (profileId: string, worldId: string, backupName: string) =>
+      invoke('worlds_restore_auto_backup', { profileId, worldId, backupName }),
+  },
+
+  doctor: {
+    run: (profileId: string) => invoke('doctor_run', { profileId }),
+    repair: (profileId: string) => invoke('doctor_repair', { profileId }),
+    onProgress: (cb: (data: { task: string; progress: number; total: number }) => void) => {
+      listen<{ task: string; progress: number; total: number }>('doctor:progress', (e) => cb(e.payload))
+    },
+  },
+
+  screenshots: {
+    list: (profileId: string) => invoke('screenshots_list', { profileId }),
+    thumbnail: (profileId: string, id: string) => invoke('screenshots_thumbnail', { profileId, id }),
+    delete: (profileId: string, id: string) => invoke('screenshots_delete', { profileId, id }),
+    open: (profileId: string, id: string) => invoke('screenshots_open', { profileId, id }),
+    openFolder: (profileId: string) => invoke('screenshots_open_folder', { profileId }),
+    export: (profileId: string, id: string) => invoke('screenshots_export', { profileId, id }),
+  },
+
+  clientVersions: {
+    list: (family: string) => invoke('client_versions_list', { family }),
+    pinned: (family: string) => invoke('client_version_pinned', { family }),
+    install: (family: string, version: string) => invoke('client_version_install', { family, version }),
+    useLatest: (family: string) => invoke('client_version_use_latest', { family }),
   },
 
   settings: {
@@ -153,8 +204,12 @@ export const api = {
   system: {
     getVersion: () => invoke('system_get_version'),
     getJavaVersions: () => invoke('system_java_versions'),
+    listJavaRuntimes: () => invoke('java_runtimes_list'),
+    installJavaRuntime: (component: string) => invoke('java_runtime_install', { component }),
+    removeJavaRuntime: (component: string) => invoke('java_runtime_remove', { component }),
     platform: cachedPlatform,
     openExternal: (url: string) => invoke('system_open_external', { url }),
+    hardwareInfo: () => invoke('system_hardware_info'),
   },
 
   console: {
@@ -188,6 +243,8 @@ export const api = {
     sendRequest: (username: string) => invoke('friends_request', { username }),
     acceptRequest: (uuid: string) => invoke('friends_accept', { uuid }),
     removeOrDecline: (uuid: string) => invoke('friends_remove', { uuid }),
+    block: (uuid: string, username: string) => invoke('friends_block', { uuid, username }),
+    unblock: (uuid: string) => invoke('friends_unblock', { uuid }),
     onOnline: (cb: (d: { uuid: string; username: string; playing?: { game: string; version: string } | null }) => void) =>
       listen<{ uuid: string; username: string; playing?: { game: string; version: string } | null }>(
         'friend:online',
@@ -226,8 +283,6 @@ export const api = {
     onVoiceIce: (cb: (d: unknown) => void) => listen('voice:ice', (e) => cb(e.payload)),
     onInviteReceived: (cb: (d: { partyId: string; fromUuid: string; fromUsername: string }) => void) =>
       listen<{ partyId: string; fromUuid: string; fromUsername: string }>('party:invite_received', (e) => cb(e.payload)),
-    onEmote: (cb: (d: { uuid: string; emote: string }) => void) =>
-      listen<{ uuid: string; emote: string }>('party:emote', (e) => cb(e.payload)),
   },
 
   cosmetics: {
@@ -300,23 +355,12 @@ export const api = {
 
   giphy: {
     // Runs through Rust (see giphy_service.rs) so the API key stays out of the
-    // shipped webview bundle — same reasoning as the CurseForge key.
+    // shipped webview bundle - same reasoning as the CurseForge key.
     search: (query: string) => invoke<{ id: string; thumb: string; url: string; title: string }[]>('giphy_search', { query: query || null }),
   },
 
   discord: {
     setPresence: (details: string, state: string) => invoke('discord_set_presence', { details, state }),
-  },
-
-  video: {
-    // Rust hands back an absolute filesystem path; convertFileSrc() turns it into the
-    // asset://-backed URL the webview is actually allowed to load (see tauri.conf.json's
-    // assetProtocol scope) — replaces the Electron build's little 127.0.0.1:49217 HTTP server.
-    getScene: async () => convertFileSrc(await invoke<string>('video_get_scene')),
-    pickCustomBg: async (kind: 'video' | 'image') => {
-      const path = await invoke<string | null>('video_pick_custom_bg', { kind })
-      return path ? convertFileSrc(path) : null
-    },
   },
 
   updater: {
@@ -338,5 +382,5 @@ export const api = {
 }
 
 // The canonical `Window.api` type is already declared in `src/types/index.ts` (carried over
-// unchanged from the Electron preload's type surface) — don't redeclare it here, just assign.
+// unchanged from the Electron preload's type surface) - don't redeclare it here, just assign.
 ;(window as unknown as { api: typeof api }).api = api

@@ -30,12 +30,17 @@ a {
   text-decoration: none;
 }
 
+// Default corner radius for every button in the app - components only need to
+// override this for shapes that deliberately deviate (circular icon buttons via
+// 50%, pill badges via 999px). Anything else stays consistent for free, including
+// buttons written after this comment.
 button {
   cursor: pointer;
   font-family: inherit;
   border: none;
   background: none;
   color: inherit;
+  border-radius: $radius-btn;
 }
 
 input,
@@ -55,7 +60,7 @@ canvas {
   display: block;
 }
 
-// Native app feel — images/icons shouldn't be draggable out of the window the
+// Native app feel - images/icons shouldn't be draggable out of the window the
 // way they are on a regular web page (same reasoning as body's user-select: none).
 img,
 svg,
@@ -76,7 +81,7 @@ a {
 
 ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
+  border-radius: $radius-sm;
 
   &:hover {
     background: rgba(255, 255, 255, 0.14);

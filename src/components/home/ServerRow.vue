@@ -15,7 +15,7 @@
         <Tooltip
           v-for="i in 10"
           :key="i"
-          :text="`${current(i - 1).name} — ${ipLabel(current(i - 1))}`"
+          :text="`${current(i - 1).name} - ${ipLabel(current(i - 1))}`"
           placement="top"
         >
           <div class="server-slot" :class="{ joining: joiningId === current(i - 1).id }" @click="joinServer(current(i - 1))">
@@ -46,7 +46,7 @@ const launcherStore = useLauncherStore()
 
 interface ServerEntry { id: string; name: string; host: string; port: number }
 
-// 20 of the real entries from serverPingService.ts's FEATURED_SERVERS list —
+// 20 of the real entries from serverPingService.ts's FEATURED_SERVERS list -
 // kept in sync with those host/port values rather than invented separately.
 // Slot i shows SERVERS[i] on the front face and SERVERS[i + 10] on the back.
 const SERVERS: ServerEntry[] = [
@@ -127,7 +127,7 @@ onMounted(() => {
       const status = await window.api.servers.ping(s.host, s.port)
       if (status) states.value[i] = { ...states.value[i], favicon: status.favicon, online: true }
     } catch {
-      // stays offline — favicon fallback shows the server's initial instead
+      // stays offline - favicon fallback shows the server's initial instead
     }
   })
 
@@ -220,7 +220,7 @@ onUnmounted(() => {
   50%       { opacity: 0.4; }
 }
 
-// Staggered reveal — each icon pops in slightly after the previous one when
+// Staggered reveal - each icon pops in slightly after the previous one when
 // expanding, and collapses in reverse order (last icon retracts first) since
 // the delay is keyed to distance from the toggle arrow either way.
 @for $i from 1 through 10 {
@@ -283,7 +283,6 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   background: $surface;
-  border: 1px solid $border;
   font-size: 13px;
   font-weight: 700;
   color: $text-secondary;

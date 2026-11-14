@@ -40,7 +40,7 @@
   }
 }
 
-// ── Glass panel — for surfaces that float ABOVE content: modals, dropdowns,
+// ── Glass panel - for surfaces that float ABOVE content: modals, dropdowns,
 // tooltips, drawers, command palette, the start-screen shell. Frosted-white
 // blur over the dark backdrop, not a replacement for in-page $surface cards.
 %glass-panel {
@@ -52,7 +52,7 @@
   box-shadow: $glass-shadow;
 }
 
-// ── Ambient glow ring — premium emphasis for the active/focused/primary state
+// ── Ambient glow ring - premium emphasis for the active/focused/primary state
 // of a component, without going neon. @extend to apply.
 %glow-ring {
   box-shadow: $shadow-glow;

@@ -2,57 +2,72 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { LaunchProfile, LaunchStatus, VersionProgress } from '../types'
 
+export type CrashCategory = 'oom' | 'mixin_conflict' | 'corrupted_mod' | 'outdated_mods' | 'other'
+
 export interface CrashInfo {
   cause: string
   fix: string
   lines: string[]
+  category: CrashCategory
+  /** Only set for `corrupted_mod` - the mod filename parsed straight out of the crash log,
+   *  letting the "Disable this mod" action target it without guessing. */
+  modFileName?: string
 }
 
-const CRASH_PATTERNS: Array<{ test: (s: string) => boolean; cause: string; fix: string }> = [
+const CRASH_PATTERNS: Array<{ test: (s: string) => boolean; cause: string; fix: string; category: CrashCategory }> = [
   {
     test: s => s.includes('OutOfMemoryError'),
     cause: 'Out of memory (Java heap space)',
     fix: 'Increase Max RAM in your profile settings. 4 GB+ recommended for modded play.',
+    category: 'oom',
   },
   {
     test: s => s.includes('EXCEPTION_ACCESS_VIOLATION'),
     cause: 'JVM memory access violation',
     fix: 'Try a different Java version, or add -XX:+UseG1GC to JVM arguments.',
+    category: 'other',
   },
   {
     test: s => s.includes('MixinApplyError') || (s.includes('mixin') && s.includes('Exception')),
     cause: 'Mod mixin conflict',
-    fix: 'A mod is incompatible with your current setup. Remove recently added mods one by one to find the culprit.',
+    fix: 'A mod is incompatible with your current setup - if you just updated a mod, undoing that update is the fastest fix.',
+    category: 'mixin_conflict',
   },
   {
     test: s => /Could not load 'mods\//.test(s),
     cause: 'Corrupted or incompatible mod file',
-    fix: 'Delete the problematic mod from your mods folder and re-download it.',
+    fix: 'This mod file failed to load. Disabling it will let the game start again.',
+    category: 'corrupted_mod',
   },
   {
     test: s => s.includes('ClassCastException'),
     cause: 'Class conflict between mods',
     fix: 'Two or more mods are incompatible. Check for duplicate or conflicting mods.',
+    category: 'other',
   },
   {
     test: s => s.includes('NoSuchMethodError') || s.includes('NoSuchFieldError'),
     cause: 'Mod version incompatibility',
-    fix: 'A mod requires a method that no longer exists. Update all your mods to their latest versions.',
+    fix: 'A mod requires a method that no longer exists. Updating your mods should resolve this.',
+    category: 'outdated_mods',
   },
   {
     test: s => s.includes('UnsatisfiedLinkError'),
     cause: 'Native library missing',
     fix: 'Try reinstalling Minecraft or switching to a different Java version.',
+    category: 'other',
   },
   {
     test: s => s.includes('Incompatible FML') || s.includes('fml.incompatible'),
     cause: 'Forge version mismatch',
     fix: 'Reinstall the correct Forge version for your Minecraft version.',
+    category: 'other',
   },
   {
     test: s => s.includes('Failed to start') || s.includes('Could not find or load main class'),
     cause: 'Failed to start Minecraft',
     fix: 'Your game installation may be corrupt. Try reinstalling the version in the Versions tab.',
+    category: 'other',
   },
 ]
 
@@ -64,13 +79,19 @@ function analyzeLogs(lines: string[]): CrashInfo {
 
   for (const pattern of CRASH_PATTERNS) {
     if (pattern.test(full)) {
-      return { cause: pattern.cause, fix: pattern.fix, lines: errLines.slice(-8) }
+      const info: CrashInfo = { cause: pattern.cause, fix: pattern.fix, lines: errLines.slice(-8), category: pattern.category }
+      if (pattern.category === 'corrupted_mod') {
+        const m = full.match(/Could not load 'mods\/([^']+)'/)
+        if (m) info.modFileName = m[1]
+      }
+      return info
     }
   }
   return {
     cause: 'Unexpected crash',
     fix: 'Check the crash-reports folder in your game directory for the full crash report.',
     lines: errLines.slice(-8),
+    category: 'other',
   }
 }
 
@@ -85,15 +106,17 @@ export const useLauncherStore = defineStore('launcher', () => {
   const crashInfo = ref<CrashInfo | null>(null)
   const conflictWarning = ref<{ conflicts: string[]; profileId: string } | null>(null)
   const wizardOpen = ref(false)
-  // Set by ProfilesSettings.vue while its detail/edit view is open — read by
+  // Set by ProfilesSettings.vue while its detail/edit view is open - read by
   // App.vue's Discord presence watcher to show "Editing profile <name>".
   const editingProfileName = ref<string | null>(null)
 
   const isRunning = computed(() => status.value === 'running')
   const isLaunching = computed(() => status.value === 'starting')
   // BejaClient versions are temporarily unlaunchable while they're being
-  // reworked — vanilla/Fabric/Forge/etc. profiles are unaffected.
-  const isBejaMaintenance = computed(() => !!activeProfile.value?.useBejaClient)
+  // reworked - vanilla/Fabric/Forge/etc. profiles are unaffected.
+  // Maintenance gate OFF (BejaClient profiles launch normally). Flip to true to block them again.
+  const BEJA_MAINTENANCE = false
+  const isBejaMaintenance = computed(() => BEJA_MAINTENANCE && !!activeProfile.value?.useBejaClient)
   const MAINTENANCE_MESSAGE = "BejaClient versions are under maintenance right now. We're working at full speed to bring them back. Sorry for the inconvenience!"
 
   async function loadProfiles() {
@@ -154,7 +177,7 @@ export const useLauncherStore = defineStore('launcher', () => {
 
   async function launch() {
     if (!activeProfile.value) return
-    if (activeProfile.value.useBejaClient) {
+    if (BEJA_MAINTENANCE && activeProfile.value.useBejaClient) {
       status.value = 'error'
       lastError.value = MAINTENANCE_MESSAGE
       return
@@ -165,7 +188,7 @@ export const useLauncherStore = defineStore('launcher', () => {
         conflictWarning.value = { conflicts, profileId: activeProfile.value.id }
         return
       }
-    } catch { /* non-fatal — launch anyway if check fails */ }
+    } catch { /* non-fatal - launch anyway if check fails */ }
     await doLaunch(activeProfile.value.id)
   }
 

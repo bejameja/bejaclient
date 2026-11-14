@@ -24,6 +24,10 @@ const defaultSettings: AppSettings = {
     curseforgeApiKey: '',
     advancedMode: false,
     debugLogging: false,
+    autoBackupWorlds: false,
+    autoBackupRetention: 3,
+    controllerHaptics: true,
+    hapticsStrength: 60,
   },
   appearance: {
     language: 'en',
@@ -32,12 +36,6 @@ const defaultSettings: AppSettings = {
     disableHoverEffects: false,
     disableSplashScreen: false,
     theme: 'default',
-  },
-  customization: {
-    experimentalEnabled: false,
-    editorMode: false,
-    wiggleEnabled: true,
-    elements: {},
   },
   activeProfileId: null,
 }
@@ -54,23 +52,10 @@ export const useSettingsStore = defineStore('settings', () => {
       game:       { ...defaultSettings.game,       ...saved.game },
       launcher:   { ...defaultSettings.launcher,   ...saved.launcher },
       appearance: { ...defaultSettings.appearance, ...saved.appearance },
-      customization: {
-        ...defaultSettings.customization,
-        ...saved.customization,
-        elements: { ...defaultSettings.customization.elements, ...saved.customization?.elements },
-      },
     }
     // Migrate old orange default → launcher cyan
     if (settings.value.appearance.accentColor === '#F97316') {
       settings.value.appearance.accentColor = '#27ade0'
-      await save()
-    }
-    // Editor Mode just became an Experimental-gated feature — a save from
-    // before that change can have editorMode:true with no experimentalEnabled
-    // key yet, which would leave it silently on with no UI left to turn it
-    // off (that toggle only shows once Experimental is enabled).
-    if (!settings.value.customization.experimentalEnabled && settings.value.customization.editorMode) {
-      settings.value.customization.editorMode = false
       await save()
     }
     loaded.value = true

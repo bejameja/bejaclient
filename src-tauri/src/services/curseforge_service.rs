@@ -92,7 +92,7 @@ pub async fn install_curseforge_mod(mod_id: &str, project_type: &str, profile_id
     let data = cf_get(&format!("/mods/{mod_id}/files?pageSize=20&sortOrder=desc&index=0"), &api_key).await?;
     let file = data["data"].as_array().and_then(|a| a.first()).ok_or("No files found")?;
 
-    let download_url = file["downloadUrl"].as_str().ok_or("Download restricted — check mod page on CurseForge")?;
+    let download_url = file["downloadUrl"].as_str().ok_or("Download restricted - check mod page on CurseForge")?;
     let file_name = file["fileName"].as_str().unwrap_or("download.jar");
 
     on_progress(format!("Downloading {file_name}…"));

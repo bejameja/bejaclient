@@ -28,20 +28,20 @@ let ro:     ResizeObserver | null = null
 let deactivated = false
 let freezeRaf: number | null = null
 
-// Card grids (Skins tab, etc.) can hold dozens of entries — creating a real
+// Card grids (Skins tab, etc.) can hold dozens of entries - creating a real
 // WebGL context per card unconditionally silently blows Chromium's per-page
 // context budget once enough cards exist, force-losing the *oldest* live
 // context (often an unrelated viewer elsewhere, e.g. the Hub's HeroSkinViewer)
 // with no recovery. Only running the viewer for on/near-screen cards keeps
 // the live-context count bounded to what's actually visible. The canvas
 // itself is v-if'd (not just v-show/dispose()'d) so the old context is
-// actually eligible for GC — a WebGLRenderer.dispose() call frees its GPU
+// actually eligible for GC - a WebGLRenderer.dispose() call frees its GPU
 // resources but does NOT release the context slot on a canvas that stays
 // in the DOM, and a browser won't hand out a second live context to the
 // same canvas element anyway.
 const isVisible = useLazyVisible(containerRef)
 
-// The pose never changes after the first frame — there's no reason to keep
+// The pose never changes after the first frame - there's no reason to keep
 // the WebGL render loop running 60fps forever for a frame that never
 // changes. Render a couple frames to let the pose settle, then pause.
 function freezeSoon() {
@@ -87,8 +87,8 @@ function createViewer() {
     fov:    40,
   })
 
-  viewer.globalLight.intensity = 0.62
-  viewer.cameraLight.intensity = 0.5
+  viewer.globalLight.intensity = 0.4
+  viewer.cameraLight.intensity = 0.85
 
   controls = createOrbitControls(viewer)
   controls.enableZoom   = false
@@ -125,10 +125,10 @@ onMounted(() => {
   ro.observe(container)
 })
 
-// Card grids can hold far more entries than fit on screen at once — only the
+// Card grids can hold far more entries than fit on screen at once - only the
 // visible ones (per useLazyVisible above) get a real viewer/WebGL context;
 // scrolling a card off-screen fully tears it down again (the v-if above drops
-// the old canvas so a fresh one — and a fresh context — is made next time).
+// the old canvas so a fresh one - and a fresh context - is made next time).
 watch(isVisible, async visible => {
   if (visible) {
     await nextTick()
@@ -139,7 +139,7 @@ watch(isVisible, async visible => {
   }
 }, { immediate: true })
 
-// Paused via KeepAlive tab switches — no point rendering a frozen frame
+// Paused via KeepAlive tab switches - no point rendering a frozen frame
 // for a page the user isn't looking at.
 onActivated(() => { deactivated = false; freezeSoon() })
 onDeactivated(() => {

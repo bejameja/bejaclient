@@ -14,7 +14,7 @@
           <span class="account-name">{{ account.username }}</span>
           <span class="account-uuid">{{ formatUuid(account.uuid) }}</span>
           <span class="account-status" :class="{ expired: isExpired(account) }">
-            {{ isExpired(account) ? 'Token expired — click Refresh' : 'Active' }}
+            {{ isExpired(account) ? 'Token expired - click Refresh' : 'Active' }}
           </span>
         </div>
         <div class="account-actions">
@@ -40,7 +40,7 @@
       <Button variant="secondary" :loading="accountStore.loading" @click="importFromLauncher">
         Import from Minecraft Launcher
       </Button>
-      <span class="add-hint">A Microsoft login window will open — or import existing accounts from the official Minecraft Launcher</span>
+      <span class="add-hint">A Microsoft login window will open - or import existing accounts from the official Minecraft Launcher</span>
     </div>
 
     <div v-if="accountStore.error" class="error-msg">
@@ -85,7 +85,7 @@ function formatUuid(uuid: string) {
 .accounts-list { display: flex; flex-direction: column; gap: $sp-2; }
 .account-card {
   display: flex; align-items: center; gap: $sp-3; padding: $sp-4;
-  background: $surface; border: 1px solid $border; border-radius: $radius;
+  background: $surface; border-radius: $radius;
   transition: border-color $transition, box-shadow $transition, transform $transition;
   &:hover { border-color: $border-strong; transform: translateY(-1px); box-shadow: $shadow-sm; }
   &.selected {
@@ -105,7 +105,7 @@ function formatUuid(uuid: string) {
 .account-status { font-size: 11px; color: $success; font-weight: 600; &.expired { color: $error; } }
 .account-actions { display: flex; align-items: center; gap: $sp-2; flex-shrink: 0; }
 .action-btn {
-  padding: 4px $sp-3; font-size: 11px; font-weight: 600; border-radius: $radius;
+  padding: 4px $sp-3; font-size: 11px; font-weight: 600; border-radius: 12px;
   cursor: pointer; border: 1px solid $border; background: $surface-elevated; color: $text-secondary;
   transition: all $transition; display: flex; align-items: center; gap: $sp-1;
   &.select-btn:hover { background: $text-primary; border-color: $text-primary; color: $bg; }

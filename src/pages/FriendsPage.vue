@@ -8,12 +8,16 @@
         <button class="fp-toggle-btn" :class="{ active: sideTab === 'friends' }" @click="sideTab = 'friends'">
           <span class="fp-friends-word">{{ $t('friends.tabs.friends') }}</span>
         </button>
+        <button class="fp-toggle-btn" :class="{ active: sideTab === 'requests' }" @click="sideTab = 'requests'">
+          <span class="fp-requests-word">{{ $t('friends.tabs.requests') }}</span>
+          <span v-if="friendsStore.pendingCount" class="fp-toggle-badge">{{ friendsStore.pendingCount }}</span>
+        </button>
         <button class="fp-toggle-btn" :class="{ active: sideTab === 'groups' }" @click="sideTab = 'groups'">
           <span class="fp-groups-word">Groups</span>
         </button>
       </div>
 
-      <div class="fp-search-wrap" :class="{ focused: searchFocused }">
+      <div v-if="sideTab !== 'requests'" class="fp-search-wrap" :class="{ focused: searchFocused }">
         <input
           v-model="search"
           class="fp-search-input"
@@ -26,7 +30,7 @@
         />
         <img :src="findFriendIcon" class="fp-search-icon" alt="" />
 
-        <!-- Add-friend suggestions — same lookup/add flow as before, now living in the sidebar search box -->
+        <!-- Add-friend suggestions - same lookup/add flow as before, now living in the sidebar search box -->
         <div v-if="searchFocused && suggestions.length" class="fp-suggest-drop" @mousedown.prevent>
           <div v-for="s in suggestions" :key="s.uuid" class="fp-suggest-row">
             <img
@@ -48,7 +52,7 @@
 
       <template v-if="sideTab === 'friends'">
 
-        <!-- Pending requests — compact, kept alongside the list rather than a separate tab -->
+        <!-- Pending requests - compact, kept alongside the list rather than a separate tab -->
         <template v-if="friendsStore.incomingRequests.length">
           <div class="fp-section-label">{{ $t('friends.sections.incoming', { count: friendsStore.incomingRequests.length }) }}</div>
           <div class="fp-list fp-list--requests">
@@ -63,6 +67,9 @@
               <div class="fp-request-actions">
                 <button class="fp-req-btn fp-req-btn--accept" title="Accept" @click="acceptRequest(r.uuid)">✓</button>
                 <button class="fp-req-btn fp-req-btn--decline" title="Decline" @click="declineRequest(r.uuid)">✕</button>
+                <button class="fp-req-btn fp-req-btn--decline" title="Block" @click="blockUser(r.uuid, r.username)">
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><line x1="3.8" y1="3.8" x2="12.2" y2="12.2"/></svg>
+                </button>
               </div>
             </div>
           </div>
@@ -94,9 +101,87 @@
         </div>
       </template>
 
+      <template v-else-if="sideTab === 'requests'">
+
+        <!-- Send a request by username -->
+        <form class="fp-send-row" @submit.prevent="sendByName">
+          <div class="fp-search-wrap" :class="{ focused: sendFocused }">
+            <input
+              v-model="sendName"
+              class="fp-search-input"
+              :placeholder="$t('friends.addPlaceholder')"
+              spellcheck="false"
+              maxlength="16"
+              @focus="sendFocused = true"
+              @blur="sendFocused = false"
+            />
+          </div>
+          <button type="submit" class="fp-send-btn" :disabled="sending || sendName.trim().length < 3">
+            {{ sending ? '…' : $t('friends.add') }}
+          </button>
+        </form>
+
+        <div class="fp-list fp-list--panel">
+          <div class="fp-req-head">
+            <span class="fp-req-title">Incoming</span>
+            <span class="fp-req-count">{{ friendsStore.incomingRequests.length }}</span>
+          </div>
+          <p v-if="!friendsStore.incomingRequests.length" class="fp-empty fp-empty--card">{{ $t('friends.noPendingRequests') }}</p>
+          <div v-for="r in friendsStore.incomingRequests" :key="r.uuid" class="fp-request-row fp-request-row--panel">
+            <img
+              class="fp-avatar"
+              :src="`https://mc-heads.net/head/${r.uuid}/64`"
+              :alt="r.username"
+              @error="(e: Event) => ((e.target as HTMLImageElement).src = 'https://mc-heads.net/head/MHF_Steve/64')"
+            />
+            <span class="fp-friend-name">{{ r.username }}</span>
+            <div class="fp-request-actions">
+              <button class="fp-req-btn fp-req-btn--accept" title="Accept" @click="acceptRequest(r.uuid)">✓</button>
+              <button class="fp-req-btn fp-req-btn--decline" title="Decline" @click="declineRequest(r.uuid)">✕</button>
+                <button class="fp-req-btn fp-req-btn--decline" title="Block" @click="blockUser(r.uuid, r.username)">
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><line x1="3.8" y1="3.8" x2="12.2" y2="12.2"/></svg>
+                </button>
+            </div>
+          </div>
+
+          <div class="fp-req-head fp-req-head--gap">
+            <span class="fp-req-title">Sent</span>
+            <span class="fp-req-count">{{ friendsStore.outgoingRequests.length }}</span>
+          </div>
+          <p v-if="!friendsStore.outgoingRequests.length" class="fp-empty fp-empty--card">{{ $t('friends.noPendingRequests') }}</p>
+          <div v-for="r in friendsStore.outgoingRequests" :key="r.uuid" class="fp-request-row fp-request-row--panel">
+            <img
+              class="fp-avatar"
+              :src="`https://mc-heads.net/head/${r.uuid}/64`"
+              :alt="r.username"
+              @error="(e: Event) => ((e.target as HTMLImageElement).src = 'https://mc-heads.net/head/MHF_Steve/64')"
+            />
+            <span class="fp-friend-name">{{ r.username }}</span>
+            <button class="fp-cancel-btn" @click="cancelRequest(r.uuid)">{{ $t('friends.cancel') }}</button>
+          </div>
+
+          <template v-if="friendsStore.blocked.length">
+            <div class="fp-req-head fp-req-head--gap">
+              <span class="fp-req-title">Blocked</span>
+              <span class="fp-req-count">{{ friendsStore.blocked.length }}</span>
+            </div>
+            <div v-for="b in friendsStore.blocked" :key="b.uuid" class="fp-request-row fp-request-row--panel">
+              <img
+                class="fp-avatar"
+                :src="`https://mc-heads.net/head/${b.uuid}/64`"
+                :alt="b.username"
+                @error="(e: Event) => ((e.target as HTMLImageElement).src = 'https://mc-heads.net/head/MHF_Steve/64')"
+              />
+              <span class="fp-friend-name">{{ b.username }}</span>
+              <button class="fp-cancel-btn" @click="friendsStore.unblockUser(b.uuid)">Unblock</button>
+            </div>
+          </template>
+        </div>
+      </template>
+
       <template v-else>
         <div class="fp-groups-empty">
-          <span class="fp-groups-empty-text">Groups — coming soon</span>
+          <span class="fp-groups-empty-text">Groups - coming soon</span>
         </div>
       </template>
 
@@ -128,13 +213,34 @@
             </button>
             <div v-if="pinnedOpen" class="fp-popover fp-pinned-popover" @mousedown.stop>
               <div class="fp-popover-title">Pinned messages <span class="fp-popover-hint">(only visible on this device)</span></div>
-              <div v-if="!pinnedForFriend.length" class="fp-popover-empty">No pinned messages yet — hover a message and click the pin icon.</div>
+              <div v-if="!pinnedForFriend.length" class="fp-popover-empty">No pinned messages yet - hover a message and click the pin icon.</div>
               <div v-else class="fp-pinned-list">
                 <div v-for="msg in pinnedForFriend" :key="msg.id" class="fp-pinned-item">
                   <span class="fp-pinned-text">{{ msg.content }}</span>
                   <button class="fp-pinned-unpin" title="Unpin" @click="togglePin(msg)">✕</button>
                 </div>
               </div>
+            </div>
+          </div>
+          <div class="fp-popover-anchor" @mousedown.stop>
+            <button class="fp-header-icon-btn" :class="{ active: menuOpen }" title="More" @click="toggleMenu">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg>
+            </button>
+            <div v-if="menuOpen" class="fp-popover fp-menu">
+              <template v-if="!confirmAction">
+                <button class="fp-menu-item" @click="confirmAction = 'remove'">Remove friend</button>
+                <button class="fp-menu-item fp-menu-item--danger" @click="confirmAction = 'block'">Block</button>
+              </template>
+              <template v-else>
+                <div class="fp-menu-text">
+                  {{ confirmAction === 'remove' ? 'Remove' : 'Block' }} <b>{{ chatFriend.username }}</b>?
+                  <span v-if="confirmAction === 'block'" class="fp-menu-sub">They cannot send you requests anymore.</span>
+                </div>
+                <div class="fp-menu-row">
+                  <button class="fp-menu-item fp-menu-item--danger" @click="runConfirmed">{{ confirmAction === 'remove' ? 'Remove' : 'Block' }}</button>
+                  <button class="fp-menu-item" @click="confirmAction = null">Cancel</button>
+                </div>
+              </template>
             </div>
           </div>
           <div class="fp-popover-anchor">
@@ -289,7 +395,7 @@ const route         = useRoute()
 const myUuid        = computed(() => accountStore.selectedAccount?.uuid ?? '')
 const { t } = useI18n()
 
-const sideTab       = ref<'friends' | 'groups'>('friends')
+const sideTab       = ref<'friends' | 'requests' | 'groups'>('friends')
 const search        = ref('')
 const searchFocused = ref(false)
 const loading       = ref(false)
@@ -365,6 +471,60 @@ async function declineRequest(uuid: string) {
   await friendsStore.declineRequest(uuid)
 }
 
+async function cancelRequest(uuid: string) {
+  await friendsStore.cancelRequest(uuid)
+}
+
+async function blockUser(uuid: string, username: string) {
+  await friendsStore.blockUser(uuid, username)
+  showToast(`Blocked ${username}`, 'ok')
+}
+
+// chat header menu: remove / block the open friend (asks once)
+const menuOpen      = ref(false)
+const confirmAction = ref<'remove' | 'block' | null>(null)
+
+function toggleMenu() {
+  menuOpen.value = !menuOpen.value
+  confirmAction.value = null
+  pinnedOpen.value = false
+  searchOpen.value = false
+}
+
+async function runConfirmed() {
+  const f = chatFriend.value
+  const action = confirmAction.value
+  if (!f || !action) return
+  menuOpen.value = false
+  confirmAction.value = null
+  if (action === 'remove') await friendsStore.removeFriend(f.uuid)
+  else await friendsStore.blockUser(f.uuid, f.username)
+  chatFriend.value = null
+  friendsStore.activeChatUsername = null
+  showToast(action === 'remove' ? `Removed ${f.username}` : `Blocked ${f.username}`, 'ok')
+}
+
+// Requests tab: send a friend request by username
+const sendName    = ref('')
+const sendFocused = ref(false)
+const sending     = ref(false)
+
+async function sendByName() {
+  const name = sendName.value.trim()
+  if (name.length < 3 || sending.value) return
+  sending.value = true
+  try {
+    const result = await friendsStore.sendRequest(name)
+    if (result === 'sent') { showToast(t('friends.toast.sent', { name }), 'ok'); sendName.value = '' }
+    else if (result === 'already_pending') showToast(t('friends.toast.alreadyPending'), 'info')
+    else if (result === 'already_friends') showToast(t('friends.toast.alreadyFriends', { name }), 'info')
+    else if (result === 'not_found') showToast(t('friends.toast.notFound', { name }), 'err')
+    else showToast(t('friends.toast.error'), 'err')
+  } finally {
+    sending.value = false
+  }
+}
+
 // ── Chat ───────────────────────────────────────────────────────────────────────
 interface ChatFriend { uuid: string; username: string; online: boolean }
 
@@ -379,6 +539,8 @@ let typingClearTimer: ReturnType<typeof setTimeout> | null = null
 let lastTypingSentAt = 0
 
 async function openChat(friend: ChatFriend) {
+  menuOpen.value = false
+  confirmAction.value = null
   chatFriend.value   = friend
   chatMessages.value = []
   chatLoading.value  = true
@@ -404,7 +566,10 @@ const TRAILING_PUNCT_RE = /[.,!?;:)\]}'"]+$/
 const IMAGE_URL_RE = /\.(png|jpe?g|gif|webp)(\?.*)?$/i
 
 function isImageUrl(url: string): boolean {
-  return url.startsWith('data:image/') || IMAGE_URL_RE.test(url)
+  if (url.startsWith('data:image/')) return true
+  // needs an actual http(s) scheme, otherwise a UNC path or file:// url slips through as
+  // an "image" and gets handed to the OS opener below
+  return /^https?:\/\//i.test(url) && IMAGE_URL_RE.test(url)
 }
 
 // A whole message that's nothing but a single image/GIF link or a pasted data
@@ -449,7 +614,7 @@ const visibleMessages = computed(() => {
   return chatMessages.value.filter(m => m.content.toLowerCase().includes(q))
 })
 
-// ── Pinned messages — local-only (no server field for this), keyed by friend uuid.
+// ── Pinned messages - local-only (no server field for this), keyed by friend uuid.
 const PIN_STORAGE_KEY = 'beja_pinned_messages_v1'
 const pinnedOpen = ref(false)
 const pinnedIds  = ref<Record<string, string[]>>(loadPinnedIds())
@@ -488,7 +653,7 @@ function togglePin(msg: ChatMessage) {
   savePinnedIds()
 }
 
-// ── Custom right-click menu — only inside chat messages, replacing the native
+// ── Custom right-click menu - only inside chat messages, replacing the native
 // OS/browser menu there (elsewhere in the app right-click is untouched). ────
 function onMsgContextMenu(event: MouseEvent, msg: ChatMessage) {
   const parts = parseChatContent(msg.content)
@@ -524,7 +689,7 @@ function insertEmoji(e: string) {
   emojiOpen.value = false
 }
 
-// ── GIF search — proxied through Rust (giphy_service.rs) so the API key stays
+// ── GIF search - proxied through Rust (giphy_service.rs) so the API key stays
 // server-side, never shipped in the webview's JS bundle. Key itself lives in
 // Settings → Launcher (settings.json's launcher.giphyApiKey).
 interface GifResult { id: string; thumb: string; url: string; title: string }
@@ -572,7 +737,7 @@ function toggleGifPopover() {
 }
 
 // ── Send an image file ───────────────────────────────────────────────────────
-// No chat-attachment endpoint exists server-side — content is plain text —
+// No chat-attachment endpoint exists server-side - content is plain text -
 // so the picked file is sent as a data: URL through the same text pipe the
 // rest of chat already uses, and rendered as an image by the parser above.
 // Capped well under typical request-body limits since base64 inflates size ~33%.
@@ -585,7 +750,7 @@ function onFilePicked(e: Event) {
   input.value = ''
   if (!file || !chatFriend.value) return
   if (file.size > MAX_IMAGE_BYTES) {
-    showToast('Image too large (max 1.5MB) — try a smaller file or paste a link instead.', 'err')
+    showToast('Image too large (max 1.5MB) - try a smaller file or paste a link instead.', 'err')
     return
   }
   const reader = new FileReader()
@@ -600,11 +765,14 @@ function onFilePicked(e: Event) {
 // ── Close popovers on outside click ──────────────────────────────────────────
 function onDocClick(e: MouseEvent) {
   // .fp-msg-search-row is an inline bar (toggled by its own icon), not a floating
-  // popover, so it's deliberately excluded here — only the three overlay popovers close.
+  // popover, so it's deliberately excluded here - only the three overlay popovers close.
   if (!(e.target as HTMLElement)?.closest?.('.fp-popover-anchor')) {
     pinnedOpen.value = false
     gifOpen.value = false
     emojiOpen.value = false
+
+    menuOpen.value = false
+    confirmAction.value = null
   }
 }
 
@@ -670,7 +838,7 @@ onUnmounted(() => {
 </script>
 
 <style lang="scss" scoped>
-// ── Page shell — persistent two-pane layout (sidebar list + chat), matching
+// ── Page shell - persistent two-pane layout (sidebar list + chat), matching
 // the Figma reference (node 424-24) instead of the old tab-grid + slide-over. ─
 .friends-page {
   height: 100%;
@@ -693,15 +861,16 @@ onUnmounted(() => {
 
 .fp-toggle-row {
   display: flex;
-  gap: 8px;
+  gap: 5px;
   flex-shrink: 0;
 }
 
 .fp-toggle-btn {
-  padding: 9px 16px;
+  padding: 8px 5px;
+  flex: 0 0 auto;
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 4px;
+  border-radius: 12px;
   color: rgba(255, 255, 255, 0.55);
   font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 12px;
@@ -722,27 +891,53 @@ onUnmounted(() => {
 // Same treatment as the "Friends" heading on the Hub page.
 .fp-friends-word {
   display: inline-block;
-  font-size: 17px;
+  font-size: 11px;
   font-weight: 800;
   color: #4660FE;
   background: #090C20;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   padding: 1px 6px;
-  margin-left: -6px;
   font-family: 'Minecrafter', 'Plus Jakarta Sans', sans-serif;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
+}
+
+.fp-requests-word {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  color: #8BE28B;
+  background: #0E1A10;
+  border-radius: $radius-sm;
+  padding: 1px 6px;
+  font-family: 'Minecrafter', 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: 0.08em;
+}
+
+.fp-toggle-badge {
+  display: inline-block;
+  margin-left: 6px;
+  min-width: 18px;
+  padding: 1px 5px;
+  border-radius: $radius-sm;
+  background: #fff;
+  color: #0a0a0b;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 14px;
+  text-align: center;
+  vertical-align: middle;
 }
 
 .fp-groups-word {
   display: inline-block;
-  font-size: 17px;
+  font-size: 11px;
   font-weight: 800;
   color: #F999E6;
   background: #21141E;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   padding: 1px 6px;
   font-family: 'Minecrafter', 'Plus Jakarta Sans', sans-serif;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
 }
 
 // ── Search / add-friend box ──────────────────────────────────────────────────
@@ -753,7 +948,7 @@ onUnmounted(() => {
   height: 38px;
   background: #131315;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
+  border-radius: $radius-sm;
   padding: 0 10px;
   gap: 8px;
   flex-shrink: 0;
@@ -789,7 +984,7 @@ onUnmounted(() => {
   right: 0;
   background: #131315;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+  border-radius: $radius-sm;
   overflow: hidden;
   z-index: 30;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
@@ -808,7 +1003,7 @@ onUnmounted(() => {
 .fp-suggest-head {
   width: 26px;
   height: 26px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   image-rendering: pixelated;
   flex-shrink: 0;
 }
@@ -840,7 +1035,7 @@ onUnmounted(() => {
 .fp-suggest-btn {
   flex-shrink: 0;
   padding: 5px 10px;
-  border-radius: 4px;
+  border-radius: 12px;
   border: none;
   font-size: 11px;
   font-weight: 700;
@@ -896,7 +1091,7 @@ onUnmounted(() => {
   gap: 10px;
   padding: 8px;
   margin: 0 -8px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   cursor: pointer;
 
   // Same hover/select treatment as the top bar's nav items (TopBar.vue's
@@ -916,10 +1111,10 @@ onUnmounted(() => {
 .fp-avatar {
   width: 32px;
   height: 32px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   image-rendering: pixelated;
   display: block;
-  &--sm { width: 28px; height: 28px; border-radius: 4px; }
+  &--sm { width: 28px; height: 28px; border-radius: $radius-sm; }
 }
 
 .fp-status-dot {
@@ -963,7 +1158,7 @@ onUnmounted(() => {
 .fp-req-btn {
   width: 22px;
   height: 22px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   border: none;
   font-size: 11px;
   cursor: pointer;
@@ -973,6 +1168,108 @@ onUnmounted(() => {
 
   &--accept { background: rgba(48, 209, 88, 0.15); color: #30d158; &:hover { background: rgba(48, 209, 88, 0.28); } }
   &--decline { background: rgba(255, 255, 255, 0.06); color: $text-muted; &:hover { background: rgba(248, 113, 113, 0.18); color: #f87171; } }
+}
+
+// Requests tab
+.fp-send-row {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+
+  .fp-search-wrap { flex: 1; min-width: 0; }
+}
+
+.fp-send-btn {
+  flex-shrink: 0;
+  height: 38px;
+  padding: 0 14px;
+  border: none;
+  border-radius: $radius-sm;
+  background: #fff;
+  color: #0a0a0b;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background 140ms ease, opacity 140ms ease;
+
+  &:hover:not(:disabled) { background: rgba(255, 255, 255, 0.8); }
+  &:disabled { opacity: 0.35; cursor: default; }
+}
+
+.fp-list--panel { gap: 6px; }
+
+.fp-section-label--gap { margin-top: 14px; }
+
+// Requests panel in the Explore look: #13141A cards, orange Minecrafter section titles, pill actions.
+.fp-request-row--panel {
+  margin: 0;
+  padding: 10px 12px;
+  background: #13141A;
+  border-radius: $radius-sm;
+  transition: background 80ms;
+
+  &:hover { background: #181920; }
+
+  .fp-friend-name { font-size: 14px; letter-spacing: 0.02em; color: #fff; }
+  .fp-req-btn { width: 32px; height: 32px; font-size: 13px; }
+}
+
+.fp-req-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin: 4px 0 2px;
+
+  &--gap { margin-top: 18px; }
+}
+
+.fp-req-title {
+  font-family: 'Minecrafter', 'Mojangles', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #F6AE35;
+}
+
+.fp-req-count {
+  min-width: 20px;
+  padding: 1px 6px;
+  background: #232328;
+  border-radius: $radius-sm;
+  font-size: 11px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.fp-empty--card {
+  padding: 14px 12px;
+  margin: 0;
+  background: #0f1014;
+  border-radius: $radius-sm;
+  font-style: normal;
+  text-align: center;
+  color: #666;
+  letter-spacing: 0.03em;
+}
+
+.fp-cancel-btn {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 12px;
+  background: #232328;
+  color: rgba(255, 255, 255, 0.7);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease, background 140ms ease;
+
+  &:hover { color: #f87171; background: rgba(248, 113, 113, 0.12); }
 }
 
 .fp-groups-empty {
@@ -1020,7 +1317,7 @@ onUnmounted(() => {
 .fp-chat-avatar {
   width: 34px;
   height: 34px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   image-rendering: pixelated;
   flex-shrink: 0;
 }
@@ -1049,7 +1346,7 @@ onUnmounted(() => {
   position: relative;
   width: 32px;
   height: 32px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   background: transparent;
   border: none;
   display: flex;
@@ -1070,7 +1367,7 @@ onUnmounted(() => {
   min-width: 13px;
   height: 13px;
   padding: 0 3px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   background: #f97316;
   color: #fff;
   font-size: 8px;
@@ -1090,7 +1387,7 @@ onUnmounted(() => {
   width: 280px;
   background: #131315;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+  border-radius: $radius-sm;
   padding: 12px;
   z-index: 40;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
@@ -1108,6 +1405,41 @@ onUnmounted(() => {
   color: $text-muted;
   font-weight: 400;
 }
+
+.fp-menu {
+  width: 200px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fp-menu-item {
+  height: 32px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+
+  &:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
+  &--danger { color: #f87171; &:hover { background: rgba(248, 113, 113, 0.12); color: #f87171; } }
+}
+
+.fp-menu-text {
+  padding: 6px 10px 4px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.5;
+}
+.fp-menu-sub { display: block; font-size: 11px; color: $text-muted; }
+.fp-menu-row { display: flex; gap: 2px; .fp-menu-item { flex: 1; text-align: center; } }
 
 .fp-popover-empty {
   font-size: 11.5px;
@@ -1130,7 +1462,7 @@ onUnmounted(() => {
   gap: 8px;
   padding: 6px 8px;
   background: rgba(255, 255, 255, 0.04);
-  border-radius: 4px;
+  border-radius: $radius-sm;
 }
 
 .fp-pinned-text {
@@ -1147,7 +1479,7 @@ onUnmounted(() => {
   flex-shrink: 0;
   width: 18px;
   height: 18px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   background: transparent;
   border: none;
   color: $text-muted;
@@ -1170,7 +1502,7 @@ onUnmounted(() => {
   flex: 1;
   background: #131315;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
+  border-radius: $radius-sm;
   outline: none;
   padding: 6px 10px;
   font-size: 12px;
@@ -1251,7 +1583,7 @@ onUnmounted(() => {
   flex-shrink: 0;
   width: 20px;
   height: 20px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   background: transparent;
   border: none;
   font-size: 10px;
@@ -1269,7 +1601,7 @@ onUnmounted(() => {
   font-size: 16px;
   color: rgba(255, 255, 255, 0.85);
   background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
+  border-radius: $radius-sm;
   padding: 10px 14px;
   line-height: 1.5;
   word-break: break-word;
@@ -1282,7 +1614,7 @@ onUnmounted(() => {
   display: block;
   max-width: 320px;
   max-height: 320px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   object-fit: contain;
 }
 
@@ -1308,7 +1640,7 @@ onUnmounted(() => {
   padding: 4px 6px;
   background: #131315;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
+  border-radius: $radius-sm;
   flex-shrink: 0;
 }
 
@@ -1318,7 +1650,7 @@ onUnmounted(() => {
   width: 30px;
   height: 30px;
   flex-shrink: 0;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   background: transparent;
   border: none;
   color: rgba(255, 255, 255, 0.5);
@@ -1344,7 +1676,7 @@ onUnmounted(() => {
   width: 30px;
   height: 30px;
   flex-shrink: 0;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   background: transparent;
   border: none;
   display: flex;
@@ -1368,7 +1700,7 @@ onUnmounted(() => {
   width: 100%;
   background: #0a0a0b;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
+  border-radius: $radius-sm;
   outline: none;
   padding: 8px 10px;
   font-size: 14px;
@@ -1402,7 +1734,7 @@ onUnmounted(() => {
   aspect-ratio: 1;
   padding: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.04);
   cursor: pointer;
@@ -1436,7 +1768,7 @@ onUnmounted(() => {
   justify-content: center;
   background: transparent;
   border: none;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   font-size: 18px;
   cursor: pointer;
   transition: background 100ms ease;
@@ -1451,7 +1783,7 @@ onUnmounted(() => {
   transform: translateX(-50%);
   padding: 8px 20px;
   font-size: 12px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   border: 1px solid;
   white-space: nowrap;
   z-index: 50;

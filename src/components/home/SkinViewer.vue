@@ -161,7 +161,7 @@ kbd {
   font-family: inherit;
   font-size: 10px;
   padding: 1px 5px;
-  border-radius: 4px;
+  border-radius: 6px;
   background: $surface-elevated;
   border: 1px solid $border;
   color: $muted;

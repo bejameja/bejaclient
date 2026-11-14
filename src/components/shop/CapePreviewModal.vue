@@ -71,7 +71,6 @@ function close() { emit('update:modelValue', false) }
 .modal {
   position: relative;
   background: $surface;
-  border: 1px solid $border;
   border-radius: $radius-lg;
   width: 320px;
   max-width: 92vw;

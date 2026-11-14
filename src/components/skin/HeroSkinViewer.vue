@@ -6,6 +6,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, onActivated, onDeactivated, watch } from 'vue'
+import { installLimbBendRig, type LimbBendJoints } from './limbBendRig'
 import { SkinViewer, WalkingAnimation, IdleAnimation, createOrbitControls } from 'skinview3d'
 import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader'
@@ -18,7 +19,7 @@ const props = withDefaults(defineProps<{
   skinUrl?:          string | null
   capeUrl?:          string | null
   model?:            'default' | 'slim' | 'auto-detect'
-  animation?:        'walk' | 'idle' | 'custom-idle'
+  animation?:        'walk' | 'idle' | 'custom-idle' | 'static-pose'
   zoom?:             number
   initialRotationY?: number
   showWings?:        boolean
@@ -31,10 +32,12 @@ const props = withDefaults(defineProps<{
   // element, which collapses since .hero-viewer's own width/height:100% then
   // has no definite size to resolve against).
   pop?:              boolean
-  // Shows a white hover outline around the character — used for the local
+  // Shows a white hover outline around the character - used for the local
   // player's own hero viewer in the Hub, which is also right-clickable.
   // Off by default so other usages (e.g. PlayerProfileModal) stay untouched.
   interactive?:      boolean
+  // static-pose only: how far the arms stand off the body, in radians
+  armSpread?:        number
 }>(), {
   model:            'auto-detect',
   animation:        'walk',
@@ -44,6 +47,7 @@ const props = withDefaults(defineProps<{
   autoRotateSpeed:  0,
   pop:              false,
   interactive:      false,
+  armSpread:        0,
 })
 
 const containerRef = ref<HTMLDivElement | null>(null)
@@ -61,12 +65,42 @@ let dragLastX = 0
 let wingsLoading = false
 const wingsClock = new Clock()
 
+// Elbow/knee bend rig - installed once, first time a skin actually finishes
+// loading (needs the real slim/classic model type, only known after
+// loadSkin resolves). See limbBendRig.ts.
+let bendJoints: LimbBendJoints | null = null
+let bendRigInstalled = false
+function installBendRigOnce() {
+  if (bendRigInstalled || !viewer) return
+  bendRigInstalled = true
+  const skin = viewer.playerObject.skin
+  // `slim` is private in skinview3d's typings but is the only source of the arm width model.
+  bendJoints = installLimbBendRig(skin, (skin as unknown as { slim: boolean }).slim)
+  // Arms were siblings of body (both direct children of `skin`), so rotating
+  // body had zero effect on them. `.attach()` re-parents while preserving
+  // current world transform, so this is a no-op visually at the moment it
+  // runs - every animation mode leaves body at rotation (0,0,0), and local
+  // rotation relative to an unrotated parent is identical to relative to
+  // `skin` itself. Only matters once something actually rotates body (e.g.
+  // Pose Lab), at which point the arms now correctly swing with the torso.
+  skin.body.attach(skin.rightArm)
+  skin.body.attach(skin.leftArm)
+}
 
-// Custom idle — values extracted exactly from still_test GLB keyframes
+
+// Custom idle - values extracted exactly from still_test GLB keyframes
 // period = 2s, env = smooth 0→1→0 envelope that repeats
+// Rest height of the parts that bob while breathing, captured the first time the idle runs
+let restY: { head: number; body: number } | null = null
+
 const customIdleAnimation = (player: any, time: number) => {
   const s = player.skin
   const env = (1 - Math.cos(Math.PI * time)) / 2  // 0→1→0, period 2s, always ≥0
+
+  // Breathing: head and torso (the arms hang from it) sink 1 px at the peak, like the clip's translation tracks
+  if (!restY) restY = { head: s.head.position.y, body: s.body.position.y }
+  s.head.position.y = restY.head - env
+  s.body.position.y = restY.body - env
 
   // Head: X nod forward (0 → -10° → 0)
   s.head.rotation.x = -0.1745 * env
@@ -83,12 +117,40 @@ const customIdleAnimation = (player: any, time: number) => {
   s.leftLeg.rotation.z  =  0.0873
 }
 
+// True neutral - arms straight down, head/body/legs untouched. Both the
+// Pose Lab experiment AND the old session-default (cocked head, raised arm)
+// read as "a pose", not neutral - this is actually (0,0,0) everywhere.
+const staticPoseAnimation = (player: any) => {
+  const s = player.skin
+  if (restY) { s.head.position.y = restY.head; s.body.position.y = restY.body }
+  s.head.rotation.set(0, 0, 0)
+  s.body.rotation.set(0, 0, 0)
+  s.rightArm.rotation.set(0, 0, -props.armSpread)
+  s.leftArm.rotation.set(0, 0, props.armSpread)
+  s.rightLeg.rotation.set(0, 0, 0)
+  s.leftLeg.rotation.set(0, 0, 0)
+  if (bendJoints) {
+    bendJoints.leftArm.rotation.x  = 0
+    bendJoints.rightArm.rotation.x = 0
+    bendJoints.leftLeg.rotation.x  = 0
+    bendJoints.rightLeg.rotation.x = 0
+  }
+}
+
 let restingSpeed = 0.7
 
 function loadCustomIdle() {
   if (!viewer) return
   ;(viewer.animations as any).handles.clear()
   viewer.animations.add(customIdleAnimation)
+  viewer.animations.speed = 1
+  restingSpeed = 1
+}
+
+function loadStaticPose() {
+  if (!viewer) return
+  ;(viewer.animations as any).handles.clear()
+  viewer.animations.add(staticPoseAnimation)
   viewer.animations.speed = 1
   restingSpeed = 1
 }
@@ -164,6 +226,8 @@ function buildViewer() {
 
   if (props.animation === 'custom-idle') {
     loadCustomIdle()
+  } else if (props.animation === 'static-pose') {
+    loadStaticPose()
   } else {
     viewer.animations.add(props.animation === 'walk' ? WalkingAnimation : IdleAnimation)
     viewer.animations.speed = 0.7
@@ -177,14 +241,14 @@ function buildViewer() {
   controls.enablePan    = false
   controls.enableRotate = false
 
-  if (props.skinUrl) viewer.loadSkin(props.skinUrl, props.model)
+  if (props.skinUrl) Promise.resolve(viewer.loadSkin(props.skinUrl, props.model)).then(installBendRigOnce)
   if (props.capeUrl) viewer.loadCape(props.capeUrl)
   if (props.showWings) loadWings()
 
   if (props.autoRotateSpeed > 0) startRotateTick()
 }
 
-// This is the Hub's permanent, always-visible skin preview — if its WebGL
+// This is the Hub's permanent, always-visible skin preview - if its WebGL
 // context ever gets force-lost (e.g. Chromium evicting the oldest context
 // once too many are live elsewhere, such as an unbounded grid of viewers on
 // another page), it would otherwise stay a blank/white box until the app
@@ -192,13 +256,13 @@ function buildViewer() {
 // canvas a fresh context back.
 function onContextLost(e: Event) {
   e.preventDefault()
-  console.warn('[HeroSkinViewer] WebGL context lost — rebuilding once restored')
+  console.warn('[HeroSkinViewer] WebGL context lost - rebuilding once restored')
   if (rotateRafId !== null) { cancelAnimationFrame(rotateRafId); rotateRafId = null }
   if (wingsRafId  !== null) { cancelAnimationFrame(wingsRafId);  wingsRafId  = null }
   if (snapRafId   !== null) { cancelAnimationFrame(snapRafId);   snapRafId   = null }
   wingsMixer   = null
   wingsObject  = null
-  // Skip viewer/controls .dispose() here — the GL context backing them is
+  // Skip viewer/controls .dispose() here - the GL context backing them is
   // already dead, so touching it further can only throw.
   controls = null
   viewer   = null
@@ -239,7 +303,7 @@ function startRotateTick() {
   rotateRafId = requestAnimationFrame(rotateTick)
 }
 
-// Paused via KeepAlive tab switches (App.vue wraps routes in <KeepAlive>) —
+// Paused via KeepAlive tab switches (App.vue wraps routes in <KeepAlive>) -
 // without this the WebGL render loop and these RAF ticks keep running
 // forever in the background for every page the user has ever visited.
 onActivated(() => {
@@ -276,19 +340,26 @@ function onDragEnd() {
 function snapToOrigin() {
   if (!viewer) return
   const target = props.initialRotationY ?? 0
-  const diff = target - viewer.playerWrapper.rotation.y
+  const diff = Math.atan2(Math.sin(target - viewer.playerWrapper.rotation.y), Math.cos(target - viewer.playerWrapper.rotation.y))
   if (Math.abs(diff) < 0.001) {
     viewer.playerWrapper.rotation.y = target
     snapRafId = null
     return
   }
-  viewer.playerWrapper.rotation.y += diff * 0.04
+  viewer.playerWrapper.rotation.y += diff * 0.06
   snapRafId = requestAnimationFrame(snapToOrigin)
 }
 
+// A new resting angle (the Locker turns the figure round to show its back on the Capes tab): ease there.
+watch(() => props.initialRotationY, () => {
+  if (!viewer) return
+  if (snapRafId !== null) cancelAnimationFrame(snapRafId)
+  snapToOrigin()
+})
+
 watch([() => props.skinUrl, () => props.model], ([url, model]) => {
   if (!viewer) return
-  if (url) viewer.loadSkin(url, model ?? 'auto-detect')
+  if (url) Promise.resolve(viewer.loadSkin(url, model ?? 'auto-detect')).then(installBendRigOnce)
   else     viewer.resetSkin()
 })
 
@@ -317,14 +388,6 @@ onUnmounted(() => {
   viewer?.dispose()
   viewer = null
 })
-
-function triggerEmote() {
-  if (!viewer) return
-  viewer.animations.speed = 2.8
-  setTimeout(() => { if (viewer) viewer.animations.speed = restingSpeed }, 2200)
-}
-
-defineExpose({ triggerEmote })
 </script>
 
 <style scoped>
@@ -335,14 +398,14 @@ defineExpose({ triggerEmote })
   overflow: hidden;
   user-select: none;
   /* `pop` toggles a persistent state (shifted down while in a party,
-     normal while not) — plain `transition`, not `@keyframes`. A
+     normal while not) - plain `transition`, not `@keyframes`. A
      keyframe animation SNAPS instantly to its 0% value the moment it starts
      (no smooth transition into that starting state, only smooth
      interpolation between keyframes); `transition` instead always animates
      smoothly from whatever the current computed value actually is, in
      either direction, whichever way `pop` flips. Steep cubic-bezier (same
      curve as the rest of the hub's entrance animations, e.g. hub-rise/
-     launch-drop-y in HomePage.vue) instead of a shallow ease-out — starts at
+     launch-drop-y in HomePage.vue) instead of a shallow ease-out - starts at
      full speed and decelerates sharply into its resting point, so it stays
      smooth either way `pop` flips without a slow ramp-up at the start. */
   transition: transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -362,7 +425,7 @@ defineExpose({ triggerEmote })
 }
 
 /* Hugs the character's actual rendered silhouette (canvas alpha), not a
-   bounding-box rectangle — drop-shadow (unlike box-shadow) reads the
+   bounding-box rectangle - drop-shadow (unlike box-shadow) reads the
    source's alpha channel, so stacking it in a ring around 0-blur offsets
    traces the skin's outline instead of drawing a box around empty
    transparent canvas space. */

@@ -75,7 +75,7 @@ fn build_jvm_args_for_profile(profile: &profile_service::LaunchProfile) -> Vec<S
             javaagent.push(format!("-javaagent:{}={}", jar.to_string_lossy(), profile.version));
             log::info!("[BejaBootstrap] Injecting: {} (MC {})", jar.to_string_lossy(), profile.version);
         } else {
-            log::warn!("[BejaBootstrap] Bootstrap JAR not found — client will launch without BejaClient.");
+            log::warn!("[BejaBootstrap] Bootstrap JAR not found - client will launch without BejaClient.");
         }
     }
 
@@ -127,8 +127,8 @@ async fn resolve_game_java_path(
     let runtimes_dir = paths::runtimes_dir();
     match java_runtime::ensure_java_runtime(client, &component, &runtimes_dir, |l| on_log(l)).await {
         Ok(Some(bin)) => return bin.to_string_lossy().to_string(),
-        Ok(None) => on_log(format!("[Java] No managed runtime available for {component} on this platform — falling back to system Java.")),
-        Err(e) => on_log(format!("[Java] Failed to fetch managed runtime ({component}): {e} — falling back to system Java.")),
+        Ok(None) => on_log(format!("[Java] No managed runtime available for {component} on this platform - falling back to system Java.")),
+        Err(e) => on_log(format!("[Java] Failed to fetch managed runtime ({component}): {e} - falling back to system Java.")),
     }
     "java".to_string()
 }
@@ -181,7 +181,7 @@ pub async fn launch_game(app: AppHandle, profile_id: &str) -> Result<(), String>
         match auth_service::refresh_account(&account.id).await {
             Ok(Some(refreshed)) => account = refreshed,
             Ok(None) => {}
-            Err(e) => return Err(format!("Token refresh failed — please log out and sign in again. ({e})")),
+            Err(e) => return Err(format!("Token refresh failed - please log out and sign in again. ({e})")),
         }
     }
 
@@ -206,7 +206,7 @@ pub async fn launch_game(app: AppHandle, profile_id: &str) -> Result<(), String>
 
     if !base_installed || !loader_already_installed {
         on_log(format!(
-            "[Launcher] Version not installed — downloading {}{}…",
+            "[Launcher] Version not installed - downloading {}{}…",
             profile.version,
             if profile.loader != "vanilla" { format!(" + {}", profile.loader) } else { String::new() }
         ));
@@ -288,7 +288,7 @@ pub async fn launch_game(app: AppHandle, profile_id: &str) -> Result<(), String>
                 Err(e) => return Err(format!("Failed to stage adapter JAR: {e}")),
             }
         } else {
-            on_log("[BejaClient] Adapter JAR not found — BejaHooks calls may fail.".to_string());
+            on_log("[BejaClient] Adapter JAR not found - BejaHooks calls may fail.".to_string());
         }
     }
 
@@ -335,7 +335,10 @@ pub async fn launch_game(app: AppHandle, profile_id: &str) -> Result<(), String>
     if settings.launcher.debug_logging {
         on_log(format!("[Debug] Java: {java_path}"));
         on_log(format!("[Debug] Libraries: {} resolved", resolved_libs.len()));
-        on_log(format!("[Debug] Full command: {java_path} {}", args.join(" ")));
+        // args has the raw --accessToken value in it, and this can end up saved to disk via
+        // launch_save_logs, so strip it before it hits the log
+        let redacted = args.join(" ").replace(ctx.auth.access_token.as_str(), "***REDACTED***");
+        on_log(format!("[Debug] Full command: {java_path} {redacted}"));
     }
 
     let mut command = Command::new(&java_path);
@@ -442,6 +445,7 @@ pub async fn launch_game(app: AppHandle, profile_id: &str) -> Result<(), String>
             });
             profile_service::update_profile(&profile_id, patch);
         }
+        crate::services::auto_backup_service::run_auto_backup_if_enabled(&profile_id);
         *ACTIVE.lock() = None;
         let _ = app_exit.emit("launch:status", format!("stopped:{code}"));
         crate::console_window::send_console_status(&app_exit, &format!("stopped:{code}"));

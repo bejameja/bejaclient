@@ -162,12 +162,15 @@ pub async fn download_mod(project_id: &str, profile_id: &str) -> Result<(), Stri
     download_to_dir(project_id, &game_dir.join("mods"), Some(&profile.version), Some(&profile.loader)).await
 }
 
-pub async fn download_mod_version(project_id: &str, version_id: &str, profile_id: &str) -> Result<(), String> {
+/// Returns the downloaded file's name (needed by the caller to know what to clean up if this
+/// update later turns out to have broken the game — see `mod_update_backup_service`).
+pub async fn download_mod_version(project_id: &str, version_id: &str, profile_id: &str) -> Result<String, String> {
     let (_, game_dir) = profile_game_dir(profile_id)?;
     let version: ModrinthVersion = serde_json::from_value(get_json(&format!("{API}/version/{version_id}")).await?).map_err(|e| e.to_string())?;
     let _ = project_id;
     let file = version.files.iter().find(|f| f.primary).or_else(|| version.files.first()).ok_or("No downloadable file found")?;
-    download_file(&file.url, &game_dir.join("mods").join(&file.filename)).await
+    download_file(&file.url, &game_dir.join("mods").join(&file.filename)).await?;
+    Ok(file.filename.clone())
 }
 
 pub async fn download_resourcepack(project_id: &str, profile_id: &str) -> Result<(), String> {
@@ -269,7 +272,7 @@ pub async fn install_modpack(project_id: &str, version_id: Option<&str>) -> Resu
             }
             let name = entry.name().to_string();
             if let Some(rel) = name.strip_prefix("overrides/") {
-                let dest = game_dir_blocking.join(rel);
+                let dest = crate::paths::safe_join(&game_dir_blocking, rel)?;
                 if let Some(parent) = dest.parent() {
                     std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
                 }

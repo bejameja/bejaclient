@@ -24,16 +24,29 @@
 
     <!-- Filters (hidden on Servers tab) -->
     <div v-if="activeTab !== 'servers'" class="controls-row">
-      <select
-        v-if="activeTab !== 'modpacks'"
-        v-model="filterSource"
-        class="filter-select"
-        @change="doSearch"
-      >
-        <option value="modrinth">Modrinth</option>
-        <option value="curseforge">CurseForge</option>
-        <option value="both">Modrinth + CurseForge</option>
-      </select>
+      <div v-if="activeTab !== 'modpacks'" class="source-switch" role="group" aria-label="Source">
+        <button
+          class="source-btn"
+          :class="{ active: filterSource === 'modrinth' }"
+          title="Modrinth"
+          @click="setSource('modrinth')"
+        ><img class="source-ico" :src="modrinthIcon" alt="Modrinth" /></button>
+        <button
+          class="source-btn"
+          :class="{ active: filterSource === 'curseforge' }"
+          title="CurseForge"
+          @click="setSource('curseforge')"
+        ><img class="source-ico" :src="curseforgeIcon" alt="CurseForge" /></button>
+        <button
+          class="source-btn source-btn--both"
+          :class="{ active: filterSource === 'both' }"
+          title="Modrinth + CurseForge"
+          @click="setSource('both')"
+        >
+          <img class="source-ico source-ico--half" :src="modrinthIcon" alt="" />
+          <img class="source-ico source-ico--half" :src="curseforgeIcon" alt="" />
+        </button>
+      </div>
 
       <select v-model="filterVersion" class="filter-select" @change="doSearch">
         <option value="">{{ $t('mods.filters.allVersions') }}</option>
@@ -157,7 +170,7 @@
       <!-- Server list -->
       <div v-if="serversLoading && !servers.length" class="skeleton-list">
         <div v-for="i in 6" :key="i" class="row-skeleton">
-          <Skeleton variant="block" width="56px" height="56px" radius="4px" />
+          <Skeleton variant="block" width="56px" height="56px" radius="6px" />
           <div class="row-skeleton-lines">
             <Skeleton variant="text" width="35%" />
             <Skeleton variant="text" width="70%" />
@@ -244,7 +257,7 @@
 
       <div v-if="loading && !results.length" class="skeleton-list">
         <div v-for="i in 6" :key="i" class="row-skeleton">
-          <Skeleton variant="block" width="72px" height="72px" radius="4px" />
+          <Skeleton variant="block" width="72px" height="72px" radius="6px" />
           <div class="row-skeleton-lines">
             <Skeleton variant="text" width="35%" />
             <Skeleton variant="text" width="85%" />
@@ -340,7 +353,7 @@
 
   </div>
 
-  <!-- ── Modpack version panel — slides in beside the explorer instead of a
+  <!-- ── Modpack version panel - slides in beside the explorer instead of a
        floating popover, pushing it left into the freed-up space. ──────────── -->
   <Transition name="side-panel">
     <div v-if="modpackPickerHit" class="version-side-panel">
@@ -356,7 +369,7 @@
       </div>
 
       <!-- One project can have several pack releases for the same Minecraft
-           version (e.g. multiple Fabulously Optimized builds all on 1.21.11) —
+           version (e.g. multiple Fabulously Optimized builds all on 1.21.11) -
            filter by MC version first instead of scrolling through everything. -->
       <div v-if="modpackGameVersions.length > 1" class="version-filter-row">
         <select v-model="modpackVersionFilter" class="version-filter-select">
@@ -394,33 +407,52 @@
   <Teleport to="body">
     <Transition name="picker">
       <div v-if="pickerHit" class="picker-overlay" @click.self="closePicker">
-        <div class="picker-panel" :style="pickerPos">
+        <div class="picker-panel" role="dialog" aria-modal="true">
 
-          <p class="picker-title">{{ $t('mods.picker.installTitle') }}</p>
-          <p class="picker-sub">{{ pickerHit.title }}</p>
+          <div class="picker-head">
+            <img v-if="pickerHit.iconUrl" class="picker-head-icon" :src="pickerHit.iconUrl" alt="" />
+            <div class="picker-head-text">
+              <span class="picker-kicker">{{ $t('mods.picker.installTitle') }}</span>
+              <span class="picker-head-title">{{ pickerHit.title }}</span>
+            </div>
+            <button class="picker-x" title="Close" @click="closePicker">&times;</button>
+          </div>
+
+          <div v-if="profiles.length > 6" class="picker-search">
+            <input v-model="pickerSearch" class="picker-search-input" placeholder="Search profiles..." spellcheck="false" />
+          </div>
 
           <div v-if="!profiles.length" class="picker-empty">{{ $t('mods.picker.noProfiles') }}</div>
 
-          <label
-            v-for="p in profiles"
-            :key="p.id"
-            class="picker-row"
-            :class="{
-              checked:   pickerSelected.includes(p.id),
-              installed: pickerHit && installedMap.get(`${pickerHit.source}-${pickerHit.id}`)?.has(p.id),
-            }"
-          >
-            <template v-if="!(pickerHit && installedMap.get(`${pickerHit.source}-${pickerHit.id}`)?.has(p.id))">
-              <input type="checkbox" :value="p.id" v-model="pickerSelected" class="picker-check" />
-            </template>
-            <div class="picker-profile-info">
-              <span class="picker-profile-name">{{ p.name }}</span>
-              <span class="picker-profile-meta">{{ p.version }} · {{ p.loader }}</span>
-            </div>
-            <span v-if="pickerHit && installedMap.get(`${pickerHit.source}-${pickerHit.id}`)?.has(p.id)" class="picker-installed-label">{{ $t('mods.picker.installed') }}</span>
-          </label>
+          <div class="picker-list">
+            <label
+              v-for="p in pickerProfiles"
+              :key="p.id"
+              class="picker-row"
+              :class="{
+                checked:   pickerSelected.includes(p.id),
+                installed: installedMap.get(`${pickerHit.source}-${pickerHit.id}`)?.has(p.id),
+              }"
+            >
+              <input
+                type="checkbox"
+                :value="p.id"
+                v-model="pickerSelected"
+                class="picker-check"
+                :disabled="installedMap.get(`${pickerHit.source}-${pickerHit.id}`)?.has(p.id)"
+              />
+              <div class="picker-profile-info">
+                <span class="picker-profile-name">{{ p.name }}</span>
+                <span class="picker-profile-meta">{{ p.version }} · {{ p.loader }}</span>
+              </div>
+              <span v-if="installedMap.get(`${pickerHit.source}-${pickerHit.id}`)?.has(p.id)" class="picker-installed-label">{{ $t('mods.picker.installed') }}</span>
+              <span v-else-if="p.id === activeProfileId" class="picker-tag">Active</span>
+            </label>
+            <div v-if="profiles.length && !pickerProfiles.length" class="picker-empty">No profile matches "{{ pickerSearch }}"</div>
+          </div>
 
           <div class="picker-footer">
+            <span class="picker-count">{{ pickerSelected.length }} selected</span>
             <button class="picker-btn picker-btn--cancel" @click="closePicker">{{ $t('mods.picker.cancel') }}</button>
             <button
               class="picker-btn picker-btn--confirm"
@@ -441,33 +473,46 @@
   <Teleport to="body">
     <Transition name="picker">
       <div v-if="serverPickerServer" class="picker-overlay" @click.self="closeServerPicker">
-        <div class="picker-panel" :style="pickerPos">
+        <div class="picker-panel" role="dialog" aria-modal="true">
 
-          <p class="picker-title">{{ $t('mods.picker.addTitle') }}</p>
-          <p class="picker-sub">{{ serverPickerServer.name }}</p>
+          <div class="picker-head">
+            <div class="picker-head-text">
+              <span class="picker-kicker">{{ $t('mods.picker.addTitle') }}</span>
+              <span class="picker-head-title">{{ serverPickerServer.name }}</span>
+            </div>
+            <button class="picker-x" title="Close" @click="closeServerPicker">&times;</button>
+          </div>
 
           <div v-if="!profiles.length" class="picker-empty">{{ $t('mods.picker.noProfiles') }}</div>
 
-          <label
-            v-for="p in profiles"
-            :key="p.id"
-            class="picker-row"
-            :class="{
-              checked:   serverPickerSelected.includes(p.id),
-              installed: serverPickerServer && serverAddedMap.get(serverKey(serverPickerServer))?.has(p.id),
-            }"
-          >
-            <template v-if="!(serverPickerServer && serverAddedMap.get(serverKey(serverPickerServer))?.has(p.id))">
-              <input type="checkbox" :value="p.id" v-model="serverPickerSelected" class="picker-check" />
-            </template>
-            <div class="picker-profile-info">
-              <span class="picker-profile-name">{{ p.name }}</span>
-              <span class="picker-profile-meta">{{ p.version }} · {{ p.loader }}</span>
-            </div>
-            <span v-if="serverPickerServer && serverAddedMap.get(serverKey(serverPickerServer))?.has(p.id)" class="picker-installed-label">{{ $t('mods.picker.added') }}</span>
-          </label>
+          <div class="picker-list">
+            <label
+              v-for="p in profiles"
+              :key="p.id"
+              class="picker-row"
+              :class="{
+                checked:   serverPickerSelected.includes(p.id),
+                installed: serverAddedMap.get(serverKey(serverPickerServer))?.has(p.id),
+              }"
+            >
+              <input
+                type="checkbox"
+                :value="p.id"
+                v-model="serverPickerSelected"
+                class="picker-check"
+                :disabled="serverAddedMap.get(serverKey(serverPickerServer))?.has(p.id)"
+              />
+              <div class="picker-profile-info">
+                <span class="picker-profile-name">{{ p.name }}</span>
+                <span class="picker-profile-meta">{{ p.version }} · {{ p.loader }}</span>
+              </div>
+              <span v-if="serverAddedMap.get(serverKey(serverPickerServer))?.has(p.id)" class="picker-installed-label">{{ $t('mods.picker.added') }}</span>
+              <span v-else-if="p.id === activeProfileId" class="picker-tag">Active</span>
+            </label>
+          </div>
 
           <div class="picker-footer">
+            <span class="picker-count">{{ serverPickerSelected.length }} selected</span>
             <button class="picker-btn picker-btn--cancel" @click="closeServerPicker">{{ $t('mods.picker.cancel') }}</button>
             <button
               class="picker-btn picker-btn--confirm"
@@ -564,6 +609,8 @@ import { showToast } from '../composables/useToasts'
 import { openContextMenu } from '../composables/useContextMenu'
 import { playHover } from '../composables/useSounds'
 import Skeleton from '../components/common/Skeleton.vue'
+import modrinthIcon from '../assets/modrinth.png'
+import curseforgeIcon from '../assets/curseforge-icon.png'
 import Icon from '../components/common/Icon.vue'
 
 // ── Tab config ────────────────────────────────────────────────────────────────
@@ -609,10 +656,16 @@ const filterSource     = ref<ExploreSource>('modrinth')
 const filterSort       = ref('relevance')
 
 // CurseForge modpacks download as a plain .zip with a different install pipeline
-// (overrides folder, no mrpack unpacking) that the backend doesn't implement — the
+// (overrides folder, no mrpack unpacking) that the backend doesn't implement - the
 // modpack tab's install flow (openModpackPicker → modrinth.versions) is Modrinth-only,
 // so force that source regardless of the picker to avoid a broken install.
 const effectiveSource = computed<ExploreSource>(() => activeType.value === 'modpack' ? 'modrinth' : filterSource.value)
+
+function setSource(source: ExploreSource): void {
+  if (filterSource.value === source) return
+  filterSource.value = source
+  doSearch()
+}
 
 const releaseVersions     = ref<string[]>([])
 const availableCategories = ref<{ name: string; project_type: string }[]>([])
@@ -621,14 +674,14 @@ const visibleCategories = computed(() => {
   const type = activeType.value
   if (!type) return []
   // Modrinth's "cursed" category (joke/broken mods) isn't what most people mean by
-  // "browse horror mods" — swap it for a synthetic entry that runs a keyword search
+  // "browse horror mods" - swap it for a synthetic entry that runs a keyword search
   // for "horror" instead of a category facet (Modrinth has no real "horror" tag).
   const real = availableCategories.value.filter(c => c.project_type === type && c.name !== 'cursed')
   return type === 'mod' ? [...real, { name: 'horror', project_type: type }] : real
 })
 
 // Modrinth/CurseForge don't expose real "categories:horror" or "categories:cursed"
-// facets that mean what a user expects — build the actual search query/facets sent
+// facets that mean what a user expects - build the actual search query/facets sent
 // to the backend, folding the synthetic "horror" pseudo-category into a keyword search.
 function buildSearchParams() {
   const isHorror = filterCategories.value.includes('horror')
@@ -768,7 +821,9 @@ async function loadInstalls() {
     const data = await window.api.installs.get()
     // Populate installedMap from persisted records
     for (const [projectId, profileIds] of Object.entries(data.mods)) {
+      // the tracker is keyed by the bare project id (Modrinth and CurseForge installs alike), so register both sources
       installedMap.value.set(`modrinth-${projectId}`, new Set(profileIds))
+      installedMap.value.set(`curseforge-${projectId}`, new Set(profileIds))
     }
     installedMap.value = new Map(installedMap.value)
     // Populate serverAddedMap
@@ -804,6 +859,19 @@ const pickerHit        = ref<ExploreHit | null>(null)
 const pickerSelected   = ref<string[]>([])
 const pickerInstalling = ref(false)
 const pickerPos        = ref<Record<string, string>>({})
+const pickerSearch     = ref('')
+
+// profiles that can still take the mod first (the active one on top), those that already have it last;
+// filtered by the search box
+const pickerProfiles = computed(() => {
+  const q = pickerSearch.value.trim().toLowerCase()
+  const have = pickerHit.value ? installedMap.value.get(hitKey(pickerHit.value)) : undefined
+  const rank = (p: LaunchProfile) => (have?.has(p.id) ? 2 : p.id === activeProfileId.value ? 0 : 1)
+  return profiles.value
+    .filter(p => !q || p.name.toLowerCase().includes(q) || p.version.includes(q) || p.loader.toLowerCase().includes(q))
+    .slice()
+    .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name))
+})
 
 function hitKey(hit: ExploreHit) { return `${hit.source}-${hit.id}` }
 
@@ -814,6 +882,7 @@ function openModPicker(hit: ExploreHit, event: MouseEvent) {
   let left = rect.right - panelW
   if (left < 8) left = 8
   pickerPos.value = { top: `${rect.bottom + 6}px`, left: `${left}px` }
+  pickerSearch.value = ''
   pickerHit.value = hit
   const already = installedMap.value.get(hitKey(hit)) ?? new Set<string>()
   const def = activeProfileId.value
@@ -825,7 +894,7 @@ function closePicker() {
   pickerSelected.value = []
 }
 
-// ── Modpack version picker — a modpack installs as its own new profile,
+// ── Modpack version picker - a modpack installs as its own new profile,
 // so instead of asking "which existing profile(s)" it asks "which version". ──
 const modpackPickerHit     = ref<ExploreHit | null>(null)
 const modpackVersions      = ref<ModrinthVersion[]>([])
@@ -947,7 +1016,7 @@ async function onContentDrop(e: DragEvent) {
   if (ok) showToast({ title: ok === 1 ? '1 mod installed' : `${ok} mods installed`, variant: 'success' })
 }
 
-// Modpacks never reach here — they route through openModpackPicker/confirmModpackInstall
+// Modpacks never reach here - they route through openModpackPicker/confirmModpackInstall
 // instead, since a modpack installs as its own new profile rather than into one.
 async function runModInstall(hit: ExploreHit, profileId: string) {
   if (hit.source === 'curseforge') {
@@ -1190,7 +1259,7 @@ onUnmounted(() => {
   grid-template-columns: 1fr 0px;
   overflow: hidden;
   position: relative;
-  // Smooth "push the explorer aside, reveal the panel" — animating grid-template-columns
+  // Smooth "push the explorer aside, reveal the panel" - animating grid-template-columns
   // (not just the panel's own width) is what makes the explorer itself visibly slide/shrink
   // rather than the panel just appearing on top of unchanged content.
   transition: grid-template-columns 420ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -1239,7 +1308,7 @@ onUnmounted(() => {
   opacity: 0;
 }
 
-// ── Search + tab pill row (Figma redesign, 2026-08-14 — pixel-sampled: flat
+// ── Search + tab pill row (Figma redesign, 2026-08-14 - pixel-sampled: flat
 // #1A1A1E fill, no border, fully-rounded pill shape) ────────────────────────
 .search-tab-row {
   position: relative;
@@ -1252,9 +1321,9 @@ onUnmounted(() => {
 .tab-pill {
   height: 38px;
   padding: 0 22px;
-  background: #1a1a1e;
+  background: #13141A;
   border: none;
-  border-radius: 999px;
+  border-radius: 12px;
   color: rgba(255, 255, 255, 0.7);
   font-size: 13px;
   cursor: pointer;
@@ -1271,9 +1340,9 @@ onUnmounted(() => {
 .search-bar {
   display: flex;
   align-items: center;
-  background: #1a1a1e;
+  background: #13141A;
   border: none;
-  border-radius: 999px;
+  border-radius: 12px;
   height: 38px;
   padding: 0 22px;
   flex: 1 1 320px;
@@ -1300,6 +1369,45 @@ onUnmounted(() => {
   flex-wrap: wrap;
 }
 
+// Source switch: the two site logos and one button with both (merged results).
+.source-switch {
+  display: flex;
+  gap: 4px;
+  margin-right: 4px;
+}
+
+.source-btn {
+  height: 32px;
+  min-width: 36px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: #13141A;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: background 120ms, opacity 120ms, border-color 120ms;
+
+  &:hover { background: #232328; opacity: 0.9; }
+  &.active {
+    background: #2a2a30;
+    border-color: rgba(255, 255, 255, 0.3);
+    opacity: 1;
+  }
+}
+
+.source-ico {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  display: block;
+
+  &--half { width: 14px; height: 14px; }
+}
+
 .filter-select {
   height: 32px;
   background: none;
@@ -1311,7 +1419,7 @@ onUnmounted(() => {
   cursor: pointer;
   outline: none;
   appearance: none;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   transition: color 80ms;
 
   &:hover, &:focus { color: #bbb; }
@@ -1364,7 +1472,7 @@ onUnmounted(() => {
   font-size: 10px;
   letter-spacing: 0.04em;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 12px;
   transition: background 80ms, color 80ms;
   display: flex;
   align-items: center;
@@ -1394,7 +1502,7 @@ onUnmounted(() => {
   letter-spacing: 0.03em;
   padding: 0 8px;
   outline: none;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   flex: 1;
   min-width: 140px;
 
@@ -1412,7 +1520,7 @@ onUnmounted(() => {
   font-size: 10px;
   letter-spacing: 0.06em;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1441,14 +1549,13 @@ onUnmounted(() => {
   align-items: center;
   gap: 20px;
   padding: 18px 20px;
-  background: #0f0f11;
-  border: 1px solid #262627;
-  border-radius: 4px;
+  background: #13141A;
+  border-radius: $radius-sm;
   box-sizing: border-box;
-  transition: background 80ms, border-color 80ms;
+  transition: background 80ms;
   flex-shrink: 0;
 
-  &:hover { background: #141416; border-color: #333335; }
+  &:hover { background: #181920; }
   &.offline { opacity: 0.5; }
 }
 
@@ -1622,7 +1729,7 @@ onUnmounted(() => {
   grid-template-columns: repeat(3, 1fr);
   align-content: start;
   gap: 28px;
-  // The mod icon overlaps above each card's top edge — without this the
+  // The mod icon overlaps above each card's top edge - without this the
   // top row's icons get clipped by the scroll container's edge.
   padding-top: 22px;
 
@@ -1725,6 +1832,7 @@ onUnmounted(() => {
   color: #888;
   background: #0d0d0d;
   border: none;
+  border-radius: 12px;
   cursor: pointer;
   letter-spacing: 0.08em;
   transition: background 80ms, color 80ms, transform 100ms $ease-out;
@@ -1734,22 +1842,21 @@ onUnmounted(() => {
 }
 
 // ── Mod row ───────────────────────────────────────────────────────────────────
-// Same card look as the Hub's friends embed (.friends-card in HomePage.vue) —
-// #0f0f11 fill, #262627 border, rounded — applied per-row here instead of once
+// Same card look as the Hub's friends embed (.friends-card in HomePage.vue) -
+// #13141A fill, no border, rounded - applied per-row here instead of once
 // around the whole list, so each mod reads as its own embed.
 .mod-row {
   display: flex;
   align-items: center;
   gap: 18px;
   padding: 16px 18px;
-  background: #0f0f11;
-  border: 1px solid #262627;
-  border-radius: 4px;
+  background: #13141A;
+  border-radius: $radius-sm;
   box-sizing: border-box;
-  transition: background 80ms, border-color 80ms;
+  transition: background 80ms;
   flex-shrink: 0;
 
-  &:hover { background: #141416; border-color: #333335; }
+  &:hover { background: #181920; }
 }
 
 // Icon-grid layout: taller cards with the icon elevated over the top-right
@@ -1762,7 +1869,7 @@ onUnmounted(() => {
   padding: 20px 18px 18px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 90px), #1c1c1f;
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 4px;
+  border-radius: $radius-sm;
   overflow: visible;
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
 
@@ -1782,7 +1889,7 @@ onUnmounted(() => {
   right: 16px;
   width: 72px;
   height: 72px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   overflow: hidden;
   background: #1a1a1c;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -2004,6 +2111,7 @@ onUnmounted(() => {
   color: #ccc;
   background: #111;
   border: 1px solid transparent;
+  border-radius: 12px;
   cursor: pointer;
   letter-spacing: 0.06em;
   overflow: hidden;
@@ -2014,18 +2122,19 @@ onUnmounted(() => {
   gap: 6px;
   min-width: 72px;
 
-  &:hover:not(:disabled) { background: #1e1e1e; border-color: var(--accent, #{$primary}); color: #fff; }
+  // neutral hover (white), no blue accent
+  &:hover:not(:disabled) { background: #1e1e1e; border-color: rgba(255, 255, 255, 0.32); color: #fff; }
   &:active:not(:disabled) { transform: scale(0.96); }
   &:disabled:has(.spinner) {
     opacity: 1;
     cursor: wait;
-    border-color: color-mix(in srgb, var(--accent, #{$primary}) 50%, transparent);
+    border-color: rgba(255, 255, 255, 0.2);
 
     &::after {
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent, #{$primary}) 30%, transparent), transparent);
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);
       background-size: 60% 100%;
       animation: install-progress-sweep 1.1s ease-in-out infinite;
     }
@@ -2052,6 +2161,7 @@ onUnmounted(() => {
   color: #888;
   background: #0d0d0d;
   border: none;
+  border-radius: 12px;
   cursor: pointer;
   letter-spacing: 0.08em;
   transition: background 80ms, color 80ms, transform 100ms $ease-out;
@@ -2073,13 +2183,13 @@ onUnmounted(() => {
 }
 
 // Categories sidebar (pixel-sampled from Figma, 2026-08-14): flat #1A1A1E
-// fill, no border, generously rounded, plain list — no chips/apply-button,
+// fill, no border, generously rounded, plain list - no chips/apply-button,
 // filtering applies immediately on click.
 .categories-sidebar {
   width: 220px;
   flex-shrink: 0;
-  background: #1a1a1e;
-  border-radius: 4px;
+  background: #13141a;
+  border-radius: $radius-sm;
   padding: 18px 14px;
   display: flex;
   flex-direction: column;
@@ -2106,7 +2216,7 @@ onUnmounted(() => {
   color: rgba(255, 255, 255, 0.6);
   font-size: 12.5px;
   padding: 8px 10px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   cursor: pointer;
   transition: background 100ms, color 100ms;
 
@@ -2353,26 +2463,123 @@ onUnmounted(() => {
   font-style: normal;
 }
 
-.picker-overlay { position: fixed; inset: 0; z-index: 4000; }
+// Install / add pickers: the Explore page's own surfaces (#13141A cards, #232328 hover, #2a2a30 selected), 12px pills
+// for the buttons, the orange Minecrafter heading from the category sidebar.
+.picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.6);
+}
 
 .picker-panel {
-  position: absolute;
-  width: 280px;
-  background: #0d0d0d;
-  border: 1px solid rgba(255,255,255,0.22);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.85);
+  position: relative;
+  width: 400px;
+  max-width: 100%;
+  max-height: min(500px, calc(100vh - 140px));
+  background: #0c0d10;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: $radius-sm;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  max-height: 380px;
 }
 
-.picker-title {
-  font-size: 11px;
-  color: #d9d9d9;
+.picker-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 18px 14px;
+  flex-shrink: 0;
+}
+
+.picker-head-icon {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  flex-shrink: 0;
+  image-rendering: pixelated;
+  border-radius: $radius-sm;
+}
+
+.picker-head-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.picker-kicker {
+  font-family: 'Minecrafter', 'Mojangles', monospace;
+  font-size: 12px;
+  font-weight: 700;
   letter-spacing: 0.06em;
-  margin: 0;
-  padding: 12px 14px 4px;
+  color: #F6AE35;
+}
+
+.picker-head-title {
+  font-size: 15px;
+  color: #fff;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picker-x {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: $radius-sm;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 100ms, color 100ms;
+
+  &:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
+}
+
+.picker-search {
+  padding: 0 18px 12px;
+  flex-shrink: 0;
+}
+
+.picker-search-input {
+  width: 100%;
+  height: 38px;
+  background: #13141A;
+  border: none;
+  border-radius: $radius-sm;
+  padding: 0 14px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  outline: none;
+
+  &::placeholder { color: #666; }
+}
+
+.picker-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 18px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
 }
 
 // ── Version side panel header (icon + name, mirrors the mod row it came from) ──
@@ -2431,51 +2638,43 @@ onUnmounted(() => {
   padding: 0 10px;
   cursor: pointer;
   outline: none;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   transition: border-color 80ms;
 
   &:hover, &:focus { border-color: rgba(255, 255, 255, 0.3); }
 }
 
-.picker-sub {
-  font-size: 9px;
-  color: #555;
-  letter-spacing: 0.03em;
-  margin: 0;
-  padding: 0 14px 10px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-}
-
 .picker-empty {
-  font-size: 10px;
-  color: #444;
-  padding: 14px;
+  font-size: 12px;
+  color: #666;
+  padding: 18px 16px;
   text-align: center;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
 }
 
+// a profile is a row like the mod rows on the page: #13141A, slightly lighter on hover, lighter and framed when chosen
 .picker-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 14px;
+  gap: 14px;
+  padding: 12px 14px;
+  flex-shrink: 0;
+  background: #13141A;
+  border: 1px solid transparent;
+  border-radius: $radius-sm;
   cursor: pointer;
-  transition: background 60ms;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
-  overflow-y: auto;
+  transition: background 80ms, border-color 80ms;
 
-  &:hover:not(.installed) { background: rgba(255,255,255,0.04); }
-  &.checked    { background: rgba(255,255,255,0.05); }
-  &.installed  { cursor: default; opacity: 0.55; }
+  &:hover:not(.installed) { background: #181920; }
+  &.checked { background: #232328; border-color: rgba(255, 255, 255, 0.3); }
+  &.installed { cursor: default; opacity: 0.55; }
 
   &--version {
     width: 100%;
     background: none;
     border: none;
     border-bottom: 1px solid rgba(255,255,255,0.04);
+    border-radius: 0;
     text-align: left;
     font-family: inherit;
 
@@ -2484,64 +2683,97 @@ onUnmounted(() => {
   }
 }
 
-.picker-check { width: 13px; height: 13px; accent-color: #fff; flex-shrink: 0; cursor: pointer; }
+.picker-check {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex-shrink: 0;
+  cursor: pointer;
+  background: #232328;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 0;
+  transition: background 80ms, border-color 80ms;
 
-.picker-profile-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  &:checked { background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%230a0a0b' stroke-width='2' stroke-linecap='square'%3E%3Cpath d='M2.5 6.5l2.5 2.5 4.5-5.5'/%3E%3C/svg%3E") center / 14px 14px no-repeat; border-color: #fff; }
+  &:disabled { cursor: default; opacity: 0.5; }
+}
+
+.picker-profile-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
 
 .picker-profile-name {
-  font-size: 10px;
-  color: #ccc;
-  letter-spacing: 0.03em;
+  font-size: 14px;
+  color: #fff;
+  letter-spacing: 0.02em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .picker-profile-meta {
-  font-size: 8px;
-  color: #555;
-  letter-spacing: 0.02em;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.03em;
 }
 
+// the coloured Minecrafter words used across the launcher (blue = Friends, green = Requests)
+.picker-tag,
 .picker-installed-label {
-  font-size: 8px;
-  color: #4caf50;
-  letter-spacing: 0.04em;
-  margin-left: auto;
   flex-shrink: 0;
+  font-family: 'Minecrafter', 'Mojangles', monospace;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 1px 6px;
+  border-radius: $radius-sm;
 }
+
+.picker-tag { color: #4660FE; background: #090C20; }
+.picker-installed-label { color: #8BE28B; background: #0E1A10; margin-left: auto; }
 
 .picker-footer {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
   justify-content: flex-end;
-  padding: 10px 14px;
-  border-top: 1px solid rgba(255,255,255,0.06);
+  padding: 14px 18px 18px;
   flex-shrink: 0;
 }
 
+.picker-count {
+  margin-right: auto;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.03em;
+}
+
+// the same pills as the Explore tabs
 .picker-btn {
-  padding: 6px 14px;
-  font-size: 10px;
+  height: 38px;
+  padding: 0 22px;
+  justify-content: center;
+  font-size: 13px;
+  letter-spacing: 0.02em;
   cursor: pointer;
-  letter-spacing: 0.04em;
   border: none;
-  transition: background 80ms, color 80ms;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   gap: 6px;
-  border-radius: 4px;
+  transition: background 120ms, color 120ms, opacity 120ms;
 
   &--cancel {
-    background: transparent;
-    color: #666;
-    &:hover { color: #aaa; }
+    background: #13141A;
+    color: rgba(255, 255, 255, 0.7);
+    &:hover { background: #232328; color: #fff; }
   }
 
   &--confirm {
-    background: #111;
-    color: #ccc;
-    &:hover:not(:disabled) { background: #1e1e1e; color: #fff; }
+    background: #fff;
+    color: #0a0a0b;
+    font-weight: 800;
+    &:hover:not(:disabled) { background: rgba(255, 255, 255, 0.82); }
     &:disabled { opacity: 0.28; cursor: not-allowed; }
   }
 }

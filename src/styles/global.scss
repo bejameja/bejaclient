@@ -16,6 +16,19 @@ html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after 
   scroll-behavior: auto !important;
 }
 
+// ── Controller focus ring ─────────────────────────────────────────────────────
+// useGamepad.ts puts .pad-focus on the element the controller is on, and .pad-mode on <html> while
+// a controller is the last thing used (mouse or keyboard switches it off again).
+html.pad-mode .pad-focus {
+  outline: 2px solid #fff !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.14);
+}
+// keep the focused row clear of the button hints at the bottom
+html.pad-mode .main-content { scroll-padding: 12px 12px 72px; }
+// no mouse cursor while the controller is in use; moving the mouse brings it back (useGamepad.ts)
+html.pad-nocursor, html.pad-nocursor * { cursor: none !important; }
+
 // Toggled via Appearance > Animations > Hover Effects. Kills the transform-based
 // lift/scale micro-interactions on hover specifically, while leaving color/background
 // hover feedback (and unrelated non-hover transforms, e.g. toggle knobs) untouched.
@@ -59,21 +72,19 @@ html.no-hover-fx *:hover {
   margin-bottom: $sp-3;
 }
 
-// ── Floating card — use @extend %card-depth to apply ─────────────────────────
+// ── Floating card - use @extend %card-depth to apply ─────────────────────────
 %card-depth {
   background: $surface;
-  border: 1px solid $border;
+  border: none;
   border-radius: $radius-lg;
   box-shadow:
     $shadow-inset,
     $shadow-md;
   transition:
     transform    $transition,
-    border-color $transition,
     box-shadow   $transition;
 
   &:hover {
-    border-color: $border-strong;
     transform: translateY(-1px);
     box-shadow:
       $shadow-inset-strong,
@@ -81,7 +92,7 @@ html.no-hover-fx *:hover {
   }
 }
 
-// %glass-panel and %glow-ring moved to _motion.scss — that's the partial
+// %glass-panel and %glow-ring moved to _motion.scss - that's the partial
 // individual scoped components already `@import` for shared @extend-able
 // placeholders (%press-feedback, %focus-ring…), whereas this file is only
 // ever imported once at the app root, so placeholders defined here can't
@@ -160,7 +171,7 @@ html.no-hover-fx *:hover {
 .tab-fade-enter-from { opacity: 0; transform: translateY(6px); }
 .tab-fade-leave-to   { opacity: 0; transform: translateY(-6px); }
 
-// Generic modal open/close — shared by every Teleport-based modal
+// Generic modal open/close - shared by every Teleport-based modal
 .modal-fade-enter-active,
 .modal-fade-leave-active {
   transition: opacity 150ms ease;
@@ -170,7 +181,7 @@ html.no-hover-fx *:hover {
   opacity: 0;
 }
 
-// Generic toast stack pop-in — shared by every toast/notification list
+// Generic toast stack pop-in - shared by every toast/notification list
 .toast-pop-enter-active {
   transition: opacity 200ms ease, transform 200ms ease;
 }

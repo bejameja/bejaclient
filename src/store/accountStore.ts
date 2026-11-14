@@ -52,6 +52,27 @@ export const useAccountStore = defineStore('account', () => {
     }
   }
 
+  async function getLoginUrl(): Promise<string> {
+    return window.api.auth.getLoginUrl()
+  }
+
+  async function loginWithCode(input: string): Promise<Account | null> {
+    loading.value = true
+    error.value = null
+    try {
+      const account = await window.api.auth.loginWithCode(input)
+      await loadAccounts()
+      await selectAccount(account.id)
+      return account
+    } catch (e) {
+      error.value = String(e)
+      console.error('[Auth] browser login failed:', e)
+      return null
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function logout(id: string) {
     await window.api.auth.logout(id)
     await loadAccounts()
@@ -98,6 +119,8 @@ export const useAccountStore = defineStore('account', () => {
     hasAccounts,
     loadAccounts,
     login,
+    getLoginUrl,
+    loginWithCode,
     logout,
     selectAccount,
     refreshAccount,

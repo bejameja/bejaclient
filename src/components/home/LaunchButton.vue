@@ -1,6 +1,6 @@
 <template>
-  <div class="launch-wrap" ref="rootEl">
-  <div class="launch-split" :class="status">
+  <div class="launch-wrap" :class="{ 'launch-wrap--text': props.textOnly }" ref="rootEl">
+  <div class="launch-split" :class="[status, { ready: props.readyMode && lobbyStore.isReady }]">
 
     <!-- Main launch area -->
     <button
@@ -8,6 +8,8 @@
       :class="status"
       :disabled="status === 'starting' || status === 'stopping' || (status === 'idle' && isMaintenance) || (status === 'idle' && isPartyLeader && !lobbyStore.canLaunch)"
       @click="onLaunch"
+      @mouseenter="startScramble"
+      @mouseleave="stopScramble"
     >
       <!-- Idle + BejaClient profile selected: blocked, maintenance clock -->
       <template v-if="status === 'idle' && isMaintenance">
@@ -21,18 +23,9 @@
         </div>
       </template>
 
-      <!-- Idle: rocket icon + title/subtitle text block, left-aligned row -->
+      <!-- Idle: flat centered label, no icon -->
       <template v-else-if="status === 'idle'">
-        <svg class="launch-rocket" width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/>
-          <path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/>
-          <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/>
-          <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
-        </svg>
-        <div class="launch-text">
-          <span class="launch-label launch-label--title">{{ props.readyMode ? (lobbyStore.isReady ? 'Ready' : 'Ready up') : 'Launch' }}</span>
-          <span v-if="activeProfile" class="launch-version">{{ versionLabel }}</span>
-        </div>
+        <span class="launch-label launch-label--title"><span class="lg" :class="{ scr: scrambled !== null }" :data-scr="scrambled ?? ''">{{ idleText.charAt(0) }}</span>{{ idleText.slice(1) }}</span>
       </template>
 
       <!-- Starting -->
@@ -60,7 +53,7 @@
       </template>
     </button>
 
-    <!-- Dropdown chevron — swaps to a cancel/close "X" while starting or running -->
+    <!-- Dropdown chevron - swaps to a cancel/close "X" while starting or running -->
     <button
       class="launch-chevron"
       :class="{ cancel: showCancelX }"
@@ -78,7 +71,13 @@
 
   </div>
 
-  <!-- Profile dropdown — sibling of .launch-split (not a child), since
+  <!-- Text variant: the selected profile, shown under LAUNCH (change it with the arrow -> Profiles tab) -->
+  <div v-if="props.textOnly && activeProfile" class="launch-profile" :title="activeProfile.name">
+    <span class="launch-profile-name">{{ activeProfile.name }}</span>
+    <span v-if="versionLabel" class="launch-profile-version">{{ versionLabel }}</span>
+  </div>
+
+  <!-- Profile dropdown - sibling of .launch-split (not a child), since
        .launch-split has overflow:hidden for its conic-gradient border and
        would otherwise clip the dropdown, which sits entirely above it. -->
   <Transition name="dropdown-fade">
@@ -92,8 +91,7 @@
         @click="selectProfile(profile.id)"
       >
         <span class="dropdown-item-name">{{ profile.name }}</span>
-        <span v-if="profile.useBejaClient" class="dropdown-item-maint">Maintenance</span>
-        <span v-else class="dropdown-item-version">{{ profile.version }}</span>
+        <span class="dropdown-item-version">{{ profile.version }}</span>
       </button>
       <div v-if="profiles.length === 0" class="dropdown-empty">{{ $t('launch.noProfiles') }}</div>
     </div>
@@ -110,10 +108,36 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useLauncherStore } from '../../store/launcherStore'
 import { useLobbyStore } from '../../store/lobbyStore'
 
-const props = defineProps<{ readyMode?: boolean }>()
+const props = defineProps<{ readyMode?: boolean; textOnly?: boolean }>()
+// Hover effect: the first letter cycles through random letters for ~0.5 s (10 steps), then lands on the real one.
+const SCRAMBLE_GLYPHS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%&?'
+const SCRAMBLE_STEPS = 10
+const SCRAMBLE_MS = 20
+const scrambled = ref<string | null>(null)
+let scrambleTimer: ReturnType<typeof setInterval> | null = null
+function stopScramble() {
+  if (scrambleTimer) { clearInterval(scrambleTimer); scrambleTimer = null }
+  scrambled.value = null
+}
+function startScramble() {
+  if (!props.textOnly) return   // no reduced-motion check on purpose: it is a letter swap, nothing moves
+  stopScramble()
+  let step = 0
+  const tick = () => {
+    if (++step > SCRAMBLE_STEPS) { stopScramble(); return }
+    const real = idleText.value.charAt(0)
+    let g = real
+    while (g === real) g = SCRAMBLE_GLYPHS.charAt(Math.floor(Math.random() * SCRAMBLE_GLYPHS.length))
+    scrambled.value = g
+  }
+  tick()
+  scrambleTimer = setInterval(tick, SCRAMBLE_MS)
+}
+const idleText = computed(() => props.readyMode ? (lobbyStore.isReady ? 'READY' : 'READY UP') : 'LAUNCH')
 
 const store = useLauncherStore()
 const lobbyStore = useLobbyStore()
@@ -121,6 +145,7 @@ const status = computed(() => store.status)
 const profiles = computed(() => store.profiles)
 const activeProfile = computed(() => store.activeProfile)
 const isMaintenance = computed(() => store.isBejaMaintenance)
+const router = useRouter()
 const dropdownOpen = ref(false)
 const rootEl = ref<HTMLElement | null>(null)
 const showCancelX = computed(() => status.value === 'starting' || status.value === 'running')
@@ -131,6 +156,7 @@ const LOADER_NAMES: Record<string, string> = {
   forge: 'Forge',
   neoforge: 'NeoForge',
   quilt: 'Quilt',
+  optifine: 'OptiFine',
   vanilla: '',
 }
 
@@ -152,8 +178,10 @@ function onLaunch() {
   }
 }
 
+// The arrow does not open a menu: it sends you to the Profiles tab in pick mode (?pick=1). Clicking a profile there makes it the
+// active one and returns to the hub. Opening Profiles normally keeps the usual behaviour (click = detail/edit view).
 function toggleDropdown() {
-  dropdownOpen.value = !dropdownOpen.value
+  void router.push({ name: 'profiles', query: { pick: '1' } })
 }
 
 async function selectProfile(id: string) {
@@ -169,24 +197,12 @@ function onClickOutside(e: MouseEvent) {
 
 onMounted(() => {
   document.addEventListener('mousedown', onClickOutside, true)
-
-  // WebView2/Chromium sometimes fails to composite backdrop-filter at all on
-  // first paint — it just renders as if the property weren't there — and only
-  // starts working once some unrelated repaint elsewhere happens to trigger
-  // proper layer creation. Nudging a real (sub-pixel, invisible) transform
-  // forces that layer creation immediately instead of leaving it to chance.
-  requestAnimationFrame(() => {
-    const el = rootEl.value?.querySelector<HTMLElement>('.launch-split')
-    if (!el) return
-    el.style.transform = 'translateZ(0.01px)'
-    requestAnimationFrame(() => { el.style.transform = '' })
-  })
 })
-onUnmounted(() => document.removeEventListener('mousedown', onClickOutside, true))
+onUnmounted(() => { document.removeEventListener('mousedown', onClickOutside, true); stopScramble() })
 </script>
 
 <style lang="scss" scoped>
-// LabyMod-style reference — blue/indigo gradient glass pill, play icon +
+// LabyMod-style reference - blue/indigo gradient glass pill, play icon +
 // left-aligned title/subtitle text block, swap icon on the right.
 $btn-blue-1: #7d8ae6;
 $btn-blue-2: #4a4fc4;
@@ -216,7 +232,7 @@ $btn-error:  #ff453a;
   &--maint {
     background: #0a0a0a;
     border-color: rgba(255, 255, 255, 0.08);
-    border-radius: 4px;
+    border-radius: $radius-sm;
 
     .launch-error-text { color: $btn-error; font-weight: 600; }
   }
@@ -233,39 +249,61 @@ $btn-error:  #ff453a;
 .err-fade-enter-active, .err-fade-leave-active { transition: opacity 0.2s ease; }
 .err-fade-enter-from, .err-fade-leave-to { opacity: 0; }
 
+// Wooden sign: oak planks with seams and grain, a dark frame with the game's bevel, nail heads where the two ropes
+// attach, the title in the Minecrafter pixel font with the dark drop shadow.
+$wood-dark: #3b2a14;
+
 .launch-split {
+  --wood: #8c6a3c;
   position: relative;
   display: flex;
   align-items: stretch;
   width: 272px;
   height: 72px;
-  border-radius: 4px;
+  border-radius: 0;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(24, 24, 27, 0.2);
-  backdrop-filter: blur(10px) saturate(160%);
-  -webkit-backdrop-filter: blur(10px) saturate(160%);
+  border: 3px solid $wood-dark;
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 21px, rgba(40, 26, 10, 0.55) 21px 23px),   // plank seams
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.05) 0 3px, transparent 3px 8px),             // grain
+    linear-gradient(to bottom, rgba(255, 230, 170, 0.14), transparent 45%),                        // light from above
+    var(--wood);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.4),
-    0 24px 60px rgba(0, 0, 0, 0.65),
-    $glass-shadow;
-  // A neutral, always-on filter (not just set on :hover below) — without
-  // this, WebView2/Chromium seems to only create the compositing layer that
-  // backdrop-filter also needs the first time `filter` actually gets a real
-  // value, i.e. whenever the mouse happens to first hover this element,
-  // rather than on initial paint. That's what made the blur look like it
-  // "eventually" appeared at random instead of being there from the start.
-  filter: brightness(1);
-  transition: filter 150ms ease-out;
+    inset 2px 2px 0 rgba(255, 225, 160, 0.35),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.4),
+    0 10px 26px rgba(0, 0, 0, 0.55);
+  transform-origin: 50% -8px;
+  transition: filter 120ms ease-out;
+
+  // nail heads, in line with the ropes (HomePage .rope)
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    top: 4px;
+    width: 6px;
+    height: 6px;
+    background: #20160a;
+    box-shadow: inset 1px 1px 0 rgba(255, 230, 170, 0.35);
+    z-index: 2;
+  }
+  &::before { left: 25px; }
+  &::after { right: 26px; }
 
   &:hover {
-    filter: brightness(1.1);
+    filter: brightness(1.12);
+    animation: sign-sway 1400ms ease-in-out;
   }
 
-  &.error {
-    background: rgba(30, 19, 19, 0.45);
-  }
+  &.ready { --wood: #5f7d3a; }
+
+  &.error { --wood: #7a3d2e; }
+}
+
+@keyframes sign-sway {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(0.9deg); }
+  60% { transform: rotate(-0.6deg); }
 }
 
 .launch-main {
@@ -274,11 +312,12 @@ $btn-error:  #ff453a;
   display: flex;
   flex-direction: row;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   gap: 12px;
   padding: 0 16px;
   background: none;
   border: none;
+  border-radius: 0;
   outline: none;
   cursor: pointer;
   overflow: hidden;
@@ -326,6 +365,16 @@ $btn-error:  #ff453a;
   letter-spacing: 0.02em;
   line-height: 1.2;
   color: #fff;
+  text-shadow: 2px 2px 0 $wood-dark;
+
+  &--title {
+    font-family: 'Minecrafter', 'Plus Jakarta Sans', sans-serif;
+    font-weight: 400;
+    font-size: 26px;
+    letter-spacing: 0.12em;
+    // the pixel font's glyph box is taller than its line box
+    padding-top: 3px;
+  }
 
   &--status {
     font-size: 13px;
@@ -356,6 +405,7 @@ $btn-error:  #ff453a;
   color: #fff;
   line-height: 1.2;
   background: transparent;
+  text-shadow: 1px 1px 0 $wood-dark;
 }
 
 
@@ -374,18 +424,105 @@ $btn-error:  #ff453a;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: none;
+  background: rgba(0, 0, 0, 0.2);
   border: none;
+  border-radius: 0;   // the global button reset rounds corners
+  border-left: 3px solid $wood-dark;
   outline: none;
   color: #fff;
   cursor: pointer;
   transition: color 120ms, background 120ms;
   flex-shrink: 0;
 
+  svg { filter: drop-shadow(2px 2px 0 #{$wood-dark}); }
+
+  &:hover:not(:disabled) { background: rgba(255, 255, 255, 0.14); }
   &:disabled { cursor: not-allowed; opacity: 0.5; }
 
-  &.cancel:hover { color: $btn-error; background: rgba(255, 69, 58, 0.12); }
+  &.cancel:hover { color: #ffb4ab; background: rgba(120, 20, 10, 0.35); }
 }
+
+// ── Text-only variant (hub corner): white pixel text, no sign, no frame ──────────────────────────────────────
+.launch-wrap--text {
+  align-items: flex-start;
+
+  .launch-split {
+    width: auto;
+    height: auto;
+    border: 0;
+    background: none;
+    box-shadow: none;
+    overflow: visible;
+    align-items: center;
+    gap: 2px;
+    animation: none;
+    transform: none;
+    &::before, &::after { display: none; }
+    &:hover { filter: none; animation: none; }
+  }
+
+  .launch-main { flex: none; padding: 6px 10px; overflow: visible; }
+
+  .launch-label { text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.55); }
+  .launch-label--title { font-size: 44px; letter-spacing: 0.14em; opacity: 0.92; transition: opacity 120ms, color 160ms; }
+  // very light green tint on hover
+  .launch-main:hover:not(:disabled) .launch-label--title { opacity: 1; color: #d2f7cc; }
+
+  .launch-chevron {
+    width: 60px;
+    height: 60px;
+    background: none;
+    border: 0;
+    opacity: 0.92;
+    svg { width: 40px; height: 40px; stroke-width: 5.2; stroke-linecap: square; stroke-linejoin: miter; filter: drop-shadow(1px 1px 0 rgba(0, 0, 0, 0.55)); }
+    align-self: center;
+    margin-top: -24px;   // optical centre on the pixel-font caps (the font box sits low: shifts the arrow up ~12px)
+    &:hover:not(:disabled) { background: none; opacity: 1; }
+  }
+
+  .profile-dropdown { left: 0; transform: none; bottom: calc(100% + 6px); }
+}
+// first letter scramble (see startScramble): the real letter keeps its space (transparent), a random one is drawn over it
+.launch-wrap--text .lg {
+  position: relative;
+  display: inline-block;
+
+  &.scr { color: transparent; text-shadow: none; }
+  &.scr::before {
+    content: attr(data-scr);
+    position: absolute;
+    left: 0;
+    top: 0;
+    color: #d2f7cc;
+    text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.55);
+  }
+}
+.launch-profile {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  max-width: 360px;
+  margin: -6px 0 0 10px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.6);
+}
+.launch-profile-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+}
+.launch-profile-version {
+  flex: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+}
+.launch-wrap--text :deep(.dropdown-fade-enter-from),
+.launch-wrap--text :deep(.dropdown-fade-leave-to) { transform: translateY(6px); }
 
 // ── Dropdown ──────────────────────────────────────────────────────────────────
 .profile-dropdown {
@@ -396,7 +533,7 @@ $btn-error:  #ff453a;
   transform: translateX(-50%);
   background: #0a0a0a;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
+  border-radius: $radius-sm;
   overflow: hidden;
   z-index: 10;
 }

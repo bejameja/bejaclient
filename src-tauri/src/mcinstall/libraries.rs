@@ -28,7 +28,7 @@ fn platform_arch_bucket(platform: &Platform) -> &'static str {
 }
 
 /// Converts a Maven coordinate ("group:artifact:version[:classifier][@ext]") to a relative jar path.
-fn maven_name_to_path(name: &str) -> String {
+pub(crate) fn maven_name_to_path(name: &str) -> String {
     let (rest, ext) = match name.split_once('@') {
         Some((r, e)) => (r, e.to_string()),
         None => (name, "jar".to_string()),
@@ -123,6 +123,22 @@ pub fn resolve_libraries(raw_libraries: &[RawLibrary], platform: &Platform) -> V
                 native_classifier: None,
                 extract_exclude: None,
             });
+        } else {
+            // No `downloads` and no `url` — the pre-1.13 vanilla-launcher convention for "this
+            // artifact is expected to already be sitting in libraries/, don't try to fetch it".
+            // OptiFine's real installer writes its version JSONs this way (both the OptiFine and
+            // launchwrapper-of libraries). Still needs a classpath entry, just an empty download
+            // URL so download_libraries knows to skip the fetch instead of GETing "".
+            result.push(ResolvedLibrary {
+                name: lib.name.clone(),
+                path: maven_name_to_path(&lib.name),
+                url: String::new(),
+                sha1: None,
+                size: None,
+                is_native: false,
+                native_classifier: None,
+                extract_exclude: None,
+            });
         }
     }
 
@@ -151,7 +167,14 @@ pub async fn download_libraries(
     let failures = run_pool(libraries, concurrency, move |lib: ResolvedLibrary| {
         let dest = libraries_dir.join(lib.path.replace('/', std::path::MAIN_SEPARATOR_STR));
         let client = client.clone();
-        async move { download_file(&client, &lib.url, &dest, DownloadOptions { sha1: lib.sha1.clone() }).await }
+        async move {
+            // Empty url = "expected to already be on disk" (see resolve_libraries's local-only
+            // branch) — nothing to fetch, and hitting an empty URL would just error anyway.
+            if lib.url.is_empty() {
+                return if dest.exists() { Ok(()) } else { Err(format!("{} is missing and has no download URL (expected to already be installed)", lib.name)) };
+            }
+            download_file(&client, &lib.url, &dest, DownloadOptions { sha1: lib.sha1.clone() }).await
+        }
     })
     .await;
     if let Some(summary) = summarize_failures(&failures, "libraries") {

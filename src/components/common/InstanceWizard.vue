@@ -49,7 +49,7 @@
             <!-- ── Step 0: Info ── -->
             <div v-if="step === 0" key="0" class="wiz-page">
               <h1 class="wiz-title">Your new profile</h1>
-              <p class="wiz-subtitle">Name it and watch the card build itself — this is what you'll see on the launch grid.</p>
+              <p class="wiz-subtitle">Name it and watch the card build itself - this is what you'll see on the launch grid.</p>
 
               <div class="wiz-page-body">
                 <div class="wiz-info-layout">
@@ -207,7 +207,7 @@
             <!-- ── Step 2: Look ── -->
             <div v-else-if="step === 2" key="2" class="wiz-page">
               <h1 class="wiz-title">Make it yours</h1>
-              <p class="wiz-subtitle">Click the card to set a background, click the icon to set an icon — or keep the defaults.</p>
+              <p class="wiz-subtitle">Click the card to set a background, click the icon to set an icon - or keep the defaults.</p>
 
               <div class="wiz-page-body">
                 <div class="wiz-final-layout">
@@ -393,7 +393,7 @@ function loaderIconSrc(l: string): string | null { return LOADER_ICON_MAP[l] ?? 
 const SORT_MODES = ['Popular', 'Oldest'] as const
 
 // 1.21.x ships the current full BejaClient feature set. 26.x is a real but early
-// toolchain-proof adapter (Mojang went unobfuscated starting 26.1, dropping Yarn) —
+// toolchain-proof adapter (Mojang went unobfuscated starting 26.1, dropping Yarn) -
 // it boots on real Minecraft 26.2 but only as a skeleton, the full mod hasn't been
 // ported to official mappings yet. Both are exposed so 26.x can actually be tested.
 function isBejaSupported(id: string): boolean {
@@ -535,11 +535,11 @@ const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp']
 function validateFile(file: File): boolean {
   imageError.value = ''
   if (!ACCEPTED_TYPES.includes(file.type)) {
-    imageError.value = 'Unsupported file type — use .png, .jpeg or .webp.'
+    imageError.value = 'Unsupported file type - use .png, .jpeg or .webp.'
     return false
   }
   if (file.size > MAX_IMAGE_BYTES) {
-    imageError.value = 'File is too large — maximum size is 1MB.'
+    imageError.value = 'File is too large - maximum size is 1MB.'
     return false
   }
   return true
@@ -687,7 +687,7 @@ $red: #ef4444;
   min-height: 560px;
   background: #131417;
   border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 4px;
+  border-radius: $radius-lg;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -703,7 +703,7 @@ $red: #ef4444;
   height: 32px;
   background: none;
   border: none;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   color: rgba(255, 255, 255, 0.55);
   display: flex;
   align-items: center;
@@ -764,7 +764,7 @@ $red: #ef4444;
   flex: 1;
   max-width: 130px;
   height: 3px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   background: rgba(255, 255, 255, 0.1);
   margin-top: 16px;
   transition: background 180ms;
@@ -810,7 +810,7 @@ $red: #ef4444;
   gap: 22px;
   padding-right: 6px;
   &::-webkit-scrollbar { width: 4px; }
-  &::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.09); border-radius: 4px; }
+  &::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.09); border-radius: $radius-sm; }
 }
 
 // ── Step 1: fields + live preview ─────────────────────────────────────────────
@@ -846,7 +846,7 @@ $red: #ef4444;
   padding: 12px 14px;
   background: #212329;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   color: #fff;
   font-size: 14px;
   font-family: inherit;
@@ -861,7 +861,7 @@ $red: #ef4444;
   padding: 12px 14px;
   background: #212329;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   color: #fff;
   font-size: 14px;
   font-family: inherit;
@@ -897,7 +897,7 @@ $red: #ef4444;
 .wiz-cbox {
   width: 20px;
   height: 20px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   border: 2px solid rgba(255, 255, 255, 0.25);
   display: flex;
   align-items: center;
@@ -927,7 +927,7 @@ $red: #ef4444;
   padding: 9px 12px;
   background: #26282e;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+  border-radius: $radius-sm;
   font-size: 11.5px;
   font-weight: 500;
   line-height: 1.5;
@@ -959,7 +959,7 @@ $red: #ef4444;
 .wiz-pcard {
   background: #212329;
   border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 4px;
+  border-radius: $radius;
   overflow: hidden;
 }
 
@@ -973,7 +973,7 @@ $red: #ef4444;
   overflow: hidden;
 }
 
-// Gray treatment is baked into the default banner asset — no extra dimming needed
+// Gray treatment is baked into the default banner asset - no extra dimming needed
 .wiz-pcard-bgart {
   position: absolute;
   inset: 0;
@@ -987,7 +987,7 @@ $red: #ef4444;
   position: relative;
   width: 54px;
   height: 54px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   background: #101114;
   border: 1px solid rgba(255, 255, 255, 0.12);
   display: flex;
@@ -1086,7 +1086,7 @@ $red: #ef4444;
   padding: 12px 26px;
   background: #fff;
   border: none;
-  border-radius: 4px;
+  border-radius: 12px;
   color: #0c0d0f;
   font-size: 13.5px;
   font-weight: 700;
@@ -1111,7 +1111,7 @@ $red: #ef4444;
   display: flex;
   align-items: center;
   background: #212329;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   padding: 0 6px 0 14px;
   height: 46px;
 }
@@ -1130,7 +1130,7 @@ $red: #ef4444;
   &.disabled { cursor: default; opacity: 0.75; }
 }
 
-.wiz-loader-dd-icon { width: 18px; height: 18px; object-fit: contain; border-radius: 4px; }
+.wiz-loader-dd-icon { width: 18px; height: 18px; object-fit: contain; border-radius: $radius-sm; }
 
 .wiz-pill-sep {
   width: 1px;
@@ -1160,7 +1160,7 @@ $red: #ef4444;
   height: 46px;
   padding: 0 16px;
   background: #212329;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
@@ -1176,7 +1176,7 @@ $red: #ef4444;
   min-width: 150px;
   background: #26282e;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+  border-radius: $radius;
   padding: 5px;
   display: flex;
   flex-direction: column;
@@ -1193,7 +1193,7 @@ $red: #ef4444;
   padding: 8px 11px;
   background: none;
   border: none;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   color: rgba(255, 255, 255, 0.75);
   font-size: 13px;
   font-weight: 600;
@@ -1204,7 +1204,7 @@ $red: #ef4444;
   &.sel   { color: #fff; background: rgba(255, 255, 255, 0.05); }
 }
 
-.wiz-menu-icon { width: 17px; height: 17px; object-fit: contain; border-radius: 4px; }
+.wiz-menu-icon { width: 17px; height: 17px; object-fit: contain; border-radius: $radius-sm; }
 .wiz-menu-icon-blank { width: 17px; text-align: center; color: $green; font-size: 13px; }
 
 .wiz-flavor-toggle {
@@ -1212,7 +1212,7 @@ $red: #ef4444;
   align-items: center;
   gap: 6px;
   background: #212329;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   padding: 5px;
   height: 46px;
   box-sizing: border-box;
@@ -1227,7 +1227,7 @@ $red: #ef4444;
   padding: 0 14px;
   background: transparent;
   border: none;
-  border-radius: 4px;
+  border-radius: 12px;
   color: rgba(255, 255, 255, 0.5);
   font-size: 13.5px;
   font-weight: 700;
@@ -1237,7 +1237,7 @@ $red: #ef4444;
   &.on { background: #3a3d45; color: #fff; }
 }
 
-.wiz-flavor-icon { width: 18px; height: 18px; object-fit: contain; border-radius: 4px; }
+.wiz-flavor-icon { width: 18px; height: 18px; object-fit: contain; border-radius: $radius-sm; }
 
 // ── Version list ──────────────────────────────────────────────────────────────
 .wiz-vlist { gap: 9px; }
@@ -1252,7 +1252,7 @@ $red: #ef4444;
   padding: 9px 16px 9px 10px;
   background: #212329;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   cursor: pointer;
   text-align: left;
   transition: background 120ms;
@@ -1262,7 +1262,7 @@ $red: #ef4444;
 .wiz-vgroup-icon {
   width: 34px;
   height: 34px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   object-fit: cover;
   flex-shrink: 0;
   // Only tiny block textures get nearest-neighbor; photo covers stay smooth
@@ -1327,7 +1327,7 @@ $red: #ef4444;
   padding: 8px 14px;
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   color: rgba(255, 255, 255, 0.75);
   font-size: 13.5px;
   font-weight: 600;
@@ -1376,7 +1376,7 @@ $red: #ef4444;
 .wiz-final-card {
   position: relative;
   width: min(560px, 100%);
-  border-radius: 4px;
+  border-radius: $radius-lg;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: #191a1f;
@@ -1441,7 +1441,7 @@ $red: #ef4444;
   position: relative;
   width: 64px;
   height: 64px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   background: #101114;
   border: 1px solid rgba(255, 255, 255, 0.15);
   overflow: hidden;
@@ -1453,7 +1453,7 @@ $red: #ef4444;
   img { width: 100%; height: 100%; object-fit: cover; }
   img.ph { object-fit: contain; padding: 16%; opacity: 0.45; box-sizing: border-box; }
 
-  .wiz-hover-hint { font-size: 10px; gap: 4px; border-radius: 4px; }
+  .wiz-hover-hint { font-size: 10px; gap: 4px; border-radius: $radius-sm; }
   &:hover .wiz-hover-hint { opacity: 1; }
 }
 
@@ -1494,7 +1494,7 @@ $red: #ef4444;
   padding: 9px 15px;
   background: #212329;
   border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 4px;
+  border-radius: 12px;
   color: rgba(255, 255, 255, 0.7);
   font-size: 12.5px;
   font-weight: 700;
@@ -1534,7 +1534,7 @@ $red: #ef4444;
   padding: 9px 13px;
   background: rgba(224, 80, 80, 0.07);
   border: 1px solid rgba(224, 80, 80, 0.22);
-  border-radius: 4px;
+  border-radius: $radius-sm;
   flex-shrink: 0;
 }
 
@@ -1542,7 +1542,7 @@ $red: #ef4444;
 .wizard-fade-enter-active, .wizard-fade-leave-active { transition: opacity 180ms ease; }
 .wizard-fade-enter-from, .wizard-fade-leave-to { opacity: 0; }
 
-// ── Step transitions — direction-aware slide (forward vs. back) ───────────────
+// ── Step transitions - direction-aware slide (forward vs. back) ───────────────
 .wiz-step-fwd-enter-active, .wiz-step-fwd-leave-active,
 .wiz-step-back-enter-active, .wiz-step-back-leave-active {
   transition: opacity 200ms ease, transform 240ms cubic-bezier(0.25, 1, 0.5, 1);

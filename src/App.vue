@@ -1,35 +1,21 @@
 <template>
   <template v-if="gateChecked">
-  <!-- Toasts are always mounted regardless of route — Teleport to body -->
+  <!-- Toasts are always mounted regardless of route - Teleport to body -->
+  <div id="toast-dock" />
   <FriendRequestToast />
   <PartyInviteToast />
+  <GamepadHints />
 
   <RouterView v-if="isConsole || isLobby" />
   <div v-else class="app-shell">
     <!-- Splash screen -->
     <Transition name="splash">
       <div v-if="splashVisible" class="splash-screen">
-        <div class="splash-maze" :style="{ backgroundImage: `url(${mazeBg})` }" />
-        <div class="splash-vignette" />
-        <div class="splash-grain" />
-        <div class="splash-center">
-          <div class="splash-brand-row">
-            <img :src="logoUrl" class="splash-logo" alt="" />
-            <div class="splash-name"><span class="s-beja">Beja</span><span class="s-client">Client</span></div>
-          </div>
-          <div class="splash-bar-track">
-            <div class="splash-bar-fill" :style="{ width: loadProgress + '%' }" />
-          </div>
-          <div class="splash-stage-wrap">
-            <Transition name="stage-fade" mode="out-in">
-              <span class="splash-stage" :key="loadStage">{{ loadStage }}</span>
-            </Transition>
-          </div>
-        </div>
+        <img :src="logoUrl" class="splash-logo" alt="" />
       </div>
     </Transition>
 
-    <div v-if="!isConsole && !isLobby" class="main-col">
+    <div v-if="!isConsole && !isLobby" class="main-col" :inert="appLocked">
       <TopBar />
       <main class="main-content" ref="mainRef" @scroll="onScroll">
         <RouterView v-slot="{ Component }">
@@ -50,12 +36,11 @@
     <InstanceWizard />
     <UpdateNotification />
     <WhatsNewModal />
-    <LoginOverlay :show="!splashVisible && !accountStore.hasAccounts" />
+    <LoginOverlay :show="appLocked" />
     <BetaWarningToast />
     <ToastHost />
     <ContextMenu />
     <CommandPalette />
-    <EditorModeButton v-if="settingsStore.settings.customization.experimentalEnabled" />
   </div>
   </template>
 </template>
@@ -65,7 +50,6 @@ import { onMounted, watch, ref, computed, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import TopBar    from './components/layout/TopBar.vue'
-import mazeBg   from './assets/hex-bg.png'
 import ServerRow from './components/home/ServerRow.vue'
 import logoUrl  from './assets/bc-logo-new.png'
 
@@ -78,12 +62,13 @@ import SharedProfileModal from './components/common/SharedProfileModal.vue'
 import InstanceWizard from './components/common/InstanceWizard.vue'
 import FriendRequestToast from './components/common/FriendRequestToast.vue'
 import PartyInviteToast from './components/common/PartyInviteToast.vue'
+import GamepadHints from './components/common/GamepadHints.vue'
+import { startGamepad } from './composables/useGamepad'
 import LoginOverlay from './components/common/LoginOverlay.vue'
 import BetaWarningToast from './components/common/BetaWarningToast.vue'
 import ToastHost from './components/common/ToastHost.vue'
 import ContextMenu from './components/common/ContextMenu.vue'
 import CommandPalette from './components/common/CommandPalette.vue'
-import EditorModeButton from './components/common/EditorModeButton.vue'
 import { useScrollState } from './composables/useScrollState'
 import { useReducedMotion } from './composables/useReducedMotion'
 import { useCommandPalette } from './composables/useCommandPalette'
@@ -109,6 +94,11 @@ const loadStage       = ref('Starting up…')
 const splashStartedAt = Date.now()
 const MIN_SPLASH_MS   = 2200
 
+// SVG ring progress - circumference of r=54 is 2πr ≈ 339.29; dashoffset shrinks from full
+// (nothing drawn) to 0 (fully drawn) as loadProgress climbs to 100.
+const RING_CIRCUMFERENCE = 2 * Math.PI * 54
+const ringOffset = computed(() => RING_CIRCUMFERENCE * (1 - loadProgress.value / 100))
+
 const { updateScroll } = useScrollState()
 const mainRef = ref<HTMLElement | null>(null)
 
@@ -119,6 +109,12 @@ function onScroll() {
 useReducedMotion()
 
 const accountStore  = useAccountStore()
+// Mirrors LoginOverlay's own `show` condition (which TopBar's own "Sign in" pill also uses:
+// `selectedAccount`, not just `hasAccounts` - an account can exist in storage without being the
+// active one, e.g. after a logout, and that must still count as signed out). `inert` keeps the
+// app behind it fully unreachable (mouse, tab focus, everything) while signed out, on top of the
+// overlay's raised z-index - z-index alone only stops clicks, not keyboard-driven navigation.
+const appLocked = computed(() => !splashVisible.value && !accountStore.selectedAccount)
 const launcherStore = useLauncherStore()
 const settingsStore = useSettingsStore()
 const friendsStore  = useFriendsStore()
@@ -126,11 +122,11 @@ const lobbyStore    = useLobbyStore()
 const notifStore    = useNotificationsStore()
 const lockerStore   = useLockerStore()
 
-// ── Discord Rich Presence — reflects what's actually on screen ──────────────
+// ── Discord Rich Presence - reflects what's actually on screen ──────────────
 // Never runs while a game is actually running: launch_service.rs already owns
 // the presence then ("Playing Minecraft <version>"), and this must not stomp it.
 // `state` mirrors the actual TopBar nav label for that route (see TopBar.vue's
-// navItems) so the two RPC lines read as "<action> — <tab>" instead of every
+// navItems) so the two RPC lines read as "<action> - <tab>" instead of every
 // tab collapsing into the same generic "In the launcher" second line.
 const ROUTE_PRESENCE: Record<string, { details: string; state: string }> = {
   '/':          { details: 'On the Hub', state: 'Hub' },
@@ -166,7 +162,7 @@ function applyAccent(color: string) {
 }
 
 
-// The app no longer gates entry behind an access code — it unlocks straight
+// The app no longer gates entry behind an access code - it unlocks straight
 // into the normal boot flow. Console window is exempt (it's a separate
 // mini-window, not the main app).
 const gateChecked = ref(false)
@@ -222,6 +218,13 @@ async function initApp() {
     setTimeout(() => { splashVisible.value = false }, remaining + 150)
   }
 
+  // Populates `friends`/`requests` and opens the live friends socket - nothing
+  // else in the app called this, so incomingRequests was always empty here
+  // (no pre-existing pending requests ever got surfaced as a notification on
+  // launch) and the socket never connected (no live friend:request/accepted
+  // pushes, no online/offline presence - only ever refreshed by visiting the
+  // Friends page itself, which calls refresh() on its own mount).
+  await friendsStore.connect()
   for (const req of friendsStore.incomingRequests) {
     notifStore.addFriendRequest(req.uuid, req.username)
   }
@@ -245,7 +248,6 @@ async function initApp() {
   window.api.lobby.onReadyUpdate(d  => lobbyStore.handleReadyUpdate(d as any))
   window.api.lobby.onSkinUpdate(d   => lobbyStore.handleSkinUpdate(d as any))
   window.api.lobby.onSpeaking(d     => lobbyStore.handleSpeaking(d as any))
-  window.api.lobby.onEmote(d        => lobbyStore.handlePartyEmote(d))
   window.api.lobby.onDisbanded(()   => lobbyStore.handleDisbanded())
   window.api.lobby.onError(d        => lobbyStore.handlePartyError(d as any))
   window.api.lobby.onInviteReceived(d => lobbyStore.handleInviteReceived(d))
@@ -257,25 +259,29 @@ async function initApp() {
   })
 
   warmAudio()
+  startGamepad()
   document.addEventListener('mousedown', (e) => { if (e.button === 0) playMouseClick() })
 
   const { togglePalette } = useCommandPalette()
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault()
+      // Not signed in yet - the whole app behind the login overlay is meant to be
+      // unreachable, and the palette can jump straight to pages/actions that bypass it.
+      if (appLocked.value) return
       togglePalette()
     }
   })
 }
 
-// This is a shipped desktop app, not a website — the native WebView2 menu
+// This is a shipped desktop app, not a website - the native WebView2 menu
 // (Reload/Inspect/View Source/etc.) should never appear. Suppressed globally
 // here; any element that wants its own menu calls openContextMenu(event, …)
 // which does its own preventDefault() first, so this doesn't interfere with
 // e.g. the chat message menu or the mods-list menu.
 document.addEventListener('contextmenu', (e) => e.preventDefault())
 
-// Same reasoning — native drag-out-of-the-window for images/icons/links
+// Same reasoning - native drag-out-of-the-window for images/icons/links
 // reads as a leaky browser habit, not a native app. CSS (see _reset.scss)
 // covers most cases; this is the JS-level belt-and-suspenders backstop.
 document.addEventListener('dragstart', (e) => e.preventDefault())
@@ -301,7 +307,7 @@ watch(
 
 watch(() => launcherStore.status, (val, prev) => {
   if (val === 'running' && prev !== 'running') playLaunch()
-  // Game just stopped — re-sync presence to whatever page is on screen now,
+  // Game just stopped - re-sync presence to whatever page is on screen now,
   // since set_idle_presence() (called from launch_service.rs on stop) always
   // resets to the generic default and would otherwise clobber e.g. "Configuring
   // settings" if that's actually what's showing.
@@ -323,129 +329,34 @@ $splash-ease: cubic-bezier(0.16, 1, 0.3, 1);
   position: fixed;
   inset: 0;
   z-index: 9999;
-  background: $bg;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.splash-maze {
-  position: absolute;
-  inset: 0;
-  background-size: cover;
-  background-position: center;
-  opacity: 0.1;
-}
-
-.splash-vignette {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(120% 90% at 50% 38%, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.55) 72%);
-}
-
-.splash-grain {
-  position: absolute;
-  inset: 0;
-  opacity: 0.035;
-  pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-.splash-center {
-  position: relative;
-  z-index: 2;
+  background: #000;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 28px;
+  justify-content: center;
+  animation: splash-self-fade 2200ms $splash-ease forwards;
 }
 
-@keyframes splash-rise {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-.splash-brand-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  opacity: 0;
-  animation: splash-rise 900ms $splash-ease 80ms forwards;
-
-  html.reduce-motion & { opacity: 1; animation: none; }
+@keyframes splash-self-fade {
+  0%, 50% { opacity: 1; }
+  100%    { opacity: 0; }
 }
 
 .splash-logo {
-  width: 46px;
-  height: 46px;
-  object-fit: contain;
-}
-
-.splash-name {
-  display: flex;
-  font-size: 29px;
-  line-height: 1;
-  letter-spacing: -0.01em;
-}
-
-.s-beja {
-  font-weight: 800;
-  color: #fff;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-}
-
-.s-client {
-  font-weight: 300;
-  color: #fff;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-}
-
-.splash-bar-track {
-  position: relative;
   width: 220px;
-  height: 2px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
-  overflow: hidden;
-  opacity: 0;
-  animation: splash-rise 900ms $splash-ease 260ms forwards;
-
-  html.reduce-motion & { opacity: 1; animation: none; }
+  height: 220px;
+  object-fit: contain;
+  animation: splash-logo-wiggle 2200ms $splash-ease forwards;
 }
 
-.splash-bar-fill {
-  height: 100%;
-  border-radius: 4px;
-  background: linear-gradient(90deg, rgba(240, 240, 240, 0.25), $text-primary);
-  transition: width 900ms $splash-ease;
+@keyframes splash-logo-wiggle {
+  0%   { transform: rotate(0deg); }
+  20%  { transform: rotate(30deg); }
+  45%  { transform: rotate(-30deg); }
+  100% { transform: rotate(360deg); }
 }
 
-.splash-stage-wrap {
-  height: 14px;
-  opacity: 0;
-  animation: splash-rise 700ms $splash-ease 360ms forwards;
-
-  html.reduce-motion & { opacity: 1; animation: none; }
-}
-
-.splash-stage {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.45);
-}
-
-.stage-fade-enter-active,
-.stage-fade-leave-active {
-  transition: opacity 160ms ease;
-}
-.stage-fade-enter-from,
-.stage-fade-leave-to {
-  opacity: 0;
-}
-
-// Transition — clean fade only
+// Transition - clean fade only
 .splash-enter-active { transition: opacity 0.5s ease; }
 .splash-leave-active { transition: opacity 0.6s ease; }
 .splash-enter-from, .splash-leave-to { opacity: 0; }
@@ -473,8 +384,8 @@ $splash-ease: cubic-bezier(0.16, 1, 0.3, 1);
 // Floating overlay, top-right, just under the TopBar (which now owns the
 // brand/logo and is full-width, so there's no more empty corner to sit
 // inside like the old sidebar-era corner-brand had). Not part of TopBar
-// itself — that row is already full with nav/search/gems/account/window
-// controls — so this stays a free-floating sibling over main-content.
+// itself - that row is already full with nav/search/gems/account/window
+// controls - so this stays a free-floating sibling over main-content.
 .corner-servers {
   position: absolute;
   top: 78px;
@@ -511,5 +422,17 @@ $splash-ease: cubic-bezier(0.16, 1, 0.3, 1);
   scrollbar-width: none;
 
   &::-webkit-scrollbar { display: none; }
+}
+
+// friend requests and party invites share one stack, so they never overlap
+#toast-dock {
+  position: fixed;
+  bottom: 24px;
+  right: 80px; // clears the right panel
+  z-index: 9000;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  pointer-events: none;
 }
 </style>

@@ -71,6 +71,82 @@ pub fn guess_runtime_component(mc_version: &str) -> String {
     }
 }
 
+/// Mojang runtime components the launcher can manage, with the Minecraft range each one serves.
+pub const MANAGED_COMPONENTS: &[(&str, &str, u32)] = &[
+    ("jre-legacy", "Minecraft 1.16 and older", 8),
+    ("java-runtime-alpha", "Minecraft 1.17", 16),
+    ("java-runtime-gamma", "Minecraft 1.18 - 1.20.4", 17),
+    ("java-runtime-delta", "Minecraft 1.20.5 and newer", 21),
+];
+
+#[derive(Debug, Serialize)]
+pub struct ManagedRuntime {
+    pub component: String,
+    pub label: String,
+    #[serde(rename = "majorVersion")]
+    pub major_version: u32,
+    pub installed: bool,
+    pub path: Option<String>,
+    #[serde(rename = "sizeBytes")]
+    pub size_bytes: u64,
+}
+
+fn dir_size(dir: &Path) -> u64 {
+    let mut total = 0u64;
+    let mut stack = vec![dir.to_path_buf()];
+    while let Some(d) = stack.pop() {
+        let Ok(rd) = std::fs::read_dir(&d) else { continue };
+        for entry in rd.flatten() {
+            // symlink_metadata: never follow links out of the runtime folder.
+            let Ok(meta) = std::fs::symlink_metadata(entry.path()) else { continue };
+            if meta.is_dir() {
+                stack.push(entry.path());
+            } else if meta.is_file() {
+                total += meta.len();
+            }
+        }
+    }
+    total
+}
+
+/// Lists every managed component with its install state and on-disk size.
+pub async fn list_managed(runtimes_dir: &Path) -> Vec<ManagedRuntime> {
+    let mut out = Vec::new();
+    for (component, label, major) in MANAGED_COMPONENTS {
+        let dir = runtimes_dir.join(component);
+        let bin = read_cached_java_bin(&dir).await;
+        let size = if bin.is_some() {
+            let d = dir.clone();
+            tokio::task::spawn_blocking(move || dir_size(&d)).await.unwrap_or(0)
+        } else {
+            0
+        };
+        out.push(ManagedRuntime {
+            component: component.to_string(),
+            label: label.to_string(),
+            major_version: *major,
+            installed: bin.is_some(),
+            path: bin.map(|b| b.to_string_lossy().to_string()),
+            size_bytes: size,
+        });
+    }
+    out
+}
+
+/// Deletes one managed runtime. The component name is checked against the allow-list first, so a
+/// crafted name can never point the delete outside `runtimes_dir`.
+pub async fn remove_managed(runtimes_dir: &Path, component: &str) -> Result<(), String> {
+    if !MANAGED_COMPONENTS.iter().any(|(c, _, _)| *c == component) {
+        return Err(format!("unknown runtime component: {component}"));
+    }
+    let dir = runtimes_dir.join(component);
+    match fs::remove_dir_all(&dir).await {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(format!("could not remove {component}: {e} (is Minecraft still running?)")),
+    }
+}
+
 fn info_path(runtime_dir: &Path) -> PathBuf {
     runtime_dir.join(".runtime-info.json")
 }
@@ -175,4 +251,47 @@ pub async fn ensure_java_runtime(
     }
     on_log(format!("[Java] Runtime {component} ready."));
     Ok(Some(java_bin))
+}
+
+#[cfg(test)]
+mod managed_tests {
+    use super::*;
+
+    fn temp_dir(tag: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("beja-jr-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[tokio::test]
+    async fn remove_rejects_unknown_and_traversal_names() {
+        let d = temp_dir("rm");
+        assert!(remove_managed(&d, "../evil").await.is_err());
+        assert!(remove_managed(&d, "not-a-component").await.is_err());
+        assert!(d.exists());
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[tokio::test]
+    async fn list_and_remove_roundtrip() {
+        let d = temp_dir("list");
+        let comp = d.join("java-runtime-delta");
+        std::fs::create_dir_all(comp.join("bin")).unwrap();
+        std::fs::write(comp.join("bin").join("java.exe"), vec![0u8; 2048]).unwrap();
+        std::fs::write(info_path(&comp), r#"{"javaBinRelPath":"bin/java.exe"}"#).unwrap();
+
+        let list = list_managed(&d).await;
+        assert_eq!(list.len(), MANAGED_COMPONENTS.len());
+        let delta = list.iter().find(|r| r.component == "java-runtime-delta").unwrap();
+        assert!(delta.installed);
+        assert!(delta.size_bytes >= 2048);
+        assert!(list.iter().filter(|r| r.installed).count() == 1);
+
+        remove_managed(&d, "java-runtime-delta").await.unwrap();
+        assert!(!comp.exists());
+        // removing again is a no-op, not an error
+        remove_managed(&d, "java-runtime-delta").await.unwrap();
+        let _ = std::fs::remove_dir_all(&d);
+    }
 }

@@ -37,9 +37,36 @@
             </div>
           </div>
 
+          <div v-if="actionDone" class="crash-card action-done-card">
+            <span class="card-text">{{ actionDone }}</span>
+          </div>
+
           <div class="crash-footer">
             <button class="btn-secondary" @click="store.crashInfo = null">Dismiss</button>
-            <button class="btn-primary" @click="openProfiles">Profile Settings</button>
+            <button
+              v-if="store.crashInfo?.category === 'oom'"
+              class="btn-primary"
+              :disabled="actionBusy"
+              @click="fixIncreaseRam"
+            >Increase Max RAM to 4 GB</button>
+            <button
+              v-else-if="store.crashInfo?.category === 'mixin_conflict'"
+              class="btn-primary"
+              :disabled="actionBusy"
+              @click="fixUndoLastUpdate"
+            >Undo Last Mod Update</button>
+            <button
+              v-else-if="store.crashInfo?.category === 'corrupted_mod' && store.crashInfo.modFileName"
+              class="btn-primary"
+              :disabled="actionBusy"
+              @click="fixDisableMod"
+            >Disable {{ store.crashInfo.modFileName }}</button>
+            <button
+              v-else-if="store.crashInfo?.category === 'outdated_mods'"
+              class="btn-primary"
+              @click="openProfiles"
+            >Update Mods</button>
+            <button v-else class="btn-primary" @click="openProfiles">Profile Settings</button>
           </div>
 
         </div>
@@ -49,15 +76,61 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useLauncherStore } from '../../store/launcherStore'
+import { showToast } from '../../composables/useToasts'
 
 const store  = useLauncherStore()
 const router = useRouter()
 
+const actionBusy = ref(false)
+const actionDone = ref<string | null>(null)
+
 function openProfiles() {
   store.crashInfo = null
   router.push('/profiles')
+}
+
+async function fixIncreaseRam(): Promise<void> {
+  const profile = store.activeProfile
+  if (!profile || actionBusy.value) return
+  actionBusy.value = true
+  try {
+    await store.updateProfile(profile.id, { maxRam: Math.max(4096, profile.maxRam) })
+    actionDone.value = 'Max RAM increased to 4 GB - try launching again.'
+  } finally {
+    actionBusy.value = false
+  }
+}
+
+async function fixUndoLastUpdate(): Promise<void> {
+  const profile = store.activeProfile
+  if (!profile || actionBusy.value) return
+  actionBusy.value = true
+  try {
+    const result = await window.api.mods.rollbackLastUpdate(profile.id)
+    if (result.ok) {
+      actionDone.value = `Rolled back "${result.modName}" - try launching again.`
+    } else {
+      showToast({ title: 'Nothing to undo', body: result.error, variant: 'info' })
+    }
+  } finally {
+    actionBusy.value = false
+  }
+}
+
+async function fixDisableMod(): Promise<void> {
+  const profile = store.activeProfile
+  const modFileName = store.crashInfo?.modFileName
+  if (!profile || !modFileName || actionBusy.value) return
+  actionBusy.value = true
+  try {
+    await window.api.mods.toggle(profile.id, modFileName)
+    actionDone.value = `Disabled ${modFileName} - try launching again.`
+  } finally {
+    actionBusy.value = false
+  }
 }
 </script>
 
@@ -77,7 +150,6 @@ function openProfiles() {
   width: 480px;
   max-width: 92vw;
   background: $surface;
-  border: 1px solid $border;
   border-radius: $radius-lg;
   overflow: hidden;
   display: flex;
@@ -97,7 +169,7 @@ function openProfiles() {
 .crash-icon-wrap {
   width: 42px;
   height: 42px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   background: rgba(220, 60, 60, 0.12);
   border: 1px solid rgba(220, 60, 60, 0.25);
   display: flex;
@@ -163,6 +235,14 @@ function openProfiles() {
   border: 1px solid rgba(52, 199, 89, 0.18);
 }
 
+.action-done-card {
+  margin: -6px 16px 12px;
+  background: rgba(52, 199, 89, 0.1);
+  border: 1px solid rgba(52, 199, 89, 0.25);
+
+  .card-text { font-size: 12px; color: #fff; }
+}
+
 .card-label {
   font-size: 10px;
   font-weight: 700;
@@ -199,7 +279,7 @@ function openProfiles() {
   overflow-y: auto;
   margin: 0;
   &::-webkit-scrollbar { width: 3px; height: 3px; }
-  &::-webkit-scrollbar-thumb { background: #2a1a1a; border-radius: 4px; }
+  &::-webkit-scrollbar-thumb { background: #2a1a1a; border-radius: $radius-sm; }
 }
 
 .crash-footer {
@@ -216,7 +296,7 @@ function openProfiles() {
   background: $text-primary;
   color: $bg;
   border: none;
-  border-radius: $radius;
+  border-radius: 12px;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -230,7 +310,7 @@ function openProfiles() {
   background: $surface-elevated;
   color: $text-secondary;
   border: 1px solid $border;
-  border-radius: $radius;
+  border-radius: 12px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;

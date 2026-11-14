@@ -202,7 +202,7 @@ function lineClass(line: string) {
 
   &::-webkit-scrollbar { width: 4px; }
   &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb { background: $border; border-radius: 4px; }
+  &::-webkit-scrollbar-thumb { background: $border; border-radius: $radius-sm; }
 }
 
 .logs-empty {

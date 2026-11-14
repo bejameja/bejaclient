@@ -16,7 +16,7 @@
         </div>
 
         <div class="modal-body">
-          <div v-if="notes" class="release-notes" v-html="notes" />
+          <div v-if="notes" class="release-notes" v-html="renderedNotes" />
           <div v-else class="release-notes no-notes">
             <p>A new version of BejaClient has been installed.</p>
             <p>Check the GitHub releases page for details.</p>
@@ -37,7 +37,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 
 const PENDING_KEY = 'beja-whats-new-pending'
 const seenKey = (v: string) => `beja-whats-new-seen-${v}`
@@ -46,6 +48,14 @@ const visible        = ref(false)
 const pendingVersion = ref('')
 const notes          = ref<string | null>(null)
 const neverAgain     = ref(false)
+
+// notes comes from the update manifest, so same treatment as mod descriptions on ModsPage -
+// markdown parse then sanitize, don't just v-html the raw text
+const renderedNotes = computed(() => {
+  if (!notes.value) return ''
+  const raw = marked.parse(notes.value, { async: false }) as string
+  return DOMPurify.sanitize(raw, { ADD_ATTR: ['target'] })
+})
 
 onMounted(async () => {
   try {
@@ -120,7 +130,7 @@ function dismiss() {
   color: $text-secondary;
   background: $surface-elevated;
   border: 1px solid $border;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   padding: 2px 7px;
   width: fit-content;
 }
@@ -151,7 +161,7 @@ function dismiss() {
 
   &::-webkit-scrollbar { width: 5px; }
   &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb { background: $border-strong; border-radius: 4px; }
+  &::-webkit-scrollbar-thumb { background: $border-strong; border-radius: $radius-sm; }
 }
 
 .release-notes {
@@ -185,7 +195,7 @@ function dismiss() {
   :deep(code) {
     background: $surface-elevated;
     border: 1px solid $border;
-    border-radius: 4px;
+    border-radius: $radius-sm;
     padding: 1px 5px;
     font-size: 12px;
   }
@@ -234,7 +244,7 @@ function dismiss() {
   background-image: $gradient-sheen;
   color: $bg;
   border: none;
-  border-radius: $radius;
+  border-radius: 12px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;

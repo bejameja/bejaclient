@@ -10,6 +10,7 @@ pub mod java_runtime;
 pub mod launch_args;
 pub mod libraries;
 pub mod natives;
+pub mod optifine;
 pub mod platform;
 pub mod quilt;
 pub mod rules;

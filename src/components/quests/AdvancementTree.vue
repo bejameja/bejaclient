@@ -17,7 +17,7 @@
     >
       <div class="adv-canvas" :style="canvasStyle">
 
-        <!-- Connector lines — drawn first, sit behind the nodes -->
+        <!-- Connector lines - drawn first, sit behind the nodes -->
         <svg class="adv-lines" :width="canvasW" :height="canvasH">
           <line
             v-for="e in edges"
@@ -68,7 +68,7 @@
               <svg width="9" height="9" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
 
-            <!-- Claim burst — sparks + floating reward text -->
+            <!-- Claim burst - sparks + floating reward text -->
             <div v-if="burstingId === n.id" class="claim-burst">
               <span v-for="i in 12" :key="i" class="spark" :style="sparkStyle(i)" />
               <div class="claim-float">
@@ -112,7 +112,7 @@
 
       </div>
 
-      <!-- Ambient dust — camera-space, drifts independently of pan/zoom -->
+      <!-- Ambient dust - camera-space, drifts independently of pan/zoom -->
       <div class="adv-dust" aria-hidden="true">
         <span v-for="i in DUST_COUNT" :key="i" class="dust-mote" :style="dustStyle(i)" />
       </div>
@@ -124,7 +124,7 @@
       <button class="adv-icon-btn" title="Zoom out" @click="zoomBy(0.8)">−</button>
     </div>
 
-    <!-- Minimap — only useful once the tree extends past the viewport, i.e. fullscreen -->
+    <!-- Minimap - only useful once the tree extends past the viewport, i.e. fullscreen -->
     <div v-if="isFullscreen" class="adv-minimap" @click="onMinimapClick">
       <div
         v-for="n in nodes"
@@ -166,7 +166,7 @@ import lockIcon from '../../assets/icons/icon-locked.png'
 const stoneBg = `url(${stoneTexture})`
 
 // Real vanilla item textures (PrismarineJS/minecraft-assets, extracted 1:1 from
-// the game) standing in for each quest's SVG icon — kept separate from the
+// the game) standing in for each quest's SVG icon - kept separate from the
 // decorative "lock"/"star"/"chest" glyphs, which stay hand-drawn SVGs.
 const ITEM_ICONS: Record<string, string> = {
   firework_rocket: iconFireworkRocket,
@@ -191,9 +191,9 @@ const hoveredId = ref<string | null>(null)
 // Client-side presentational tree: known quest ids are arranged into branches
 // resembling vanilla's advancement layout. Any quest the backend adds that we
 // don't recognise falls back to its own root-level branch so the tree never
-// breaks — it just grows a new row. Beyond the real, backend-tracked quests,
+// breaks - it just grows a new row. Beyond the real, backend-tracked quests,
 // a large field of locked/"???" branches (vanilla's hidden-advancement style)
-// fills the tree out — purely decorative until real quests are designed for them.
+// fills the tree out - purely decorative until real quests are designed for them.
 const COL_W = 168
 const ROW_H = 132
 const PAD_X = 90
@@ -275,7 +275,7 @@ function stateFor(q: Quest): string {
   return 'state-todo'
 }
 
-// Vanilla only has two frame textures per shape — completed (gold "obtained")
+// Vanilla only has two frame textures per shape - completed (gold "obtained")
 // vs not (grey "unobtained"). "Claimable" reads as obtained too since the
 // goal itself has been met; only the reward pickup is still pending.
 const FRAME_IMAGES: Record<Shape, { obtained: string; unobtained: string }> = {
@@ -307,7 +307,7 @@ function frameSrc(n: TreeNode): string {
 const nodes = computed<TreeNode[]>(() => {
   const byId = new Map(props.quests.map(q => [q.id, q]))
   // Always include the known layout nodes, even if their quest data hasn't
-  // loaded yet — decorative branches (e.g. 'social') parent onto real quest
+  // loaded yet - decorative branches (e.g. 'social') parent onto real quest
   // ids like party_1, so those anchor nodes must always exist in the tree.
   const defs = [...KNOWN_LAYOUT]
 
@@ -366,7 +366,7 @@ const edges = computed(() => {
     })
 })
 
-// Lit edges get a second, animated "energy flow" line drawn on top — a
+// Lit edges get a second, animated "energy flow" line drawn on top - a
 // traveling dash that reads as progress/light moving toward the next quest.
 const litEdges = computed(() => edges.value.filter(e => e.lit))
 
@@ -379,7 +379,7 @@ function pct(q: Quest): number {
 
 // ── Claim burst ──────────────────────────────────────────────────────────────
 // Fires the instant a claimable node is clicked rather than waiting on the
-// async claim round-trip — the goal is already met, so the payoff should
+// async claim round-trip - the goal is already met, so the payoff should
 // feel immediate rather than lagging behind a network call.
 const burstingId = ref<string | null>(null)
 let burstTimer: ReturnType<typeof setTimeout> | null = null
@@ -431,7 +431,7 @@ function clamp(v: number, lo: number, hi: number) {
 }
 
 // Keeps the stone-tiled canvas from ever being dragged/zoomed past its own
-// edges — no revealing empty viewport beyond where the background ends.
+// edges - no revealing empty viewport beyond where the background ends.
 function clampPan(px: number, py: number, s: number) {
   const vp = viewportRef.value
   if (!vp) return { x: px, y: py }
@@ -446,7 +446,7 @@ function clampPan(px: number, py: number, s: number) {
   return { x: clamp(px, minX, maxX), y: clamp(py, minY, maxY) }
 }
 
-// The smallest scale at which the canvas still fully covers the viewport —
+// The smallest scale at which the canvas still fully covers the viewport -
 // zooming out past this would reveal empty space beyond the background.
 function minScale(): number {
   const vp = viewportRef.value
@@ -513,7 +513,7 @@ function onDragEnd() {
 
 // ── Ambient dust ──────────────────────────────────────────────────────────────
 // Lives in viewport (camera) space, not canvas (world) space, so it drifts
-// independently of pan/zoom — a fixed count is enough regardless of tree size.
+// independently of pan/zoom - a fixed count is enough regardless of tree size.
 const DUST_COUNT = 16
 function dustStyle(i: number) {
   const left = (i * 53) % 100
@@ -573,7 +573,7 @@ function fitView() {
     const vh = vp.clientHeight
     if (!vw || !vh) return
     const fitScale = Math.min(vw / canvasW.value, vh / canvasH.value) * 0.92
-    // Never shrink nodes past a legible size just to cram all 67 in view —
+    // Never shrink nodes past a legible size just to cram all 67 in view -
     // if the full tree doesn't fit at that size, anchor on the real/tracked
     // quests near the root instead and let panning reveal the rest.
     const s = clamp(fitScale, 1, 1.6)
@@ -777,7 +777,7 @@ onUnmounted(() => {
   transition: transform 140ms cubic-bezier(0.34, 1.56, 0.64, 1), filter 200ms ease;
   cursor: default;
 
-  // real vanilla goal-frame art is a taller, rounded shape — not a square crop
+  // real vanilla goal-frame art is a taller, rounded shape - not a square crop
   &.shape-goal {
     width: 76px;
     height: 90px;
@@ -799,7 +799,7 @@ onUnmounted(() => {
 
 // ── States ────────────────────────────────────────────────────────────────────
 // Frame art itself only encodes obtained/unobtained (vanilla has no third
-// texture) — "in progress" is conveyed by the icon brightening, not the frame.
+// texture) - "in progress" is conveyed by the icon brightening, not the frame.
 .state-progress .node-icon { color: #d9d9d9; filter: none; opacity: 1; }
 
 .state-claimable {
@@ -817,7 +817,7 @@ onUnmounted(() => {
 
 .state-claimed .node-icon { filter: none; opacity: 1; }
 
-// vanilla-style hidden/undiscovered advancement — dim, inert, padlock icon
+// vanilla-style hidden/undiscovered advancement - dim, inert, padlock icon
 .state-locked {
   .node-frame { opacity: 0.55; }
   .node-icon { color: #4a4a4a; opacity: 0.8; }
@@ -911,7 +911,7 @@ onUnmounted(() => {
   width: 60px;
   height: 4px;
   background: rgba(255,255,255,0.08);
-  border-radius: 4px;
+  border-radius: 6px;
   overflow: hidden;
 }
 

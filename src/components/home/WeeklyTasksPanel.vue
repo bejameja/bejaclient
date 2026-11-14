@@ -89,7 +89,7 @@ const xpPct    = computed(() => Math.round(earnedXp.value / totalXp.value * 100)
 
   &::-webkit-scrollbar { width: 3px; }
   &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb { background: $border; border-radius: 4px; }
+  &::-webkit-scrollbar-thumb { background: $border; border-radius: $radius-sm; }
 }
 
 .task-item {
@@ -97,7 +97,7 @@ const xpPct    = computed(() => Math.round(earnedXp.value / totalXp.value * 100)
   align-items: flex-start;
   gap: 8px;
   padding: 6px 4px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   transition: background $transition;
 
   &:hover { background: $surface-elevated; }
@@ -150,14 +150,14 @@ const xpPct    = computed(() => Math.round(earnedXp.value / totalXp.value * 100)
 .task-bar-wrap {
   height: 2px;
   background: $surface-elevated;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   overflow: hidden;
 }
 
 .task-bar-fill {
   height: 100%;
   background: $border-strong;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   transition: width 0.5s ease;
 }
 
@@ -199,14 +199,14 @@ const xpPct    = computed(() => Math.round(earnedXp.value / totalXp.value * 100)
 .xp-bar {
   height: 3px;
   background: $surface-elevated;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   overflow: hidden;
 }
 
 .xp-fill {
   height: 100%;
   background: $border-strong;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   transition: width 0.5s ease;
 }
 </style>

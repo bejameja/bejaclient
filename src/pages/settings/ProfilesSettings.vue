@@ -19,6 +19,11 @@
 
     <!-- ── Grid view ────────────────────────────────────────── -->
     <template v-if="!selectedProfile">
+    <div v-if="pickMode" class="pick-banner">
+      <span>Choose the profile to launch with</span>
+      <button class="pick-cancel" @click="cancelPick">Cancel</button>
+    </div>
+
     <!-- Toolbar: search + tabs + import banner, all in one row -->
     <div class="profiles-toolbar">
       <div class="toolbar-search">
@@ -30,6 +35,7 @@
         />
       </div>
 
+      <div class="toolbar-actions">
       <button
         v-for="tab in TABS"
         :key="tab.id"
@@ -37,6 +43,24 @@
         :class="{ active: activeTab === tab.id }"
         @click="activeTab = tab.id"
       >{{ tab.label }}</button>
+
+      <button
+        class="toolbar-tab"
+        :class="{ active: selectMode }"
+        title="Select several profiles to delete them at once"
+        @click="toggleSelectMode"
+      >{{ selectMode ? 'Done' : 'Select' }}</button>
+
+      <button class="toolbar-optifine-btn" title="Create an OptiFine profile" @click="optifineWizardOpen = true">
+        <img :src="optifineIcon" alt="OptiFine" />
+      </button>
+
+      <button class="toolbar-optifine-btn" title="Check for mod updates across all profiles" @click="updateCenterOpen = true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+        </svg>
+      </button>
 
       <div v-if="detected.length" class="import-banner" @click="importReviewOpen = true">
         <div class="import-banner-icons">
@@ -53,11 +77,15 @@
           <polyline points="9 6 15 12 9 18"/>
         </svg>
       </button>
+      </div>
+
+      <!-- hosting partner: a bar under the buttons, as wide as they are, not under the search -->
+      <SponsorCard class="profiles-sponsor" />
     </div>
 
     <!-- Skeleton loading -->
     <div v-if="loading" class="profiles-grid">
-      <Skeleton v-for="i in 6" :key="i" variant="block" height="260px" radius="3px" />
+      <Skeleton v-for="i in 6" :key="i" variant="block" height="260px" radius="14px" />
     </div>
 
     <!-- Empty state -->
@@ -72,24 +100,34 @@
       <div v-for="profile in filteredProfiles" :key="profile.id" class="profile-card-wrap">
         <div
           class="profile-card"
-          :class="{ 'profile-card--active': profile.id === activeProfileId }"
-          :style="profile.backgroundUrl ? { backgroundImage: `url(${profile.backgroundUrl})` } : {}"
-          @click="openDetail(profile)"
+          :class="{
+            'profile-card--active': profile.id === activeProfileId && !selectMode,
+            'profile-card--selected': selectMode && selectedIds.has(profile.id),
+          }"
+          @click="onCardClick(profile)"
           @contextmenu="openProfileMenu($event, profile)"
         >
-          <div class="card-icon">
-            <img :src="profile.imageUrl || bejaLogo" :class="{ ph: !profile.imageUrl }" alt="" />
+          <div
+            class="card-banner"
+            :style="profile.backgroundUrl ? { backgroundImage: `url(${profile.backgroundUrl})` } : {}"
+          />
+          <div class="card-icon-panel">
+            <div class="card-icon">
+              <img :src="profile.imageUrl || bejaLogo" :class="{ ph: !profile.imageUrl }" alt="" />
+            </div>
           </div>
-          <span v-if="profile.useBejaClient" class="card-maint-badge" title="BejaClient versions are under maintenance. We're working at full speed to bring them back. Sorry!">Under Maintenance</span>
-          <button class="card-delete-btn" title="Delete profile" @click.stop="confirmDelete(profile)">
+          <button v-if="!selectMode" class="card-delete-btn" title="Delete profile" @click.stop="confirmDelete(profile)">
             <img :src="iconRemove" class="card-btn-icon" />
           </button>
+          <span v-else class="card-check" :class="{ on: selectedIds.has(profile.id) }" aria-hidden="true">
+            <svg v-if="selectedIds.has(profile.id)" viewBox="0 0 12 12" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"><path d="M2.5 6.5l2.5 2.5 4.5-5.5" /></svg>
+          </span>
         </div>
         <span class="card-name-label">{{ profile.name }}</span>
       </div>
 
       <!-- New profile slot -->
-      <div key="new-profile" class="profile-card-wrap">
+      <div v-if="!selectMode" key="new-profile" class="profile-card-wrap">
         <button class="profile-card profile-card--new" @click="openWizard">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="5" x2="12" y2="19" />
@@ -99,6 +137,42 @@
         <span class="card-name-label card-name-label--muted">New Profile</span>
       </div>
     </TransitionGroup>
+
+    <!-- Bulk selection bar -->
+    <Transition name="bulk-bar">
+      <div v-if="selectMode" class="bulk-bar">
+        <span class="bulk-count">{{ selectedIds.size }} selected</span>
+        <button class="bulk-btn" @click="allSelected ? clearSelection() : selectAllVisible()">
+          {{ allSelected ? 'Clear' : 'Select all' }}
+        </button>
+        <button class="bulk-btn bulk-btn--danger" :disabled="!selectedIds.size" @click="bulkDeleteOpen = true">
+          Delete{{ selectedIds.size ? ` (${selectedIds.size})` : '' }}
+        </button>
+        <button class="bulk-btn" @click="exitSelectMode">Cancel</button>
+      </div>
+    </Transition>
+
+    <!-- Bulk delete confirm modal -->
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div v-if="bulkDeleteOpen" class="modal-overlay" @click.self="bulkDeleteOpen = false">
+          <div class="modal">
+            <p class="modal-title">Delete {{ selectedProfiles.length }} {{ selectedProfiles.length === 1 ? 'profile' : 'profiles' }}?</p>
+            <ul class="bulk-names">
+              <li v-for="p in selectedProfiles.slice(0, 6)" :key="p.id">{{ p.name }}</li>
+              <li v-if="selectedProfiles.length > 6" class="bulk-names-more">and {{ selectedProfiles.length - 6 }} more</li>
+            </ul>
+            <p class="modal-body">The profiles and their mods and settings are removed. This cannot be undone.</p>
+            <div class="modal-actions">
+              <button class="modal-btn modal-btn--cancel" :disabled="bulkDeleting" @click="bulkDeleteOpen = false">Cancel</button>
+              <button class="modal-btn modal-btn--danger" :disabled="bulkDeleting" @click="doBulkDelete">
+                {{ bulkDeleting ? 'Deleting…' : 'Delete' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- Delete confirm modal -->
     <Teleport to="body">
@@ -122,7 +196,7 @@
         <div v-if="importReviewOpen" class="modal-overlay" @click.self="importReviewOpen = false">
           <div class="modal modal--import">
             <p class="modal-title">Import profiles</p>
-            <p class="modal-body">Detected on this machine. Mods/saves stay where they are — BejaClient just installs the matching Minecraft version and plays from the same folder.</p>
+            <p class="modal-body">Detected on this machine. Mods/saves stay where they are - BejaClient just installs the matching Minecraft version and plays from the same folder.</p>
 
             <div class="import-list">
               <div v-for="p in detected" :key="p.id" class="import-row">
@@ -153,17 +227,24 @@
         </div>
       </Transition>
     </Teleport>
+
+    <OptifineWizard v-model="optifineWizardOpen" @created="onOptifineCreated" />
+    <ModUpdateCenterModal v-model="updateCenterOpen" />
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { useLauncherStore } from '../../store/launcherStore'
 import type { LaunchProfile, DetectedProfile } from '../../types'
 import ProfileDetailView from '../../components/profiles/ProfileDetailView.vue'
+import OptifineWizard from '../../components/profiles/OptifineWizard.vue'
+import ModUpdateCenterModal from '../../components/common/ModUpdateCenterModal.vue'
 import Skeleton from '../../components/common/Skeleton.vue'
+import SponsorCard from '../../components/home/SponsorCard.vue'
 import { openContextMenu } from '../../composables/useContextMenu'
 import { showToast } from '../../composables/useToasts'
 
@@ -172,9 +253,10 @@ import bejaLogo    from '../../assets/bc-logo-new.png'
 import modrinthIcon    from '../../assets/modrinth.png'
 import curseforgeIcon  from '../../assets/curseforge-icon.png'
 import lunarIcon       from '../../assets/lunar-icon.png'
+import optifineIcon    from '../../assets/optifine-icon.png'
 
 const LOADER_NAMES: Record<string, string> = {
-  fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge', quilt: 'Quilt', vanilla: 'Vanilla',
+  fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge', quilt: 'Quilt', optifine: 'OptiFine', vanilla: 'Vanilla',
 }
 
 function cardMetaParts(profile: LaunchProfile): string[] {
@@ -187,8 +269,7 @@ function cardMetaParts(profile: LaunchProfile): string[] {
 }
 
 const TABS = [
-  { id: 'all',      label: 'All' },
-  { id: 'featured', label: 'Featured' },
+  { id: 'all', label: 'All' },
 ] as const
 
 type TabId = typeof TABS[number]['id']
@@ -206,6 +287,12 @@ const selectedProfile = ref<LaunchProfile | null>(null)
 const detected          = ref<DetectedProfile[]>([])
 const importReviewOpen  = ref(false)
 const importingIds      = ref<Set<string>>(new Set())
+
+const optifineWizardOpen = ref(false)
+const updateCenterOpen = ref(false)
+function onOptifineCreated(profile: LaunchProfile): void {
+  showToast({ title: `Created "${profile.name}"`, body: 'Finish the OptiFine installer window, then hit Play.', variant: 'success' })
+}
 
 const SOURCE_NAMES: Record<string, string> = {
   curseforge: 'CurseForge', lunar: 'Lunar Client', modrinth_app: 'Modrinth App',
@@ -251,23 +338,20 @@ const activeProfileId = computed(() => store.activeProfile?.id ?? null)
 const filteredProfiles = computed(() => {
   const q = search.value.toLowerCase()
   return store.profiles
-    .filter(p => activeTab.value === 'featured' ? p.useBejaClient : true)
     .filter(p => !q || p.name.toLowerCase().includes(q) || p.version.includes(q))
 })
 
+// Counts only need the folder listing (no jar is opened), and each card fills in as soon as its own count arrives.
 async function loadModCounts(): Promise<void> {
-  const counts: Record<string, number> = {}
   await Promise.all(
     store.profiles.map(async p => {
       try {
-        const mods = await window.api.mods.list(p.id)
-        counts[p.id] = mods.filter(m => m.enabled).length
+        modCounts.value = { ...modCounts.value, [p.id]: await window.api.mods.countEnabled(p.id) }
       } catch {
-        counts[p.id] = 0
+        modCounts.value = { ...modCounts.value, [p.id]: 0 }
       }
     })
   )
-  modCounts.value = counts
 }
 
 async function refresh(): Promise<void> {
@@ -307,6 +391,92 @@ async function onDetailDeleted(id: string): Promise<void> {
   delete modCounts.value[id]
 }
 
+// ── Select several profiles and delete them together ─────────────────────────
+const selectMode     = ref(false)
+const selectedIds    = ref<Set<string>>(new Set())
+const bulkDeleteOpen = ref(false)
+const bulkDeleting   = ref(false)
+
+const selectedProfiles = computed(() => store.profiles.filter(p => selectedIds.value.has(p.id)))
+const allSelected = computed(() =>
+  filteredProfiles.value.length > 0 && filteredProfiles.value.every(p => selectedIds.value.has(p.id)))
+
+function toggleSelectMode(): void {
+  if (selectMode.value) exitSelectMode()
+  else selectMode.value = true
+}
+
+function exitSelectMode(): void {
+  selectMode.value = false
+  selectedIds.value = new Set()
+}
+
+function toggleSelected(id: string): void {
+  const next = new Set(selectedIds.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  selectedIds.value = next
+}
+
+function selectAllVisible(): void {
+  selectedIds.value = new Set([...selectedIds.value, ...filteredProfiles.value.map(p => p.id)])
+}
+
+function clearSelection(): void {
+  selectedIds.value = new Set()
+}
+
+// Pick mode: arrived via the hub's launch arrow (?pick=1). A click picks the profile and returns to the hub.
+const route = useRoute()
+const router = useRouter()
+const pickMode = computed(() => route.name === 'profiles' && route.query.pick === '1')
+
+async function pickProfile(profile: LaunchProfile): Promise<void> {
+  await store.setActiveProfile(profile.id)
+  void router.push({ name: 'home' })
+}
+
+function cancelPick(): void {
+  void router.push({ name: 'home' })
+}
+
+function onCardClick(profile: LaunchProfile): void {
+  if (pickMode.value) void pickProfile(profile)
+  else if (selectMode.value) toggleSelected(profile.id)
+  else openDetail(profile)
+}
+
+async function doBulkDelete(): Promise<void> {
+  const ids = [...selectedIds.value]
+  if (!ids.length || bulkDeleting.value) return
+  bulkDeleting.value = true
+  let failed = 0
+  for (const id of ids) {
+    try {
+      await window.api.profiles.delete(id)
+      delete modCounts.value[id]
+    } catch {
+      failed++
+    }
+  }
+  await store.loadProfiles()
+  bulkDeleting.value = false
+  bulkDeleteOpen.value = false
+  exitSelectMode()
+  const done = ids.length - failed
+  showToast({
+    title: failed ? `Deleted ${done} of ${ids.length} profiles` : `Deleted ${done} ${done === 1 ? 'profile' : 'profiles'}`,
+    body: failed ? `${failed} could not be deleted.` : undefined,
+    variant: failed ? 'warning' : 'success',
+  })
+}
+
+function onSelectKey(e: KeyboardEvent): void {
+  if (e.key === 'Escape' && selectMode.value && !bulkDeleteOpen.value) exitSelectMode()
+}
+onMounted(() => window.addEventListener('keydown', onSelectKey))
+onUnmounted(() => window.removeEventListener('keydown', onSelectKey))
+
 function confirmDelete(profile: LaunchProfile): void {
   deleteTarget.value = profile
 }
@@ -336,12 +506,37 @@ async function duplicateProfile(profile: LaunchProfile): Promise<void> {
   showToast({ title: `Duplicated "${profile.name}"`, variant: 'success' })
 }
 
+async function exportProfileZip(profile: LaunchProfile): Promise<void> {
+  const result = await window.api.profiles.exportZip(profile.id, true)
+  if (!result) return // dialog cancelled
+  if (!result.ok) {
+    if (result.error === 'cancelled') return
+    showToast({ title: `Failed to export "${profile.name}"`, body: result.error, variant: 'error' })
+    return
+  }
+  showToast({ title: `Exported "${profile.name}"`, body: `${result.mods ?? 0} mod(s), no BejaClient required`, variant: 'success' })
+}
+
+async function exportProfileCurseforge(profile: LaunchProfile): Promise<void> {
+  const result = await window.api.profiles.exportCurseforge(profile.id)
+  if (!result) return // dialog cancelled
+  if (!result.ok) {
+    if (result.error === 'cancelled') return
+    showToast({ title: `Failed to export "${profile.name}"`, body: result.error, variant: 'error' })
+    return
+  }
+  showToast({ title: `Exported "${profile.name}"`, body: `${result.mods ?? 0} mod(s) as CurseForge modpack`, variant: 'success' })
+}
+
 function openProfileMenu(event: MouseEvent, profile: LaunchProfile): void {
   openContextMenu(event, [
     { label: 'Launch',   icon: 'play',   onClick: () => launchProfile(profile) },
     { label: 'Edit',     icon: 'pencil', onClick: () => openDetail(profile) },
     { label: 'Duplicate', icon: 'copy',  onClick: () => duplicateProfile(profile) },
+    { label: 'Export as ZIP (for others)', icon: 'download', onClick: () => exportProfileZip(profile) },
+    { label: 'Export as CurseForge Modpack', icon: 'download', onClick: () => exportProfileCurseforge(profile) },
     { separator: true, label: '' },
+    { label: 'Select several…', icon: 'check', onClick: () => { selectMode.value = true; toggleSelected(profile.id) } },
     { label: 'Delete', icon: 'trash', danger: true, onClick: () => confirmDelete(profile) },
   ])
 }
@@ -350,10 +545,10 @@ onMounted(async () => {
   loading.value = true
   try {
     await store.loadProfiles()
-    await loadModCounts()
   } finally {
     loading.value = false
   }
+  void loadModCounts()   // not awaited: the cards show right away, the counts fill in
   loadDetected()
 })
 </script>
@@ -371,21 +566,49 @@ onMounted(async () => {
   position: relative;
 }
 
+// hosting partner slot: second row of the toolbar, only under the buttons
+.profiles-sponsor { grid-column: 2; contain: inline-size; max-width: 300px; justify-self: end; }   // never widens the column, only fills it
+.toolbar-actions { display: flex; align-items: center; gap: 14px; }
+
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 // ── Toolbar: search + tabs + import banner, one row ────────────────────────────
-.profiles-toolbar {
+.pick-banner {
   display: flex;
   align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  background: $surface;
+  border: 1px solid $border-strong;
+  border-radius: $radius-sm;
+  color: $text-primary;
+  font-size: 13px;
+  font-weight: 600;
+}
+.pick-cancel {
+  padding: 4px 12px;
+  background: none;
+  border: 1px solid $border-strong;
+  border-radius: $radius-sm;
+  color: $text-secondary;
+  cursor: pointer;
+  &:hover { color: $text-primary; border-color: rgba(255, 255, 255, 0.25); }
+}
+
+.profiles-toolbar {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) auto;
+  align-items: center;
+  gap: 10px 14px;
 }
 
 .toolbar-search {
   display: flex;
   align-items: center;
-  background: #16161a;
-  border-radius: 999px;
-  height: 42px;
+  background: #13141A;
+  border-radius: $radius-btn;
+  height: 38px;
   padding: 0 20px;
   flex: 1 1 360px;
   min-width: 200px;
@@ -404,11 +627,11 @@ onMounted(async () => {
 }
 
 .toolbar-tab {
-  height: 42px;
+  height: 38px;
   padding: 0 22px;
-  background: #16161a;
+  background: #13141A;
   border: none;
-  border-radius: 999px;
+  border-radius: $radius-btn;
   color: rgba(255, 255, 255, 0.7);
   font-size: 13px;
   cursor: pointer;
@@ -425,8 +648,8 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   background: none;
   border: none;
   color: rgba(255, 255, 255, 0.5);
@@ -435,6 +658,26 @@ onMounted(async () => {
   margin-left: auto;
   transition: color $transition;
   &:hover { color: #fff; }
+}
+
+.toolbar-optifine-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 5px;
+  background: #13141A;
+  border: none;
+  border-radius: $radius-btn;
+  cursor: pointer;
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: background $transition;
+
+  img { width: 100%; height: 100%; object-fit: cover; border-radius: $radius-sm; }
+
+  &:hover { background: #232328; }
 }
 
 // ── Grid ──────────────────────────────────────────────────────────────────────
@@ -456,7 +699,7 @@ onMounted(async () => {
 
 // ── Card ──────────────────────────────────────────────────────────────────────
 // Single rounded surface (background image when the profile has one, flat
-// otherwise) with just a centered icon — the name lives outside the card as
+// otherwise) with just a centered icon - the name lives outside the card as
 // its own label, not in an info strip glued to the artwork.
 .profile-card-wrap {
   display: flex;
@@ -468,13 +711,8 @@ onMounted(async () => {
   position: relative;
   aspect-ratio: 515 / 260;
   background: #191a1f;
-  background-size: cover;
-  background-position: center;
   border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  border-radius: $radius-lg;
   overflow: hidden;
   cursor: pointer;
   transition: border-color $transition, box-shadow $transition, transform $transition;
@@ -520,18 +758,37 @@ onMounted(async () => {
   &--muted { color: rgba(255, 255, 255, 0.4); }
 }
 
+// Right side: the profile's artwork, full-bleed behind the icon panel.
+.card-banner {
+  position: absolute;
+  inset: 0;
+  background: #191a1f;
+  background-size: cover;
+  background-position: center;
+}
+
+// Left side: solid panel sliced by a diagonal edge, icon anchored inside it.
+.card-icon-panel {
+  position: absolute;
+  inset: 0;
+  width: 46%;
+  background: #101114;
+  clip-path: polygon(0 0, 100% 0, 74% 100%, 0 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-right: 14%;
+}
+
 .card-icon {
   position: relative;
-  width: 72px;
-  height: 72px;
-  border-radius: 4px;
-  background: #101114;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  width: 68px;
+  height: 68px;
+  border-radius: $radius;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
 
   img { width: 100%; height: 100%; object-fit: cover; }
   img.ph { object-fit: contain; padding: 16%; opacity: 0.4; box-sizing: border-box; }
@@ -544,7 +801,7 @@ onMounted(async () => {
   padding: 3px 7px;
   background: rgba(0, 0, 0, 0.6);
   border: 1px solid rgba(255, 100, 100, 0.5);
-  border-radius: 4px;
+  border-radius: $radius-sm;
   color: #ff8a8a;
   font-size: 9px;
   font-weight: 700;
@@ -553,13 +810,95 @@ onMounted(async () => {
   pointer-events: none;
 }
 
+.profile-card--selected {
+  border-color: #fff;
+  box-shadow: 0 0 0 1px #fff, 0 10px 26px rgba(0, 0, 0, 0.4);
+}
+
+.card-check {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 0;
+  color: #0a0a0b;
+
+  &.on { background: #fff; border-color: #fff; }
+}
+
+// Bar that appears while several profiles are being picked.
+.bulk-bar {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px 8px 18px;
+  background: #13141A;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: $radius-btn;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+}
+
+.bulk-count {
+  margin-right: 8px;
+  font-size: 13px;
+  color: #fff;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.bulk-btn {
+  height: 34px;
+  padding: 0 16px;
+  border: none;
+  border-radius: $radius-btn;
+  background: #232328;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 12px;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  transition: background 120ms, color 120ms, opacity 120ms;
+
+  &:hover:not(:disabled) { background: #2f2f36; color: #fff; }
+  &:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  &--danger {
+    background: $error;
+    color: #fff;
+    &:hover:not(:disabled) { background: color-mix(in srgb, #{$error} 85%, #fff); }
+  }
+}
+
+.bulk-bar-enter-active, .bulk-bar-leave-active { transition: opacity 160ms ease, transform 160ms ease; }
+.bulk-bar-enter-from, .bulk-bar-leave-to { opacity: 0; transform: translate(-50%, 10px); }
+
+.bulk-names {
+  margin: 0 0 10px;
+  padding: 0 0 0 18px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.6;
+}
+.bulk-names-more { list-style: none; margin-left: -18px; color: rgba(255, 255, 255, 0.45); }
+
 .card-delete-btn {
   position: absolute;
   top: 8px;
   right: 8px;
   background: rgba(0, 0, 0, 0.45);
   border: none;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   cursor: pointer;
   padding: 5px;
   opacity: 0;
@@ -595,7 +934,7 @@ onMounted(async () => {
 
 .new-profile-btn {
   padding: 8px 20px;
-  border-radius: $radius;
+  border-radius: 12px;
   background: $primary;
   border: none;
   color: #000;
@@ -658,6 +997,7 @@ onMounted(async () => {
 .modal-btn {
   padding: 7px 16px;
   border: none;
+  border-radius: 12px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -687,14 +1027,14 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 14px;
-  height: 42px;
+  height: 38px;
   padding: 0 6px 0 20px;
   flex-shrink: 0;
   cursor: pointer;
-  border-radius: 999px;
-  background: #16161a;
+  border-radius: $radius-btn;
+  background: #13141A;
   transition: background $transition;
-  &:hover { background: #1e1e23; }
+  &:hover { background: #232328; }
 }
 
 .import-banner-icons {
@@ -720,10 +1060,10 @@ onMounted(async () => {
 .import-banner-btn {
   flex-shrink: 0;
   padding: 8px 16px;
-  background: #2b2b31;
+  background: #2a2a30;
   color: #fff;
   border: none;
-  border-radius: 999px;
+  border-radius: $radius-btn;
   font-family: 'Minecrafter', 'Plus Jakarta Sans', sans-serif;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -818,6 +1158,7 @@ onMounted(async () => {
   padding: 6px 14px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
   color: $text-primary;
   font-size: 11px;
   font-weight: 600;

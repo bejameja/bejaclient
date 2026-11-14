@@ -5,395 +5,317 @@
     <div class="main-col">
 
       <div class="hero-wrap">
-        <EditableRegion
-          id="home.skinPreviewBg"
-          label="Skin-Vorschau Hintergrund"
-          :features="['radius', 'outline', 'bgVideo']"
-        >
-        <div class="video-card" @mousemove="onVideoCardMouseMove" @mouseleave="onVideoCardMouseLeave">
-          <video v-if="displayVideo" ref="videoRef" class="scene-video" :class="{ 'scene-video--blurred': isBlurredBg }" :src="displayVideo" autoplay loop muted playsinline @error="onVideoError" />
-          <div v-else-if="displayImage" class="scene-mirror">
-            <img class="scene-mirror-side" :src="displayImage" alt="" />
-            <img class="scene-mirror-center" :src="displayImage" alt="" />
-            <img class="scene-mirror-side" :src="displayImage" alt="" />
-          </div>
-          <div v-else class="download-overlay">
-            <div class="download-spinner" />
-            <span class="download-label">Downloading assets…</span>
-          </div>
+        <div class="video-card">
 
-          <!-- Cycles through the bundled background videos -->
-          <button class="bg-toggle-btn" title="Change background" @click="cycleBackground">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M9.06 11.9l8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"/>
-              <path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1.08 1.1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02z"/>
-            </svg>
-          </button>
+          <!-- Campfire hub scene: everyone in the party sits around one fire in a shared 3D scene -->
+          <CampfireScene
+            ref="campfireRef"
+            :members="campfireMembers"
+            :local-uuid="account?.uuid ?? null"
+            @invite="openInvite"
+            @self-contextmenu="onSelfContextMenu"
+          />
 
-          <!-- Left flanking member -->
-          <div class="flank-slot flank-slot--left" :class="{ 'flank-slot--passthrough': frontLeftPassthrough }">
-            <LobbySkinSlot :member="lobbySlots[0]" size="2xl" :initial-rotation-y="0.524" @invite="openInvite" />
+          <!-- Dev builds only: trigger scene events by hand (Ctrl + the number); Ctrl+H shows / hides this list -->
+          <div v-if="isDev && showSceneHelp" class="dev-tools">
+            <button v-for="(label, i) in SCENE_ACTION_LABELS" :key="label" class="dev-btn" @click="runSceneAction(i + 1)">
+              <span class="dev-key">Ctrl+{{ i + 1 }}</span>{{ label }}
+            </button>
           </div>
 
-          <!-- Inner-left invite slot — only once both outer flanks are filled -->
-          <div v-if="innerSlotsVisible" ref="innerLeftEl" class="flank-slot flank-slot--inner-left">
-            <LobbySkinSlot :member="lobbySlots[1]" size="lg" :initial-rotation-y="0.524" @invite="openInvite" />
+          <!-- Launch: white text in the bottom-left corner of the scene -->
+          <div class="hero-launch-text">
+            <LaunchButton text-only :ready-mode="!!lobbyStore.party && !lobbyStore.isLeader" />
           </div>
 
-          <!-- Center: local player — preserves original HeroSkinViewer positioning/animation -->
-          <div class="skin-wrap">
-            <!-- Fades in (opacity only — never touches `transform`, which
-                 .slot-crown's own crown-float animation already owns; sharing
-                 that property between an entrance transition and the
-                 continuous float animation would just fight itself) instead
-                 of popping in at full strength the instant you become leader,
-                 so it doesn't read as a jump ahead of the character's own
-                 pop below. -->
-            <Transition name="crown-fade">
-              <div v-if="lobbyStore.isLeader" class="slot-crown">
-                <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 6l4 6l5 -4l-2 10h-14l-2 -10l5 4z" fill="#FFD700" stroke="#E8A800" stroke-width="1" stroke-linejoin="round"/>
-                </svg>
+          <!-- Old launch button, dropped in on rope (hidden, kept for later) -->
+          <div v-show="showLaunch" class="hero-launch">
+            <div class="launch-drop" @animationend="onLaunchDropSettled">
+              <div class="launch-ropes">
+                <div class="rope rope--left"></div>
+                <div class="rope rope--right"></div>
               </div>
-            </Transition>
-            <div v-if="account" class="skin-nametag" :class="{ 'skin-nametag--pop': !!lobbyStore.party }">{{ account.username }}</div>
-            <HeroSkinViewer
-              ref="heroViewerRef"
-              :skin-url="activeSkinUrl"
-              :cape-url="activeCapeUrl"
-              :model="activeSkinModel"
-              animation="custom-idle"
-              :zoom="0.75"
-              :initial-rotation-y="0.524"
-              :auto-rotate-speed="0"
-              :pop="!!lobbyStore.party"
-            />
-            <div class="skin-footer">
-              <div v-if="ownedEmotes.length" class="skin-namebar">
-                <span class="skin-emote-hint">Press B for emotes</span>
-              </div>
-              <Transition name="emote-pop">
-                <div v-if="ownedEmotes.length && emotePickerOpen" ref="emotePickerEl" class="emote-bar">
-                  <button
-                    v-for="item in ownedEmotes"
-                    :key="item.id"
-                    class="emote-btn"
-                    :title="item.name"
-                    @click="playEmote(item)"
-                  >
-                    <svg viewBox="0 0 24 24" class="emote-btn-icon">
-                      <template v-if="item.id === 'shop_emote_floss'">
-                        <circle cx="12.6" cy="4.6" r="2" fill="#ffb454" />
-                        <g stroke="#ffb454" stroke-width="1.8" stroke-linecap="round" fill="none">
-                          <path d="M12.4 6.8 11.7 13.2" />
-                          <path d="M12.1 8.4 17.4 6.2" />
-                          <path d="M12.1 8.4 17.9 9.4" />
-                          <path d="M11.7 13.2 9.4 19" />
-                          <path d="M11.7 13.2 13.6 19.2" />
-                        </g>
-                      </template>
-                      <template v-else-if="item.id === 'shop_emote_griddy'">
-                        <circle cx="10" cy="4.6" r="2" fill="#b46eff" />
-                        <g stroke="#b46eff" stroke-width="1.8" stroke-linecap="round" fill="none">
-                          <path d="M10.3 6.8 11.3 13" />
-                          <path d="M10.7 8.6 16.5 7.4" />
-                          <path d="M10.9 10.2 16.5 9.8" />
-                          <path d="M11.3 13 10 19.2" />
-                          <path d="M11.3 13 6.4 16.2" />
-                        </g>
-                      </template>
-                      <template v-else-if="item.id === 'shop_emote_rat_dance'">
-                        <ellipse cx="11" cy="14.8" rx="6.5" ry="4.3" fill="#b9bcc7" />
-                        <path d="M16.2 12.6 21 14.8l-4.8 2z" fill="#b9bcc7" />
-                        <circle cx="15" cy="10.2" r="1.9" fill="#b9bcc7" />
-                        <circle cx="15" cy="10.2" r=".9" fill="#f2a6c0" />
-                        <circle cx="17.3" cy="14.2" r=".7" fill="#26262e" />
-                        <path d="M4.7 15.6c-1.9 0-2.8 1.7-1.7 3.1" stroke="#b9bcc7" stroke-width="1.3" fill="none" stroke-linecap="round" />
-                      </template>
-                    </svg>
-                    <span class="emote-btn-name">{{ item.name }}</span>
-                  </button>
-                </div>
-              </Transition>
+              <LaunchButton :ready-mode="!!lobbyStore.party && !lobbyStore.isLeader" />
             </div>
           </div>
 
-          <!-- Inner-right invite slot — only once both outer flanks are filled -->
-          <div v-if="innerSlotsVisible" ref="innerRightEl" class="flank-slot flank-slot--inner-right">
-            <LobbySkinSlot :member="lobbySlots[2]" size="lg" :initial-rotation-y="-0.524" @invite="openInvite" />
-          </div>
-
-          <!-- Right flanking member -->
-          <div class="flank-slot flank-slot--right" :class="{ 'flank-slot--passthrough': frontRightPassthrough }">
-            <LobbySkinSlot :member="lobbySlots[3]" size="2xl" :initial-rotation-y="-0.524" @invite="openInvite" />
-          </div>
-
-          <!-- Voice controls (shown when party has ≥2 members or voice is active) -->
+          <!-- Voice / party toolbar -->
           <div class="voice-controls">
-            <button
-              class="voice-btn"
-              :class="{ active: !voice.isMuted.value, muted: voice.isMuted.value }"
-              :title="voice.isMuted.value ? 'Unmute' : 'Mute'"
-              @click="voice.toggleMic()"
-            >
-              <svg v-if="!voice.isMuted.value" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
-              </svg>
-              <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
-              </svg>
-            </button>
-            <button
-              class="voice-btn"
-              :class="{ active: !voice.isDeafened.value, muted: voice.isDeafened.value }"
-              :title="voice.isDeafened.value ? 'Undeafen' : 'Deafen'"
-              @click="voice.toggleDeafen()"
-            >
-              <svg v-if="!voice.isDeafened.value" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
-              </svg>
-              <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="1" y1="1" x2="23" y2="23"/><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
-              </svg>
-            </button>
-            <div v-if="lobbyStore.party" class="party-id">
-              {{ lobbyStore.party.id }}
+            <template v-if="lobbyStore.party">
               <button
-                v-if="lobbyStore.isLeader"
-                class="party-id-refresh"
-                title="Generate a new code"
-                :disabled="lobbyStore.isCreating"
-                @click="lobbyStore.regenerateParty()"
+                class="voice-btn"
+                :class="{ muted: voice.isMuted.value, active: voice.isSpeaking.value }"
+                title="Toggle mic"
+                @click="voice.toggleMic()"
               >
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
-                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                  <path d="M19 10v1a7 7 0 0 1-14 0v-1"/>
+                  <line x1="12" y1="18" x2="12" y2="22"/>
+                  <line v-if="voice.isMuted.value" x1="4" y1="4" x2="20" y2="20"/>
                 </svg>
               </button>
-            </div>
-            <button
-              v-if="lobbyStore.party && lobbyStore.isLeader"
-              class="voice-btn delete-party-btn"
-              title="Delete party"
-              @click="lobbyStore.leaveParty()"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="3 6 5 6 21 6"/>
-                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                <path d="M10 11v6M14 11v6"/>
-                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-              </svg>
-            </button>
-            <button
-              v-if="lobbyStore.party && !lobbyStore.isLeader"
-              class="voice-btn delete-party-btn"
-              title="Leave party"
-              @click="lobbyStore.leaveParty()"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                <polyline points="16 17 21 12 16 7"/>
-                <line x1="21" y1="12" x2="9" y2="12"/>
-              </svg>
-            </button>
-            <button
-              v-if="!lobbyStore.party"
-              class="voice-btn create-lobby-btn"
-              title="Create a lobby and get a code"
-              :disabled="lobbyStore.isCreating"
-              @click="lobbyStore.createParty()"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-            </button>
-            <button
-              v-if="!lobbyStore.party && !joinInputActive"
-              class="voice-btn join-lobby-btn"
-              title="Join a party using its code"
-              @click="openJoin"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>
-              </svg>
-              Join Party
-            </button>
-            <input
-              v-if="!lobbyStore.party && joinInputActive"
-              ref="joinInputEl"
-              v-model="joinCodeInline"
-              class="join-lobby-input"
-              :class="{ 'join-lobby-input--busy': joiningInline }"
-              placeholder="XXXXXX"
-              maxlength="6"
-              spellcheck="false"
-              :disabled="joiningInline"
-              @input="joinCodeInline = (joinCodeInline as string).toUpperCase()"
-              @keydown.enter="submitJoinInline"
-              @keydown.esc="cancelJoinInline"
-              @blur="onJoinInputBlur"
-            />
-          </div>
-        </div>
-        </EditableRegion>
+              <button
+                class="voice-btn"
+                :class="{ muted: voice.isDeafened.value }"
+                title="Toggle deafen"
+                @click="voice.toggleDeafen()"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 14v-2a9 9 0 0 1 18 0v2"/>
+                  <rect x="3" y="14" width="5" height="7" rx="1.5"/>
+                  <rect x="16" y="14" width="5" height="7" rx="1.5"/>
+                  <line v-if="voice.isDeafened.value" x1="4" y1="4" x2="20" y2="20"/>
+                </svg>
+              </button>
+            </template>
 
-        <!-- Launch / Ready row -->
-        <div class="hero-launch">
-          <div class="launch-ropes" aria-hidden="true">
-            <span class="rope rope--left"></span>
-            <span class="rope rope--right"></span>
-          </div>
-          <div class="launch-drop" @animationend="onLaunchDropSettled">
-            <LaunchButton :ready-mode="!!lobbyStore.party && !lobbyStore.isLeader" />
+            <template v-if="lobbyStore.party">
+              <div class="party-id" @click="copyPartyId" title="Click to copy">
+                {{ lobbyStore.party.id }}
+                <button class="party-id-refresh" title="New code" @click.stop="lobbyStore.regenerateParty()">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12a9 9 0 1 1-3-6.7"/>
+                    <polyline points="21 3 21 9 15 9"/>
+                  </svg>
+                </button>
+              </div>
+              <button class="voice-btn delete-party-btn" title="Leave party" @click="lobbyStore.leaveParty()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"/>
+                  <polyline points="16 17 21 12 16 7"/>
+                  <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+              </button>
+            </template>
+            <template v-else>
+              <button class="voice-btn create-lobby-btn" title="Create party" @click="lobbyStore.createParty()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/>
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+              </button>
+              <input
+                v-if="joinInputActive"
+                ref="joinInputEl"
+                v-model="joinCodeInline"
+                class="join-lobby-input"
+                :class="{ 'join-lobby-input--busy': joiningInline }"
+                placeholder="CODE"
+                maxlength="6"
+                :disabled="joiningInline"
+                @blur="onJoinInputBlur"
+                @keydown.esc="cancelJoinInline"
+              />
+              <button v-else class="voice-btn join-lobby-btn" @click="openJoin">
+                <svg class="create-lobby-info" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                </svg>
+                Join Party
+              </button>
+            </template>
           </div>
         </div>
       </div>
 
-      <EditableRegion id="home.emptyEmbed" label="Leeres Embed" flex-fill :features="['radius', 'outline', 'color', 'bgColor', 'fontFamily']">
-      <div class="empty-embed"></div>
-      </EditableRegion>
-
-    </div>
-
-    <!-- Friends panel -->
-    <div class="friends-panel">
-      <EditableRegion id="home.friendsCard" label="Freunde-Karte" flex-fill :features="['radius', 'outline', 'color', 'fontFamily']">
-      <div class="friends-card">
-        <div class="friends-card-header">
-          <div class="friends-heading-row">
-            <h2 class="friends-heading">{{ $t('home.friends') }}</h2>
-          </div>
-          <span class="friends-online-count">
-            {{ $t('home.onlineCount', { count: friendsStore.onlineCount }) }}
-          </span>
-        </div>
-        <div class="friends-card-list">
-          <template v-if="friends.length">
-            <div
-              v-for="friend in friends"
-              :key="friend.uuid"
-              class="friend-row"
-              :class="{ online: friend.online }"
-              @click="openFriendChat(friend)"
-            >
-              <div class="friend-avatar-wrap">
-                <img
-                  class="friend-avatar"
-                  :src="`https://mc-heads.net/head/${friend.uuid}/64`"
-                  :alt="friend.username"
-                  @error="(e: Event) => ((e.target as HTMLImageElement).src = 'https://mc-heads.net/head/MHF_Steve/64')"
-                />
-                <span class="friend-redirect-badge"><Icon name="external-link" :size="9" /></span>
-                <span class="friend-status-dot" :class="{ online: friend.online }" />
-              </div>
-              <div class="friend-info">
-                <div class="friend-name-row">
-                  <span class="friend-name">{{ friend.username }}</span>
-                  <span v-if="friend.countryCode" class="friend-flag">{{ countryFlag(friend.countryCode) }}</span>
-                </div>
-                <div v-if="friend.playing" class="friend-status-line">
-                  {{ $t('home.playing') }} <span class="friend-status-game">{{ friend.playing.game }} {{ friend.playing.version }}</span>
-                </div>
-              </div>
-            </div>
-          </template>
-          <p v-else class="friends-empty">{{ $t('home.noFriends') }}</p>
-        </div>
+      <!-- Quick-join server row -->
+      <div v-if="showQuickServers" class="quick-servers">
+        <button
+          v-for="s in quickServers"
+          :key="s.id"
+          class="quick-server-slot"
+          :class="{ joining: joiningServerId === s.id }"
+          @click="joinQuickServer(s)"
+        >
+          <img v-if="s.favicon" :src="s.favicon" :alt="s.name" />
+          <span v-else class="quick-server-fallback">{{ s.name.charAt(0) }}</span>
+        </button>
       </div>
-      </EditableRegion>
+
+      <!-- Quick-play server cards (hosts: see SERVER_CARDS) -->
+      <div class="bottom-panel bottom-panel--servers">
+        <button
+          v-for="c in SERVER_CARDS"
+          :key="c.id"
+          class="server-card"
+          :class="{ joining: joiningServerId === c.id }"
+          :title="`Join ${c.name}`"
+          @click="joinServerCard(c)"
+        >
+          <span class="server-card-bg" :style="{ backgroundImage: `url(${c.bg})` }"></span>
+          <img class="server-card-logo" :src="c.logo" :alt="c.name" draggable="false" />
+          <span class="server-card-label">{{ c.label }}</span>
+        </button>
+      </div>
+
     </div>
 
     <!-- Invite overlay -->
     <InviteOverlay :visible="inviteOpen" :initial-tab="inviteInitTab" @close="inviteOpen = false" />
 
+    <!-- Own profile, opened via right-click on the local player -->
+    <PlayerProfileModal v-model="selfProfileOpen" :player="selfProfilePlayer" />
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onActivated, onDeactivated, onMounted, watch, nextTick } from 'vue'
+import { computed, ref, onActivated, onDeactivated, onBeforeUnmount, onMounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useFriendsStore, type Friend } from '../store/friendsStore'
 import { useAccountStore }  from '../store/accountStore'
+import { useQuestsStore }   from '../store/questsStore'
+import { levelFromXp }      from '../utils/level'
 import { useLockerStore }   from '../store/lockerStore'
 import { useLobbyStore }    from '../store/lobbyStore'
-import { useShopStore }     from '../store/shopStore'
-import type { ShopItem }    from '../types'
+import { useLauncherStore } from '../store/launcherStore'
+import type { PlayerProfile } from '../types'
 import { useLobbyVoice }    from '../composables/useLobbyVoice'
 import { showToast }        from '../composables/useToasts'
-import LobbySkinSlot  from '../components/lobby/LobbySkinSlot.vue'
+import { openContextMenu, type ContextMenuItem } from '../composables/useContextMenu'
 import InviteOverlay  from '../components/lobby/InviteOverlay.vue'
-import HeroSkinViewer from '../components/skin/HeroSkinViewer.vue'
+import CampfireScene  from '../components/campfire/CampfireScene.vue'
+import { SCENE_ACTION_LABELS, type SceneMember } from '../components/campfire/campfireConfig'
+import PlayerProfileModal from '../components/friends/PlayerProfileModal.vue'
 import LaunchButton   from '../components/home/LaunchButton.vue'
-import Icon           from '../components/common/Icon.vue'
-import EditableRegion from '../components/common/EditableRegion.vue'
-import { useElementStyle } from '../composables/useElementStyle'
-// Snow-biome/aurora scene — minecraft-bg.mp4 is a byte-identical duplicate
-// of this same video, so only one needs to be imported.
-import snowBgVideo from '../assets/launcher-bg.mp4'
-import sigmaBgGif from '../assets/sigma-bg.gif'
-import butterfliesBgVideo from '../assets/butterflies-garden-bg.mp4'
-import kitsuneBgVideo from '../assets/kitsune-girl-bg.mp4'
+import logoHoplite    from '../assets/servers/hoplite.png'
+import logoHypixel    from '../assets/servers/hypixel.png'
+import logoWynncraft  from '../assets/servers/wynncraft.png'
+import logoGomme      from '../assets/servers/gommehd.png'
+import bgHoplite      from '../assets/servers/bg/hoplite.jpg'
+import bgHypixel      from '../assets/servers/bg/hypixel.jpg'
+import bgWynncraft    from '../assets/servers/bg/wynncraft.jpg'
+import bgGomme        from '../assets/servers/bg/gommehd.jpg'
 import { consumeHubIntro } from './homePageIntro'
 // ── Video ─────────────────────────────────────────────────────────────────────
 
 // Module-level (see homePageIntro.ts): true only the first time this app
-// session reaches the hub, false on every later tab switch back to it —
-// even if KeepAlive's LRU cache evicts and remounts the component.
-const playIntro = consumeHubIntro()
+// session reaches the hub, false on every later tab switch back to it -
+// even if KeepAlive's LRU cache evicts and remounts the component. Set from
+// onActivated (not here in setup) - <KeepAlive> only calls setup() once for
+// the component's whole lifetime, but calls onActivated every time the tab
+// is revisited (including the very first mount), so reading it here would
+// freeze `true` for as long as the instance stays cached.
+const playIntro = ref(false)
+
+// ── News / status panel ──────────────────────────────────────────────────────
+const onlineCount = ref<number | null>(null)
+const ICON_RELAY = `<svg viewBox="0 0 20 20" fill="none"><circle cx="6" cy="14" r="2.4" stroke="currentColor" stroke-width="1.4"/><circle cx="14" cy="6" r="2.4" stroke="currentColor" stroke-width="1.4"/><path d="M7.7 12.3 12.3 7.7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`
+const ICON_MASK  = `<svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.4"/><path d="M7 9.5c.4-1 1.2-1.5 3-1.5s2.6.5 3 1.5M7.5 12.5c.7.8 1.6 1.2 2.5 1.2s1.8-.4 2.5-1.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`
+const ICON_BOLT  = `<svg viewBox="0 0 20 20" fill="none"><path d="M11 2 4 11h5l-1 7 7-9h-5l1-7Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>`
+const ICON_BELL  = `<svg viewBox="0 0 20 20" fill="none"><path d="M10 3.5c-2.3 0-3.6 1.7-3.6 4v2.3L5 12.5h10L13.6 9.8V7.5c0-2.3-1.3-4-3.6-4Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8.3 14.8c.3.8.9 1.2 1.7 1.2s1.4-.4 1.7-1.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`
+const ICON_USERS = `<svg viewBox="0 0 20 20" fill="none"><circle cx="7" cy="7" r="2.4" stroke="currentColor" stroke-width="1.4"/><path d="M2.5 16c.4-2.6 2.1-4 4.5-4s4.1 1.4 4.5 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="14" cy="7.5" r="2" stroke="currentColor" stroke-width="1.4"/><path d="M12.8 12.3c1.9.3 3.1 1.6 3.4 3.7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`
+// Kept honest - real shipped features, not filler copy.
+const newsItems = [
+  { icon: ICON_RELAY, title: 'World Relay',       desc: 'Host your singleplayer world for friends over the internet - no port forwarding, your IP never shown.' },
+  { icon: ICON_MASK,  title: 'Cosmetics',          desc: 'Capes you own show up right here on your character.' },
+  { icon: ICON_BOLT,  title: 'Boosted Performance',desc: 'Sodium, Lithium & FerriteCore are bundled into every launch automatically.' },
+]
+
+const bottomTab = ref<'news' | 'friends'>('news')
+
+// ── Quick-join server row ────────────────────────────────────────────────────
+// Same real host list ServerRow.vue uses (kept in sync with serverPingService.ts's
+// FEATURED_SERVERS) - just a subset sized for this row instead of that component's
+// 20-slot flip-card corner widget.
+interface QuickServer { id: string; name: string; host: string; port: number; favicon: string | null }
+const QUICK_SERVERS: QuickServer[] = [
+  { id: 'hypixel',      name: 'Hypixel',      host: 'mc.hypixel.net',        port: 25565, favicon: null },
+  { id: '2b2t',         name: '2b2t',         host: 'connect.2b2t.org',      port: 25565, favicon: null },
+  { id: 'wynncraft',    name: 'Wynncraft',    host: 'play.wynncraft.com',    port: 25565, favicon: null },
+  { id: 'cubecraft',    name: 'CubeCraft',    host: 'play.cubecraft.net',    port: 25565, favicon: null },
+  { id: 'gommehd',      name: 'GommeHD',      host: 'gommehd.net',           port: 25565, favicon: null },
+  { id: 'griefergames', name: 'GrieferGames', host: 'griefergames.net',      port: 25565, favicon: null },
+  { id: 'pikanetwork',  name: 'PikaNetwork',  host: 'play.pika-network.net', port: 25565, favicon: null },
+  { id: 'donutsmp',     name: 'DonutSMP',     host: 'donutsmp.net',          port: 25565, favicon: null },
+]
+// Quick-play cards under the scene: logo = the server's own icon, bg = key art (src/assets/servers). All four hosts were
+// checked online (MOTD matched). Order = card order.
+const SERVER_CARDS: Array<{ id: string; name: string; label: string; host: string; port: number; logo: string; bg: string }> = [
+  { id: 'hoplite',   name: 'Hoplite',   label: 'HOPLITE SERVER',  host: 'play.hoplite.gg',    port: 25565, logo: logoHoplite,   bg: bgHoplite },
+  { id: 'hypixel',   name: 'Hypixel',   label: 'HYPIXEL',         host: 'mc.hypixel.net',     port: 25565, logo: logoHypixel,   bg: bgHypixel },
+  { id: 'wynncraft', name: 'Wynncraft', label: 'WYNNCRAFT',       host: 'play.wynncraft.com', port: 25565, logo: logoWynncraft, bg: bgWynncraft },
+  { id: 'gommehd',   name: 'GommeHD',   label: 'GOMME HD SERVER', host: 'gommehd.net',        port: 25565, logo: logoGomme,     bg: bgGomme },
+]
+
+function joinServerCard(c: (typeof SERVER_CARDS)[number]): void {
+  void joinQuickServer({ id: c.id, name: c.name, host: c.host, port: c.port, favicon: null })
+}
+
+const quickServers = ref<QuickServer[]>(QUICK_SERVERS.map(s => ({ ...s })))
+const joiningServerId = ref<string | null>(null)
+
+async function joinQuickServer(s: QuickServer) {
+  if (joiningServerId.value) return
+  const profile = launcherStore.activeProfile
+  if (!profile) {
+    showToast({ title: 'No profile selected', body: 'Pick a profile before joining a server.', variant: 'error', duration: 3500 })
+    return
+  }
+  joiningServerId.value = s.id
+  try {
+    await window.api.lobby.startWithServer(profile.id, s.host, s.port)
+  } catch (e) {
+    showToast({ title: 'Failed to join', body: e instanceof Error ? e.message : String(e), variant: 'error', duration: 4000 })
+  } finally {
+    joiningServerId.value = null
+  }
+}
 
 const sceneVideo = ref('')
+const sceneImage = ref('')
 const videoRef   = ref<HTMLVideoElement | null>(null)
-
-// Editor Mode — lets the user swap the hero/skin-preview background for a
-// custom video (see SettingsPage → Appearance → Editor Mode).
-const { override: heroBgOverride } = useElementStyle('home.skinPreviewBg')
-
-// Quick background cycler (top-left button on .video-card) — cycles between
-// the original scene.mp4 (`null`, fetched below), a handful of bundled
-// videos, and the sigma GIF (a static/animated image, so it needs <img> not
-// <video> — each choice carries its own type and the template picks
-// between them). `blurred` opts a video into the same blur(3px)
-// brightness(0.85) treatment originally added for the snow/aurora scene —
-// declared per-choice instead of matched by src so adding another blurred
-// video later is a one-line change, not a new comparison branch.
-type BgChoice =
-  | { type: 'video'; src: string | null; blurred?: boolean }
-  | { type: 'image'; src: string }
-const BG_CHOICES: BgChoice[] = [
-  { type: 'video', src: null },
-  { type: 'video', src: snowBgVideo, blurred: true },
-  { type: 'image', src: sigmaBgGif },
-  { type: 'video', src: butterfliesBgVideo, blurred: true },
-  { type: 'video', src: kitsuneBgVideo, blurred: true },
-]
-const bgChoiceIndex = ref(0)
-function cycleBackground() {
-  bgChoiceIndex.value = (bgChoiceIndex.value + 1) % BG_CHOICES.length
-}
-const activeBgChoice = computed(() => BG_CHOICES[bgChoiceIndex.value])
-
-// Editor Mode's override always wins and is always a video.
-const displayVideo = computed(() => {
-  if (heroBgOverride.value.bgVideo) return heroBgOverride.value.bgVideo
-  const choice = activeBgChoice.value
-  return choice.type === 'video' ? (choice.src || sceneVideo.value) : null
-})
-const displayImage = computed(() =>
-  !heroBgOverride.value.bgVideo && activeBgChoice.value.type === 'image' ? activeBgChoice.value.src : null)
-// Blur whichever video choices opt in via `blurred` (not the Editor Mode
-// override, the original, or the sigma GIF).
-const isBlurredBg = computed(() =>
-  !heroBgOverride.value.bgVideo && activeBgChoice.value.type === 'video' && !!activeBgChoice.value.blurred)
 
 // ── Stores / composables ──────────────────────────────────────────────────────
 
 const friendsStore  = useFriendsStore()
 const accountStore  = useAccountStore()
+const questsStore   = useQuestsStore()
 const lobbyStore    = useLobbyStore()
-const shopStore     = useShopStore()
+
+async function copyPartyId() {
+  const id = lobbyStore.party?.id
+  if (!id) return
+  try {
+    await navigator.clipboard.writeText(id)
+    showToast({ title: 'Party code copied', body: id, variant: 'info', duration: 1800 })
+  } catch (e) {
+    showToast({ title: 'Could not copy', body: e instanceof Error ? e.message : String(e), variant: 'error', duration: 3000 })
+  }
+}
+const launcherStore = useLauncherStore()
 const voice         = useLobbyVoice()
 
-const heroViewerRef = ref<InstanceType<typeof HeroSkinViewer> | null>(null)
+
+// ── Campfire hub scene ───────────────────────────────────────────────────────
+// Everyone in the party sits around a campfire in one shared 3D scene (the hub's centrepiece).
+const campfireRef = ref<InstanceType<typeof CampfireScene> | null>(null)
+const isDev = import.meta.env.DEV
+const showSceneHelp = ref(false)   // Ctrl+H toggles the list of test actions
+const showLaunch = ref(false)    // launch button removed from the hub for now (dev: Ctrl+L shows it again)
+const showQuickServers = ref(false)   // quick-join server row hidden for now (set true to bring it back)
+
+// Test actions (dev builds): the buttons in the corner of the hub card, or Ctrl + 1..9 while the hub is open.
+function runSceneAction(n: number): void {
+  const body = campfireRef.value?.runAction(n) ?? 'The scene is not ready yet.'
+  showToast({ title: `${n} \u00b7 ${SCENE_ACTION_LABELS[n - 1]}`, body, variant: 'info', duration: 2200 })
+}
+
+function onSceneActionKey(e: KeyboardEvent): void {
+  if (!isDev || !e.ctrlKey || e.shiftKey || e.altKey || e.metaKey) return
+  if (e.key.toLowerCase() === 'h') { e.preventDefault(); showSceneHelp.value = !showSceneHelp.value; return }
+  if (e.key.toLowerCase() === 'l') { e.preventDefault(); showLaunch.value = !showLaunch.value; return }
+  if (!/^[1-9]$/.test(e.key)) return
+  const n = Number(e.key)
+  if (n > SCENE_ACTION_LABELS.length) return
+  e.preventDefault()
+  runSceneAction(n)
+}
+
+onActivated(() => window.addEventListener('keydown', onSceneActionKey))
+onDeactivated(() => window.removeEventListener('keydown', onSceneActionKey))
+onBeforeUnmount(() => window.removeEventListener('keydown', onSceneActionKey))   // also on unmount/HMR, or stale listeners stack up
 
 const lockerStore = useLockerStore()
 const account     = computed(() => accountStore.selectedAccount)
@@ -402,39 +324,48 @@ const activeSkinUrl   = computed(() => lockerStore.skinUrl  ?? account.value?.sk
 const activeCapeUrl   = computed(() => lockerStore.capeUrl  ?? account.value?.capeUrl  ?? null)
 const activeSkinModel = computed(() => lockerStore.model    ?? account.value?.skinModel ?? 'default')
 
-const friends    = computed(() => friendsStore.friends)
-const lobbySlots = computed(() => lobbyStore.slots)
-// Inner invite slots only show once both outer flanks are taken by real
-// members — otherwise a 1- or 2-person party would show 4 invite buttons
-// at once instead of growing into them.
-const innerSlotsVisible = computed(() => Boolean(lobbySlots.value[0]) && Boolean(lobbySlots.value[3]))
+// ── Own profile (right-click on the local player) ───────────────────────────
+const selfProfileOpen = ref(false)
 
-// The front (outer) flank slots visually sit above the inner slots, and by
-// default their full bounding box would swallow every hover/click there —
-// even over the parts where the inner slot underneath isn't actually
-// covered. Rather than blanket pointer-events:none on the whole outer slot
-// (which kills its own cursor-follow rotation everywhere), track the cursor
-// against each inner slot's actual rect and only go pointer-events:none on
-// the corresponding outer slot while the cursor is truly over that rect.
-const innerLeftEl  = ref<HTMLElement | null>(null)
-const innerRightEl = ref<HTMLElement | null>(null)
-const frontLeftPassthrough  = ref(false)
-const frontRightPassthrough = ref(false)
-
-function onVideoCardMouseMove(e: MouseEvent): void {
-  const inRect = (el: HTMLElement | null): boolean => {
-    if (!el) return false
-    const r = el.getBoundingClientRect()
-    return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom
+const selfProfilePlayer = computed<PlayerProfile | null>(() => {
+  if (!account.value) return null
+  return {
+    uuid: account.value.uuid,
+    username: account.value.username,
+    skinUrl: activeSkinUrl.value,
+    capeUrl: activeCapeUrl.value,
+    skinModel: activeSkinModel.value,
   }
-  frontLeftPassthrough.value  = inRect(innerLeftEl.value)
-  frontRightPassthrough.value = inRect(innerRightEl.value)
+})
+
+function onSelfContextMenu(event: MouseEvent): void {
+  if (!account.value) return
+  const username = account.value.username
+  const items: ContextMenuItem[] = [
+    { label: 'View Profile', icon: 'eye', onClick: () => { selfProfileOpen.value = true } },
+    { label: 'Copy Username', icon: 'copy', onClick: () => navigator.clipboard.writeText(username) },
+  ]
+  openContextMenu(event, items)
 }
 
-function onVideoCardMouseLeave(): void {
-  frontLeftPassthrough.value  = false
-  frontRightPassthrough.value = false
-}
+const campfireMembers = computed<SceneMember[]>(() => {
+  const acc = account.value
+  if (!acc) return []
+  const self: SceneMember = {
+    uuid: acc.uuid, username: acc.username, skinUrl: activeSkinUrl.value, capeUrl: activeCapeUrl.value,
+    model: activeSkinModel.value, isLeader: lobbyStore.isLeader,
+    level: levelFromXp(questsStore.totalXp).level, levelProgress: levelFromXp(questsStore.totalXp).progress,
+  }
+  const others = (lobbyStore.party?.members ?? [])
+    .filter(m => m.uuid !== acc.uuid)
+    .map<SceneMember>(m => ({
+      uuid: m.uuid, username: m.username, skinUrl: m.skinUrl, capeUrl: m.capeUrl,
+      model: m.skinModel, isLeader: m.uuid === lobbyStore.party?.leaderId,
+    }))
+  return [self, ...others]
+})
+
+const friends    = computed(() => friendsStore.friends)
 
 const router = useRouter()
 
@@ -449,7 +380,7 @@ function openFriendChat(friend?: Friend) {
 }
 
 // An element with an active CSS `animation` keeps creating its own stacking
-// context for as long as `animation-name` isn't `none` — even once the
+// context for as long as `animation-name` isn't `none` - even once the
 // one-time launch-drop-y entrance has finished and is just sitting at its
 // `both`-filled end state. That nested stacking context is what was blocking
 // LaunchButton's backdrop-filter (a descendant) from ever compositing: it
@@ -459,55 +390,6 @@ function openFriendChat(friend?: Friend) {
 function onLaunchDropSettled(e: AnimationEvent) {
   if (e.animationName === 'launch-drop-y') (e.currentTarget as HTMLElement).style.animation = 'none'
 }
-
-// ── Emotes ────────────────────────────────────────────────────────────────────
-
-const ownedEmotes     = computed<ShopItem[]>(() =>
-  shopStore.items.filter(i => i.type === 'emote' && shopStore.owned.includes(i.id)),
-)
-const emotePickerOpen = ref(false)
-const emotePickerEl   = ref<HTMLElement | null>(null)
-
-function playEmote(item: ShopItem) {
-  heroViewerRef.value?.triggerEmote()
-  window.api.lobby.emit('party:emote', { emote: item.id })
-  emotePickerOpen.value = false
-}
-
-function isTypingTarget(el: EventTarget | null): boolean {
-  if (!(el instanceof HTMLElement)) return false
-  return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable
-}
-
-function onEmoteKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && emotePickerOpen.value) { emotePickerOpen.value = false; return }
-  if (e.key.toLowerCase() !== 'b' || e.ctrlKey || e.metaKey || e.altKey) return
-  if (isTypingTarget(e.target) || inviteOpen.value) return
-  if (!ownedEmotes.value.length) return
-  emotePickerOpen.value = !emotePickerOpen.value
-}
-
-function onEmoteOutsideClick(e: MouseEvent) {
-  if (!emotePickerOpen.value) return
-  if (emotePickerEl.value && !emotePickerEl.value.contains(e.target as Node)) {
-    emotePickerOpen.value = false
-  }
-}
-
-onActivated(() => {
-  window.addEventListener('keydown', onEmoteKeydown)
-  document.addEventListener('mousedown', onEmoteOutsideClick)
-})
-
-onDeactivated(() => {
-  window.removeEventListener('keydown', onEmoteKeydown)
-  document.removeEventListener('mousedown', onEmoteOutsideClick)
-  emotePickerOpen.value = false
-})
-
-onMounted(() => {
-  if (!shopStore.items.length) shopStore.load()
-})
 
 // ── Invite overlay ────────────────────────────────────────────────────────────
 
@@ -540,7 +422,7 @@ function cancelJoinInline(): void {
   joinCodeInline.value  = ''
 }
 
-// blur cancels only when empty — mid-code, a stray focus loss (e.g. alt-tab)
+// blur cancels only when empty - mid-code, a stray focus loss (e.g. alt-tab)
 // shouldn't silently discard what they typed; keydown.esc is the explicit cancel.
 function onJoinInputBlur(): void {
   if (!joinCodeInline.value) cancelJoinInline()
@@ -560,7 +442,7 @@ async function submitJoinInline(): Promise<void> {
   }
 }
 
-// Auto-submit the moment a full 6-character code is typed — no separate
+// Auto-submit the moment a full 6-character code is typed - no separate
 // confirm button needed for a fixed-length code.
 watch(joinCodeInline, v => { if (v.length === 6) submitJoinInline() })
 
@@ -584,18 +466,34 @@ watch(() => lobbyStore.party?.members.length, (next, prev) => {
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 onMounted(async () => {
-  // Load background video
-  try {
-    sceneVideo.value = await (window as any).api.video.getScene()
-  } catch {}
+  questsStore.loadLeaderboard().catch(() => {})   // fills totalXp -> level badge in the campfire nametag
+  // Hero background - served straight from the Pterodactyl backend's /uploads (same host
+  // client_update_service.rs pulls the beja jars from, not the api.bejaclient.xyz Cloudflare
+  // proxy), not bundled with the app. Swap classic-style: replace the file on the server (Panel
+  // → Files → uploads/) and flip which of these two lines is active.
+  sceneImage.value = 'http://206.217.141.184:3093/uploads/scene.png'
+  // sceneVideo.value = 'http://206.217.141.184:3093/uploads/scene.mp4'
+
+  onlineCount.value = await window.api.stats.online()
+  window.api.stats.onOnlineCount((count: number) => { onlineCount.value = count })
+
+  QUICK_SERVERS.forEach(async (s, i) => {
+    try {
+      const status = await window.api.servers.ping(s.host, s.port)
+      if (status?.favicon) quickServers.value[i] = { ...quickServers.value[i], favicon: status.favicon }
+    } catch { /* stays with the letter fallback */ }
+  })
 
   // Init voice capture
   await voice.init()
   initVoiceIpc()
 })
 
-onActivated(() => { videoRef.value?.play() })
-// Kept alive by App.vue's <KeepAlive> — pause the decode/GPU work while
+onActivated(() => {
+  playIntro.value = consumeHubIntro()
+  videoRef.value?.play()
+})
+// Kept alive by App.vue's <KeepAlive> - pause the decode/GPU work while
 // the user is on another tab instead of burning it in the background.
 onDeactivated(() => { videoRef.value?.pause() })
 
@@ -615,9 +513,9 @@ function onVideoError(e: Event) {
   overflow: hidden;
 }
 
-// ── Hub entrance — plays once on mount (KeepAlive skips it on tab revisits) ───
+// ── Hub entrance - plays once on mount (KeepAlive skips it on tab revisits) ───
 //
-// No `filter` here (unlike hub-fade-blur/hub-slide-in below) — .video-card is
+// No `filter` here (unlike hub-fade-blur/hub-slide-in below) - .video-card is
 // what LaunchButton's backdrop-filter renders against (the launch button sits
 // absolutely-positioned on top of it), and an active `filter` on an element
 // blocks a sibling's `backdrop-filter` from compositing at all in Chromium/
@@ -633,7 +531,7 @@ function onVideoError(e: Event) {
   to   { opacity: 1; }
 }
 
-// Same visibility-based swap as launch-drop-y — .voice-controls now has
+// Same visibility-based swap as launch-drop-y - .voice-controls now has
 // backdrop-filter children (voice-btn/party-id), and an opacity-animating
 // ancestor blocks those from compositing until the animation ends, same
 // bug as LaunchButton had.
@@ -675,22 +573,12 @@ function onVideoError(e: Event) {
   100% { height: 170px; }
 }
 
-// Tab revisit (not a real app launch) — skip the one-time entrance
-// animations but keep the continuous idle loops (skinFloat, crown-float).
+// Tab revisit (not a real app launch) - skip the one-time entrance
+// animations.
 .home-page.no-intro {
   .launch-drop, .rope, .video-card, .voice-controls,
-  .friends-card-header, .empty-embed, .friends-card, .friend-row {
+  .quick-servers, .bottom-panel, .friend-row {
     animation: none;
-  }
-  .skin-wrap {
-    animation: skinFloat 3s ease-in-out infinite alternate;
-  }
-  .flank-slot {
-    animation-name: skinFloat;
-    animation-duration: 3s;
-    animation-timing-function: ease-in-out;
-    animation-iteration-count: infinite;
-    animation-direction: alternate;
   }
 }
 
@@ -708,6 +596,13 @@ function onVideoError(e: Event) {
 .hero-wrap {
   position: relative;
   flex-shrink: 0;
+}
+
+.hero-launch-text {
+  position: absolute;
+  left: 22px;
+  bottom: 46px;
+  z-index: 6;
 }
 
 .hero-launch {
@@ -739,52 +634,30 @@ function onVideoError(e: Event) {
 .rope {
   position: absolute;
   top: 0;
-  width: 2px;
+  width: 4px;
   height: 2px;
   opacity: 0;
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.4));
+  // hemp rope: tan, with a short dark twist every few pixels
+  background: repeating-linear-gradient(to bottom, #b08a55 0 4px, #6e5230 4px 6px);
   transform-origin: top center;
   animation: launch-rope-extend 1100ms cubic-bezier(0.16, 1, 0.3, 1) 980ms both;
 
-  &--left { left: -108px; }
-  &--right { left: 106px; }
+  &--left { left: -109px; }
+  &--right { left: 105px; }
 }
 
 // ── Video card ────────────────────────────────────────────────────────────────
-@property --border-angle {
-  syntax: '<angle>';
-  initial-value: 0deg;
-  inherits: false;
-}
-
 .video-card {
   width: 100%;
-  height: 56vh;
-  border-radius: var(--edr-radius, 4px);
+  height: 74vh;
+  // the scene sits on top of the news panel: rounded on top, square at the bottom where the two meet
+  border-radius: var(--edr-radius, #{$radius-lg}) var(--edr-radius, #{$radius-lg}) 0 0;
   overflow: hidden;
-  clip-path: inset(0 round var(--edr-radius, 4px));
-  outline: var(--edr-outline, none);
-  outline-offset: 3px;
+  clip-path: inset(0 round var(--edr-radius, #{$radius-lg}) var(--edr-radius, #{$radius-lg}) 0 0);
   flex-shrink: 0;
   position: relative;
-  border: 2px solid transparent;
-  background-image:
-    linear-gradient(#111, #111),
-    conic-gradient(
-      from var(--border-angle),
-      rgba(255, 255, 255, 0.04) 0%,
-      rgba(255, 255, 255, 0.55) 18%,
-      rgba(255, 255, 255, 0.04) 36%,
-      rgba(255, 255, 255, 0.04) 100%
-    );
-  background-origin: border-box;
-  background-clip: padding-box, border-box;
-  transition: --border-angle 2000ms cubic-bezier(0.2, 0, 0, 1);
+  background: #13141A;
   animation: hub-rise 1200ms cubic-bezier(0.16, 1, 0.3, 1) both;
-
-  &:hover {
-    --border-angle: 135deg;
-  }
 }
 
 .scene-video {
@@ -793,276 +666,64 @@ function onVideoError(e: Event) {
   object-fit: cover;
   display: block;
   transform: scale(1.15);
-  // Matches .video-card's own background-image color (#111) — without this,
-  // swapping :src to a new video (background toggle) shows the browser's
-  // default grey "no frame decoded yet" fill for the brief gap before the
-  // new source has a frame ready, instead of blending into the card.
   background: #111;
-
-  // Slightly oversized (scale(1.15) above) so the blurred edges never show
-  // the video's actual boundary.
-  &--blurred { filter: blur(3px) brightness(0.85); }
 }
 
-// Static/GIF backgrounds — a smaller centered copy flanked by horizontally-
-// mirrored copies of the same image filling the rest of the width, instead
-// of one copy stretched edge-to-edge (which looked too large/pixelated for
-// a low-res source like the sigma GIF).
-.scene-mirror {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  background: #111;
-  overflow: hidden;
-}
-
-.scene-mirror-side,
-.scene-mirror-center {
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.scene-mirror-side {
-  flex: 0 0 20%;
-  transform: scaleX(-1);
-}
-
-.scene-mirror-center {
-  flex: 1 1 60%;
-}
-
-// ── Center player (HeroSkinViewer, original positioning) ─────────────────────
-.skin-wrap {
+// Dev-only test buttons in the top-left corner of the hub card.
+.dev-tools {
   position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  // width scales with vh (like height below) so the aspect ratio stays constant
-  // across window sizes — a fixed px width against a vh-based height stretched
-  // the viewer taller/narrower on bigger screens, clipping arms/shoulders.
-  width: 36.8vh;
-  height: calc(100% + 14vh);
-  pointer-events: none;
-  animation: skinFloat 3s ease-in-out infinite alternate, hub-fade-blur 1100ms ease 420ms both;
+  top: 10px;
+  left: 10px;
+  z-index: 12;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  // Front row (with the outer flanks below) — sits above the inner slots so
-  // newly-invited members filling those slots read as standing behind the
-  // established trio, not beside them.
-  z-index: 3;
-}
-
-// Absolutely positioned (like LobbySkinSlot.vue's flanking-member crown) —
-// NOT a normal flex item of .skin-wrap. It used to be margin-based flow,
-// which meant the instant it appeared, flexbox's default flex-shrink:1
-// actually shrank HeroSkinViewer to make room for it in the fixed-height
-// column — a real, instant, unanimatable layout resize, invisible on its
-// own but very visible underneath the character's transform-scale pop.
-.slot-crown {
-  position: absolute;
-  top: 30px;
-  left: 50%;
-  transform: translateX(-50%);
-  filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.65));
-  animation: crown-float 3s ease-in-out infinite;
-  z-index: 2;
-}
-
-// Sits below .slot-crown (top: 38px) — closer to the head, same pill style
-// as the flanking members' nametag in LobbySkinSlot.vue for consistency.
-.skin-nametag {
-  position: absolute;
-  top: 41px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 2;
-  padding: 4px 10px;
-  background: rgba(0, 0, 0, 0.28);
-  font-size: 11px;
-  color: #fff;
-  white-space: nowrap;
-  pointer-events: none;
-  // Mirrors .hero-viewer--pop (HeroSkinViewer.vue) exactly — the character
-  // itself shifts translateY(16px) while in a party, and without this the
-  // nametag stays put and drifts out of sync with the head as that toggles.
-  transition: transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
-
-  &--pop { transform: translateX(-50%) translateY(16px); }
-}
-
-.crown-fade-enter-active { transition: opacity 700ms cubic-bezier(0.16, 1, 0.3, 1); }
-.crown-fade-enter-from   { opacity: 0; }
-.crown-fade-leave-active { transition: opacity 700ms cubic-bezier(0.16, 1, 0.3, 1); }
-.crown-fade-leave-to     { opacity: 0; }
-
-@keyframes crown-float {
-  0%, 100% { transform: translateX(-50%) translateY(0); }
-  50%       { transform: translateX(-50%) translateY(-3px); }
-}
-
-@keyframes skinFloat {
-  from { transform: translateX(-50%) translateY(0px); }
-  to   { transform: translateX(-50%) translateY(-14px); }
-}
-
-.skin-footer {
-  position: absolute;
-  bottom: calc(14vh + 10px);
-  display: flex;
-  flex-direction: column-reverse;
-  align-items: center;
-  gap: 8px;
-  z-index: 15;
-}
-
-.skin-namebar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
-  border-radius: 4px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.08);
-  pointer-events: none;
-}
-
-.skin-emote-hint {
-  font-size: 10px;
-  color: $text-muted;
-  letter-spacing: 0.2px;
-  padding-left: 4px;
-  border-left: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-.emote-bar {
-  @extend %glass-panel;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px;
-  border-radius: 4px;
-  pointer-events: auto;
-}
-
-.emote-pop-enter-active { transition: opacity 140ms ease, transform 140ms cubic-bezier(0.34, 1.56, 0.64, 1); }
-.emote-pop-leave-active { transition: opacity 100ms ease, transform 100ms ease; }
-.emote-pop-enter-from,
-.emote-pop-leave-to {
-  opacity: 0;
-  transform: translateY(6px) scale(0.94);
-}
-
-.emote-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 4px;
-  padding: 8px 12px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dev-btn {
+  padding: 5px 10px;
+  border-radius: 0;   // the global button reset rounds corners; the hub scene overlays stay square
+  background: rgba(10, 12, 18, 0.7);
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 11px;
+  letter-spacing: 0.04em;
   cursor: pointer;
-  transition: background 120ms ease, transform 120ms ease;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
 
-  &:hover { background: rgba(255, 255, 255, 0.14); transform: scale(1.05); }
-  &:active { transform: scale(0.96); }
+  &:hover {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.7);
+    color: #fff;
+  }
 }
 
-.emote-btn-icon {
-  width: 22px;
-  height: 22px;
-}
-
-.emote-btn-name {
-  font-size: 10px;
-  color: $text-secondary;
-  white-space: nowrap;
-}
-
-// ── Flanking lobby slots ──────────────────────────────────────────────────────
-.flank-slot {
-  position: absolute;
-  top: 33%;
-  animation-name: skinFloat, hub-fade;
-  animation-duration: 3s, 900ms;
-  animation-timing-function: ease-in-out, ease;
-  animation-iteration-count: infinite, 1;
-  animation-direction: alternate, normal;
-  animation-fill-mode: none, both;
-
-  // Front row — same layer as .skin-wrap (z-index: 3), above the inner slots.
-  &--left, &--right { z-index: 3; }
-
-  // Applied only while the cursor is actually over the inner slot's rect
-  // underneath (tracked in JS — see frontLeftPassthrough/frontRightPassthrough
-  // in the script), so it doesn't blanket-disable the outer slot's own
-  // hover/cursor-follow or its invite button everywhere else.
-  &--passthrough { pointer-events: none; }
-  &--left  { left: 20%; transform: translateX(-50%); animation-delay: -1.1s, 640ms; }
-  &--right { left: 80%; transform: translateX(-50%); animation-delay: -2.2s, 780ms; }
-
-  // Newly-invited members (via the inner invite buttons) render tucked
-  // behind the front row — higher up (peeking over the shoulder line) and
-  // a lower z-index so the front row's bodies overlap and occlude them,
-  // instead of standing flat in the gap next to everyone else.
-  // Anchor point is the character's HEAD (flex column grows down from
-  // `top`), so this must stay above the front row's own head-line (33%,
-  // see &--left/&--right) or the front row's higher z-index paints right
-  // over the back row's head — it's not "cut off", it's fully hidden
-  // behind an opaque front-row canvas at that y-position. Legs/torso
-  // extending down into the front row's zone is the intended "behind" look.
-  &--inner-left, &--inner-right { top: 32%; z-index: 1; }
-  &--inner-left  { left: 35%; transform: translateX(-50%); animation-delay: -0.6s, 700ms; }
-  &--inner-right { left: 65%; transform: translateX(-50%); animation-delay: -1.8s, 860ms; }
-}
-
-// ── Background toggle ───────────────────────────────────────────────────────
-.bg-toggle-btn {
-  position: absolute;
-  top: 14px;
-  left: 14px;
-  z-index: 10;
-  width: 34px;
-  height: 34px;
-  border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(32, 32, 36, 0.2);
-  backdrop-filter: blur(14px) saturate(160%);
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 12px 32px rgba(0, 0, 0, 0.55);
-  color: rgba(255, 255, 255, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  filter: brightness(1);
-  transition: color 160ms $ease-out, filter 150ms ease-out;
-
-  &:hover { filter: brightness(1.1); color: rgba(255, 255, 255, 0.9); }
+.dev-key {
+  display: inline-block;
+  min-width: 42px;
+  margin-right: 8px;
+  color: rgba(255, 255, 255, 0.45);
+  font-family: 'IBM Plex Mono', monospace;
 }
 
 // ── Voice controls ────────────────────────────────────────────────────────────
+
 .voice-controls {
   position: absolute;
-  // Same 14px as .bg-toggle-btn's top/left — no padding/margin trickery
-  // here, so this stays trivially guaranteed to match it.
   bottom: 14px;
   right: 14px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   z-index: 10;
   animation: voice-controls-in 1ms linear 1100ms both;
 
-  // Invisible hit-area, 12px larger on every side than the visible row —
+  // Invisible hit-area, 12px larger on every side than the visible row -
   // a separate layer (via inset) so it can't affect the row's own bottom/
   // right position above. Without it, a click landing just past a button's
   // own edge but still inside this row's visual footprint falls through to
-  // whatever sits underneath — namely the empty right-flank invite button
+  // whatever sits underneath - namely the empty right-flank invite button
   // (2xl size, 210x320px), which reaches down far enough to overlap this
   // corner when there's no party.
   &::before {
@@ -1070,116 +731,106 @@ function onVideoError(e: Event) {
     position: absolute;
     inset: -12px;
   }
+
+  // thin divider between the voice controls and the party controls
+
 }
 
 .voice-btn {
-  width: 34px;
-  height: 34px;
-  border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(32, 32, 36, 0.2);
-  backdrop-filter: blur(14px) saturate(160%);
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 12px 32px rgba(0, 0, 0, 0.55);
-  color: rgba(255, 255, 255, 0.7);
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  border: none;
+  background: #13141A;
+  box-shadow: none;
+  color: rgba(255, 255, 255, 0.8);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  filter: brightness(1);
-  transition: background 160ms $ease-out, color 160ms $ease-out, filter 150ms ease-out;
+  transition: background 120ms, color 120ms, transform 100ms;
 
-  &.active { color: rgba(255, 255, 255, 0.9); }
-  &.muted  { color: #ff453a; background: rgba(255, 69, 58, 0.12); }
-  &:hover  { filter: brightness(1.1); }
+  svg { width: 18px; height: 18px; }
+
+  &:hover { background: #232328; color: #fff; }
+  &:active { transform: scale(0.95); }
+
+  // speaking: lit pill
+  &.active { color: #fff; background: #2a2a30; }
+  // muted / deafened: red icon, red hairline
+  &.muted { color: #ff6b61; background: rgba(255, 69, 58, 0.14); }
 }
 
 .party-id {
   display: flex;
   align-items: center;
-  height: 34px;
+  height: 38px;
   gap: 6px;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.16em;
-  color: rgba(255, 255, 255, 0.5);
-  background: rgba(32, 32, 36, 0.2);
-  padding: 0 6px 0 8px;
-  border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(14px) saturate(160%);
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 12px 32px rgba(0, 0, 0, 0.55);
+  color: rgba(255, 255, 255, 0.8);
+  background: #13141A;
+  padding: 0 4px 0 12px;
+  border-radius: 12px;
+  box-shadow: none;
+  cursor: pointer;
   user-select: all;
+  transition: background 120ms;
+
+  &:hover { background: #232328; }
 }
 
 .delete-party-btn {
-  &:hover { color: #ff453a; background: rgba(255, 69, 58, 0.12); }
+  &:hover { color: #ff6b61; background: rgba(255, 69, 58, 0.14); }
 }
 
-// Icon-only — inherits its square 34x34 shape straight from .voice-btn.
+// Icon-only - inherits its square 34x34 shape straight from .voice-btn.
 .create-lobby-btn {
   &:disabled { opacity: 0.5; cursor: default; filter: brightness(1); }
 }
 
-// Fixed width (not auto) — .join-lobby-input below matches it exactly so
+// Fixed width (not auto) - .join-lobby-input below matches it exactly so
 // swapping button↔input on click doesn't resize/jump in the toolbar.
 .join-lobby-btn {
   position: relative;
-  width: 96px;
-  height: 34px;
+  width: auto;
+  min-width: 108px;
+  height: 38px;
   justify-content: center;
-  border-radius: 4px;
-  padding: 0 8px;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: 0.02em;
+  border-radius: 12px;
+  padding: 0 14px;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
-  background: rgba(32, 32, 36, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(14px) saturate(160%);
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 12px 32px rgba(0, 0, 0, 0.55);
-  // Suppress the browser's default focus ring — the button already gets a
-  // clear pressed/hover state from .voice-btn's filter:brightness, doesn't
-  // need the native outline on top.
   outline: none;
 }
 
-// Replaces .join-lobby-btn in place while joinInputActive — same footprint
+// Replaces .join-lobby-btn in place while joinInputActive - same footprint
 // (34px tall, glass style) so the toolbar row doesn't jump.
 .join-lobby-input {
-  height: 34px;
-  width: 96px;
-  border-radius: 4px;
+  height: 38px;
+  width: 108px;
+  border-radius: 12px;
   padding: 0 10px;
-  background: rgba(32, 32, 36, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  backdrop-filter: blur(14px) saturate(160%);
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 12px 32px rgba(0, 0, 0, 0.55);
+  background: #13141A;
+  border: none;
+  box-shadow: none;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.25em;
   text-align: center;
   text-transform: uppercase;
-  color: $text-primary;
+  color: #fff;
   outline: none;
-  transition: border-color 200ms, opacity 200ms;
+  transition: box-shadow 120ms, opacity 200ms;
 
-  &::placeholder { color: rgba(255, 255, 255, 0.15); letter-spacing: 0.2em; }
-  &:focus { border-color: rgba(255, 255, 255, 0.61); }
+  &::placeholder { color: rgba(255, 255, 255, 0.2); letter-spacing: 0.2em; }
+  &:focus { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4); }
   &--busy { opacity: 0.5; }
 }
 
@@ -1191,135 +842,263 @@ function onVideoError(e: Event) {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 3px;
+  padding: 5px;
   border: none;
   background: none;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.4);
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 8px;
   user-select: none;
-  transition: color 150ms, background 150ms;
+  transition: color 120ms, background 120ms;
 
-  &:hover:not(:disabled) { color: rgba(255, 255, 255, 0.9); background: rgba(255, 255, 255, 0.08); }
+  &:hover:not(:disabled) { color: #fff; background: rgba(255, 255, 255, 0.1); }
   &:disabled { opacity: 0.4; cursor: default; }
 }
 
-// ── Friends panel ─────────────────────────────────────────────────────────────
-.friends-panel {
-  width: 318px;
+$friends-embed-bg: #13141A;
+
+// ── Quick-join server row ────────────────────────────────────────────────────
+.quick-servers {
   flex-shrink: 0;
-  padding: 0 12px 12px 0;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: space-evenly;   // spread across the whole line
+  gap: 22px;
+  padding: 2px 0;
+  animation: hub-fade 900ms ease 1000ms both;
+}
+
+.quick-server-slot {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: $radius-sm;
+  background: transparent;
+  cursor: pointer;
   overflow: hidden;
-}
+  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 160ms ease;
 
-.friends-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 14px 14px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  flex-shrink: 0;
-  animation: hub-fade 700ms ease 850ms both;
-}
+  &:hover { transform: scale(1.12); }
+  &:active { transform: scale(0.94); }
+  &.joining { opacity: 0.4; pointer-events: none; }
 
-.friends-heading-row {
-  display: flex;
-  flex-direction: row;
-  align-items: baseline;
-  gap: 7px;
-  min-width: 0;
-}
-
-.friends-sep {
-  color: rgba(255, 255, 255, 0.35);
-  font-size: 12px;
-}
-
-.friends-heading {
-  display: inline-block;
-  font-size: 17px;
-  font-weight: 500;
-  color: #fff;
-  background: #090C20;
-  border-radius: 4px;
-  padding: 1px 6px;
-  margin: 0 0 0 -6px;
-  font-family: $font-family;
-}
-
-.friends-online-count {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  color: #fff;
-}
-
-.online-dot {
-  width: 6px;
-  height: 6px;
-  background: #fff;
-  transform: rotate(45deg);
-  flex-shrink: 0;
-  transition: background 200ms ease, box-shadow 200ms ease;
-
-  &.lit {
-    background: #30d158;
-    box-shadow: 0 0 5px rgba(48, 209, 88, 0.65);
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    image-rendering: pixelated;
   }
 }
 
-.satellite-link {
+.quick-server-fallback {
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
-  gap: 4px;
-  background: none;
-  border: none;
-  padding: 0;
+  justify-content: center;
+  border-radius: $radius-sm;
+  background: $surface-elevated;
   font-size: 12px;
-  font-weight: 600;
-  color: $text-muted;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: color 150ms ease;
-
-  &:hover { color: $text-primary; }
+  font-weight: 700;
+  color: $text-secondary;
 }
 
-$friends-embed-bg: #0f0f11;
+// ── Bottom panel (News / Friends tabs) - replaces both the old empty-embed
+// placeholder and the separate right-side friends sidebar column. ──────────
+.bottom-panel.bottom-panel--servers {   // two classes: must beat the later .bottom-panel rule (flex column)
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  flex: 0 0 auto;
+  height: 16vh;   // was: fill the rest of the page (~30vh)
+  box-sizing: content-box;
+  padding: 14px 0 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: hidden;
+}
 
-// ── Empty placeholder embed — same visual language as .friends-card ─────────
-.empty-embed {
+.server-card {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;   // the global button reset rounds corners; these cards stay square
+  background: #0C0D12;
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
+
+  .server-card-bg {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    background-size: cover;
+    background-position: center;
+    transform: scale(1.02);
+    filter: saturate(1) brightness(0.8);
+    transition: transform 500ms cubic-bezier(0.16, 1, 0.3, 1), filter 300ms ease;
+  }
+  // dark fade towards the bottom so the label reads
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(to bottom, rgba(8, 9, 13, 0.05) 30%, rgba(8, 9, 13, 0.78) 100%);
+    pointer-events: none;
+  }
+
+  .server-card-logo {
+    height: 58%;          // sized by height: the Hypixel emblem is tall, the other icons are square
+    max-height: 130px;
+    width: auto;
+    max-width: 70%;
+    object-fit: contain;
+    filter: saturate(1) drop-shadow(0 6px 14px rgba(0, 0, 0, 0.55));
+    transition: transform 240ms cubic-bezier(0.34, 1.56, 0.64, 1), filter 300ms ease;
+  }
+
+  .server-card-label {
+    position: absolute;
+    left: 14px;
+    bottom: 10px;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: #fff;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
+  }
+
+  &:hover {
+    .server-card-bg { transform: scale(1.07); filter: saturate(1) brightness(0.95); }
+    .server-card-logo { transform: scale(1.06); filter: saturate(1) drop-shadow(0 6px 14px rgba(0, 0, 0, 0.55)); }
+  }
+  &:active .server-card-logo { transform: scale(0.97); }
+  &.joining { opacity: 0.45; pointer-events: none; }
+}
+
+.bottom-panel {
   flex: 1;
   min-height: 0;
-  border-radius: var(--edr-radius, 4px);
-  outline: var(--edr-outline, none);
-  outline-offset: 3px;
-  box-sizing: border-box;
-  background: var(--edr-bg, $friends-embed-bg);
-  border: 1px solid #262627;
-  animation: hub-fade 900ms ease 1100ms both;
-}
-
-.friends-card {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  border-radius: var(--edr-radius, 4px);
-  outline: var(--edr-outline, none);
-  outline-offset: 3px;
-  color: var(--edr-color, inherit);
-  font-family: var(--edr-font, inherit);
-  overflow: hidden;
+  gap: $sp-3;
+  padding: $sp-4 $sp-5;
   box-sizing: border-box;
+  border-radius: 0 0 $radius $radius;   // square at the top where it meets the scene
   background: $friends-embed-bg;
-  border: 1px solid #262627;
-  animation: hub-slide-in 1300ms cubic-bezier(0.16, 1, 0.3, 1) 700ms both;
+  animation: hub-fade 900ms ease 1100ms both;
+  overflow-y: auto;
+}
+
+.bottom-tabs {
+  display: flex;
+  align-items: center;
+  gap: $sp-2;
+  flex-shrink: 0;
+}
+
+.bottom-tab {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: $radius-sm;
+  background: transparent;
+  color: $text-secondary;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background $transition, color $transition;
+
+  :deep(svg) { width: 16px; height: 16px; }
+
+  &:hover { color: $text-primary; }
+
+  &.active {
+    background: $surface-elevated;
+    color: $text-primary;
+  }
+}
+
+.bottom-tab-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: $accent;
+  color: #fff;
+}
+
+.news-online-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: $text-secondary;
+}
+
+.news-online-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: $success;
+  box-shadow: 0 0 6px $success;
+}
+
+.news-list {
+  display: flex;
+  flex-direction: column;
+  gap: $sp-2;
+}
+
+.news-item {
+  display: flex;
+  align-items: flex-start;
+  gap: $sp-3;
+  padding: $sp-3;
+  border-radius: $radius-sm;
+  background: $surface;
+  transition: background $transition;
+
+  &:hover { background: $surface-elevated; }
+}
+
+.news-item-icon {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: $radius-sm;
+  background: $surface-elevated;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: $accent;
+
+  :deep(svg) { width: 16px; height: 16px; }
+}
+
+.news-item-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: $text-primary;
+  margin-bottom: 2px;
+}
+
+.news-item-desc {
+  font-size: 11px;
+  line-height: 1.5;
+  color: $text-secondary;
 }
 
 .friends-card-list {
@@ -1374,7 +1153,7 @@ $friends-embed-bg: #0f0f11;
 .friend-avatar {
   width: 36px;
   height: 36px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   image-rendering: pixelated;
   display: block;
   transition: transform 160ms $ease-out;

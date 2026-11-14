@@ -45,11 +45,11 @@ html.theme-win95 {
 
   // ── Universal resets ──────────────────────────────────────────────────────
   // Lowest possible specificity (0,0,0) on purpose: any class-level rule below,
-  // regardless of source order, still wins over these — so this is a safe
+  // regardless of source order, still wins over these - so this is a safe
   // baseline that strips every rounded corner / glow / blur / glass effect
   // app-wide, while the targeted rules further down layer the actual bevels
   // back on top of the specific surfaces that should have them.
-  // (box-shadow is deliberately NOT blanket-reset here — this theme uses box-shadow
+  // (box-shadow is deliberately NOT blanket-reset here - this theme uses box-shadow
   // to draw every bevel, and a universal kill-switch would need to out-specificity
   // every single bevel rule below via :not(), which is exactly the kind of thing
   // that silently breaks the next time a bevel selector is added. Leftover glow
@@ -63,7 +63,7 @@ html.theme-win95 {
   }
 
   // ── Desktop backdrop ──────────────────────────────────────────────────────
-  // Flat black — no hex-pattern texture, no video, no gradients.
+  // Flat black - no hex-pattern texture, no video, no gradients.
   #app { background: #000 !important; }
   [class$="-page"] { background: #000 !important; }
   [class$="-page"]::before, [class$="-page"]::after { display: none !important; }
@@ -75,7 +75,7 @@ html.theme-win95 {
   .video-card, .scene-video { display: none !important; }
 
   // Title bar text stays white on the blue gradient (overrides the blanket black above).
-  // .win-btn is excluded — it @extends %win95-raised, which Sass hoists to the top of
+  // .win-btn is excluded - it @extends %win95-raised, which Sass hoists to the top of
   // this file, so without the :not() this descendant rule (compiled later) would win
   // the tie and turn the minimize/maximize/close glyphs invisible-white-on-gray.
   .topbar, .topbar *:not(.win-btn):not(.win-btn *),

@@ -55,7 +55,7 @@
         </svg>
       </div>
 
-      <!-- Dropdown — teleported to body to escape all stacking contexts -->
+      <!-- Dropdown - teleported to body to escape all stacking contexts -->
       <Teleport to="body">
         <Transition name="dd">
           <div v-if="dropdownOpen" ref="dropdownRef" class="acc-dropdown" :style="dropdownStyle" @click.stop>
@@ -218,7 +218,7 @@ onMounted(async () => {
 })
 
 // Reload the gem balance whenever an account becomes active (initial login,
-// or switching accounts) — the topbar can mount before login finishes.
+// or switching accounts) - the topbar can mount before login finishes.
 watch(account, acc => { if (acc) walletStore.load() }, { immediate: true })
 
 onUnmounted(() => {
@@ -285,7 +285,7 @@ onUnmounted(() => {
   letter-spacing: 0.08em;
   color: #ffffff;
   background: #cc0000;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   padding: 1px 4px;
   line-height: 1.4;
   font-family: 'Plus Jakarta Sans', sans-serif;
@@ -305,7 +305,7 @@ onUnmounted(() => {
   font-size: 10px;
   color: $text-muted;
   padding: 3px 8px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.06);
   white-space: nowrap;
@@ -386,6 +386,7 @@ onUnmounted(() => {
   padding: 0 16px;
   background: #0d0d0d;
   border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 12px;
   color: $text-primary;
   font-size: 13px;
   font-weight: 400;
@@ -427,7 +428,7 @@ onUnmounted(() => {
 .account-head {
   width: 22px;
   height: 22px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   image-rendering: pixelated;
   flex-shrink: 0;
 }
@@ -456,7 +457,7 @@ onUnmounted(() => {
   backdrop-filter: blur($glass-blur);
   -webkit-backdrop-filter: blur($glass-blur);
   border: 1px solid rgba(255, 255, 255, 0.61);
-  border-radius: 4px;
+  border-radius: $radius-sm;
   overflow: hidden;
   z-index: 2000;
   box-shadow: $shadow-xl;
@@ -494,7 +495,7 @@ onUnmounted(() => {
 .dd-head {
   width: 18px;
   height: 18px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   image-rendering: pixelated;
   flex-shrink: 0;
 }
@@ -527,7 +528,7 @@ onUnmounted(() => {
   border: none;
   color: $text-secondary;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   opacity: 0;
   transition: opacity 100ms, background 100ms, color 100ms;
 
@@ -550,7 +551,7 @@ onUnmounted(() => {
 .win-btn {
   width: 30px;
   height: 30px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   display: flex;
   align-items: center;
   justify-content: center;

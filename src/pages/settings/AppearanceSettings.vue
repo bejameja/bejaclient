@@ -58,7 +58,7 @@
         @update:model-value="save"
       />
       <p class="section-desc" style="margin-top: 0;">
-        "Match system" follows your OS animation setting — Windows currently reports it as
+        "Match system" follows your OS animation setting - Windows currently reports it as
         <b>{{ osReduceMotion ? 'reduced' : 'full' }}</b> on this machine.
         Choose "Always full" to keep animations on regardless of that setting.
       </p>
@@ -199,7 +199,6 @@ onMounted(() => {
 
 .preview-panel {
   background: $surface;
-  border: 1px solid $border;
   border-radius: $radius;
   overflow: hidden;
   padding: $sp-4;

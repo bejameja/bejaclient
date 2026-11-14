@@ -17,19 +17,14 @@
               Clear all
             </button>
             <button class="close-btn" @click="store.closeDrawer()">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
+              <svg width="12" height="12" viewBox="0 0 7 7" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h2v1H0zM5 0h2v1H5zM1 1h2v1H1zM4 1h2v1H4zM2 2h3v1H2zM3 3h1v1H3zM2 4h3v1H2zM1 5h2v1H1zM4 5h2v1H4zM0 6h2v1H0zM5 6h2v1H5z" fill="currentColor"/></svg>
             </button>
           </div>
         </div>
 
         <div class="drawer-body">
           <div v-if="store.notifications.length === 0" class="empty-state">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-              <path d="M13.73 21a2 2 0 01-3.46 0"/>
-            </svg>
+            <svg class="empty-env" width="40" height="30" viewBox="0 0 8 6" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h8v6H0z" fill="#f3efe3"/><path d="M1 1h1v1H1zM2 2h1v1H2zM3 3h2v1H3zM5 2h1v1H5zM6 1h1v1H6z" fill="#8a8575"/><path d="M3 4h2v2H3z" fill="#d11f1f"/></svg>
             <span>No notifications</span>
           </div>
 
@@ -55,9 +50,7 @@
               <!-- System -->
               <template v-else-if="notif.type === 'system'">
                 <div class="notif-icon">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                  </svg>
+                  <svg class="notif-seal" width="26" height="26" viewBox="0 0 7 7" shape-rendering="crispEdges" aria-hidden="true"><path d="M2 0h3v1H2zM1 1h5v1H1zM0 2h7v3H0zM1 5h5v1H1zM2 6h3v1H2z" fill="#b81818"/><path d="M2 1h2v1H2zM1 2h1v2H1z" fill="#e43a3a"/><path d="M3 2h1v3H3zM2 3h3v1H2z" fill="#8f1010"/></svg>
                 </div>
                 <div class="notif-content">
                   <p class="notif-title">{{ notif.title }}</p>
@@ -89,7 +82,7 @@ import type { BejaNotification } from '../../store/notificationsStore'
 const store        = useNotificationsStore()
 const friendsStore = useFriendsStore()
 
-// ── Grouping — Today / Earlier this week / Older, newest-first ──────────────
+// ── Grouping - Today / Earlier this week / Older, newest-first ──────────────
 function dayBucket(ts: number): string {
   const diffDays = Math.floor((Date.now() - ts) / 86400000)
   if (diffDays <= 0) return 'Today'
@@ -132,43 +125,67 @@ function timeAgo(ts: number): string {
 </script>
 
 <style lang="scss" scoped>
+// The drawer is the content of a letter: a sheet of paper with ink text, fold lines and a wax seal.
+// Square corners and stepped animation like the rest of the hub.
+$px-font: 'Minecrafter', 'Plus Jakarta Sans', sans-serif;
+$paper: #f1ecde;
+$paper-shade: #e4dec9;
+$ink: #2a2318;
+$ink-soft: rgba(42, 35, 24, 0.68);
+$ink-faint: rgba(42, 35, 24, 0.45);
+$rule: repeating-linear-gradient(90deg, rgba(42, 35, 24, 0.4) 0 4px, transparent 4px 8px);   // a dotted pixel line
+
 .drawer-backdrop {
   position: fixed;
   inset: 0;
   z-index: 200;
-  background: transparent;
+  background: rgba(0, 0, 0, 0.45);
 }
 
 .notifications-drawer {
   position: fixed;
   top: 0;
   right: $right-panel-width;
-  width: 320px;
+  width: 360px;
   height: 100vh;
-  background: rgba(16, 16, 16, 0.72);
-  backdrop-filter: blur($glass-blur);
-  -webkit-backdrop-filter: blur($glass-blur);
-  border-left: $glass-border;
   z-index: 201;
   display: flex;
   flex-direction: column;
-  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.4);
+  color: $ink;
+  // paper with two faint fold lines (a letter folded in three) and a hard drop shadow
+  background:
+    linear-gradient(to bottom, transparent calc(33.3% - 1px), rgba(42, 35, 24, 0.12) calc(33.3% - 1px) 33.3%, rgba(255, 255, 255, 0.5) 33.3% calc(33.3% + 1px), transparent calc(33.3% + 1px)),
+    linear-gradient(to bottom, transparent calc(66.6% - 1px), rgba(42, 35, 24, 0.12) calc(66.6% - 1px) 66.6%, rgba(255, 255, 255, 0.5) 66.6% calc(66.6% + 1px), transparent calc(66.6% + 1px)),
+    $paper;
+  border-left: 4px solid $paper-shade;
+  box-shadow: -6px 0 0 rgba(0, 0, 0, 0.5);
 }
 
-// ── Header ────────────────────────────────────────────────────────────────────
+// ── Header: seal + title, like the top of a letter ────────────────────────────
 .drawer-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 16px 14px;
-  border-bottom: 1px solid $border;
+  padding: 24px 20px 16px 24px;
   flex-shrink: 0;
+  position: relative;
+  &::after {
+    content: '';
+    position: absolute;
+    left: 24px;
+    right: 20px;
+    bottom: 0;
+    height: 2px;
+    background: $ink;
+  }
 }
 
 .drawer-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: $text-primary;
+  font-family: $px-font;
+  font-size: 26px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: $ink;
 }
 
 .drawer-header-actions {
@@ -178,44 +195,49 @@ function timeAgo(ts: number): string {
 }
 
 .clear-btn {
-  background: none;
-  border: none;
+  height: 26px;
+  padding: 0 10px;
+  border: 2px solid $ink;
+  border-radius: 0;
+  background: transparent;
+  font-family: $px-font;
   font-size: 11px;
-  color: $muted;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: $ink;
   cursor: pointer;
-  padding: 2px 6px;
-  border-radius: $radius;
-  transition: color $transition, background $transition;
-  &:hover { color: $text-secondary; background: $surface-elevated; }
+  transition: background 120ms steps(2), color 120ms steps(2);
+  &:hover { background: $ink; color: $paper; }
 }
 
 .close-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  background: $surface-elevated;
-  border: 1px solid $border;
-  border-radius: $radius;
-  color: $text-secondary;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 2px solid $ink;
+  border-radius: 0;
+  background: transparent;
+  color: $ink;
   cursor: pointer;
-  transition: color $transition, background $transition;
-  &:hover { color: $text-primary; background: $border; }
+  transition: background 120ms steps(2), color 120ms steps(2);
+  &:hover { background: $ink; color: $paper; }
 }
 
 // ── Body ──────────────────────────────────────────────────────────────────────
 .drawer-body {
   flex: 1;
   overflow-y: auto;
-  padding: 12px;
+  padding: 20px 20px 28px 24px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 
-  &::-webkit-scrollbar { width: 4px; }
+  &::-webkit-scrollbar { width: 6px; }
   &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb { background: $border; border-radius: 4px; }
+  &::-webkit-scrollbar-thumb { background: rgba(42, 35, 24, 0.35); border-radius: 0; }
 }
 
 .empty-state {
@@ -224,71 +246,75 @@ function timeAgo(ts: number): string {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  color: $muted;
-  font-size: 13px;
+  gap: 16px;
+  font-family: $px-font;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: $ink-faint;
   padding: 40px 0;
 }
+.empty-env { box-shadow: 0 0 0 2px $ink; opacity: 0.8; }
 
-// ── Notification groups ───────────────────────────────────────────────────────
-.notif-group + .notif-group {
-  margin-top: 14px;
-}
+// ── Notification groups: dated sections of the letter ────────────────────────
+.notif-group + .notif-group { margin-top: 18px; }
 
 .notif-group-label {
   display: block;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-family: $px-font;
+  font-size: 12px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: $muted;
-  margin-bottom: 8px;
-  padding-left: 2px;
+  color: $ink-soft;
+  margin-bottom: 10px;
 }
 
-// ── Notification list ─────────────────────────────────────────────────────────
 .notif-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
 }
 
-// ── Notification card ─────────────────────────────────────────────────────────
+// ── One notification = one paragraph of the letter, separated by a dotted line ─
 .notif-card {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 12px;
-  background: $surface;
-  border: 1px solid $border;
-  border-radius: $radius-lg;
+  gap: 12px;
+  padding: 14px 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  position: relative;
+  & + .notif-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 2px;
+    background: $rule;
+  }
 }
 
 .notif-avatar {
   width: 36px;
   height: 36px;
-  border-radius: 4px;
-  background: $surface-elevated;
-  border: 1px solid $border-strong;
+  border-radius: 0;
+  background: $ink;
+  color: $paper;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
-  font-weight: 700;
-  color: $text-primary;
   flex-shrink: 0;
+  font-family: $px-font;
+  font-size: 18px;
 }
 
 .notif-icon {
   width: 36px;
   height: 36px;
-  border-radius: 4px;
-  background: $surface-elevated;
-  border: 1px solid $border;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: $muted;
   flex-shrink: 0;
 }
 
@@ -297,21 +323,22 @@ function timeAgo(ts: number): string {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .notif-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: $text-primary;
+  font-family: $px-font;
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  color: $ink;
   margin: 0;
 }
 
 .notif-body {
-  font-size: 11px;
-  color: $text-secondary;
+  font-size: 13px;
+  color: $ink-soft;
   margin: 0 0 8px;
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 .notif-actions {
@@ -319,30 +346,31 @@ function timeAgo(ts: number): string {
   gap: 6px;
 }
 
-.btn-accept {
-  padding: 4px 12px;
-  background: $text-primary;
-  color: $bg;
-  border: none;
-  border-radius: $radius;
-  font-size: 11px;
-  font-weight: 700;
+.btn-accept,
+.btn-decline {
+  height: 26px;
+  padding: 0 12px;
+  border-radius: 0;
+  font-family: $px-font;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   cursor: pointer;
-  transition: background $transition;
-  &:hover { background: $text-secondary; }
+  transition: background 120ms steps(2), color 120ms steps(2);
+}
+
+.btn-accept {
+  border: 2px solid $ink;
+  background: $ink;
+  color: $paper;
+  &:hover { background: #b81818; border-color: #b81818; }   // wax red on hover
 }
 
 .btn-decline {
-  padding: 4px 12px;
-  background: $surface-elevated;
-  color: $text-secondary;
-  border: 1px solid $border;
-  border-radius: $radius;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background $transition;
-  &:hover { background: $border; }
+  border: 2px solid $ink;
+  background: transparent;
+  color: $ink;
+  &:hover { background: $ink; color: $paper; }
 }
 
 .notif-right {
@@ -354,37 +382,37 @@ function timeAgo(ts: number): string {
 }
 
 .notif-time {
-  font-size: 10px;
-  color: $muted;
+  font-family: $px-font;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: $ink-faint;
   white-space: nowrap;
   flex-shrink: 0;
 }
 
 .notif-dismiss {
   background: none;
-  border: none;
-  color: $muted;
-  font-size: 16px;
+  border: 0;
+  border-radius: 0;
+  color: $ink-faint;
+  font-size: 20px;
   cursor: pointer;
   padding: 0 2px;
   line-height: 1;
-  transition: color $transition;
-  &:hover { color: $text-secondary; }
+  transition: color 120ms steps(2);
+  &:hover { color: #b81818; }
 }
 
-// ── Transitions ───────────────────────────────────────────────────────────────
-.fade-enter-active, .fade-leave-active { transition: opacity 200ms ease; }
+// ── Transitions (stepped, like the rest of the hub) ───────────────────────────
+.fade-enter-active, .fade-leave-active { transition: opacity 160ms steps(4); }
 .fade-enter-from,  .fade-leave-to      { opacity: 0; }
 
-.drawer-slide-enter-active, .drawer-slide-leave-active { transition: transform 220ms ease; }
+.drawer-slide-enter-active, .drawer-slide-leave-active { transition: transform 200ms steps(6); }
 .drawer-slide-enter-from,  .drawer-slide-leave-to      { transform: translateX(100%); }
 
-// Notification card enter/leave/reorder (dismiss, accept/decline)
 .notif-pop-enter-active,
-.notif-pop-leave-active {
-  transition: opacity 180ms ease, transform 180ms cubic-bezier(0.25, 1, 0.5, 1);
-}
-.notif-pop-move { transition: transform 220ms cubic-bezier(0.25, 1, 0.5, 1); }
-.notif-pop-enter-from { opacity: 0; transform: scale(0.96) translateY(-6px); }
-.notif-pop-leave-to   { opacity: 0; transform: scale(0.96); }
+.notif-pop-leave-active { transition: opacity 160ms steps(4), transform 160ms steps(4); }
+.notif-pop-move { transition: transform 200ms steps(5); }
+.notif-pop-enter-from { opacity: 0; transform: translateY(-6px); }
+.notif-pop-leave-to   { opacity: 0; transform: translateX(12px); }
 </style>

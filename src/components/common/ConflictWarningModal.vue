@@ -63,7 +63,6 @@ const store = useLauncherStore()
   width: 440px;
   max-width: 92vw;
   background: $surface;
-  border: 1px solid $border;
   border-radius: $radius-lg;
   overflow: hidden;
   box-shadow: $shadow-inset, $shadow-xl;
@@ -81,7 +80,7 @@ const store = useLauncherStore()
 .conflict-icon-wrap {
   width: 40px;
   height: 40px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   background: rgba(232, 160, 48, 0.12);
   border: 1px solid rgba(232, 160, 48, 0.25);
   display: flex;
@@ -112,7 +111,7 @@ const store = useLauncherStore()
   max-height: 260px;
   overflow-y: auto;
   &::-webkit-scrollbar { width: 3px; }
-  &::-webkit-scrollbar-thumb { background: $border; border-radius: 4px; }
+  &::-webkit-scrollbar-thumb { background: $border; border-radius: $radius-sm; }
 }
 
 .conflict-item {
@@ -148,7 +147,7 @@ const store = useLauncherStore()
   background: $surface-elevated;
   color: $text-secondary;
   border: 1px solid $border;
-  border-radius: $radius;
+  border-radius: 12px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -162,7 +161,7 @@ const store = useLauncherStore()
   background: $accent;
   color: #fff;
   border: none;
-  border-radius: $radius;
+  border-radius: 12px;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -176,7 +175,7 @@ const store = useLauncherStore()
   background: $warning;
   color: #fff;
   border: none;
-  border-radius: $radius;
+  border-radius: 12px;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;

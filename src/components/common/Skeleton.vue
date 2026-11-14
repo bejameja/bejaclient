@@ -42,7 +42,7 @@ function toCss(v: string | number | undefined): string | undefined {
 .variant-text {
   width: 100%;
   height: 12px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
 }
 
 .variant-block {

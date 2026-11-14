@@ -9,8 +9,9 @@ use tauri::{AppHandle, Emitter};
 use crate::mcinstall::java_discovery;
 use crate::paths;
 use crate::services::{
-    auth_service, beja_api, beja_auth, beja_socket_service, curseforge_service, giphy_service, install_tracker, launch_service,
-    launcher_import_service, mod_service, modrinth_service, profile_service, server_ping_service, settings_service, version_service,
+    auth_service, auto_backup_service, beja_api, beja_auth, beja_socket_service, client_update_service, curseforge_service, giphy_service,
+    install_tracker, instance_doctor_service, launch_service, launcher_import_service, mod_service, mod_update_backup_service,
+    modrinth_service, profile_service, screenshots_service, server_ping_service, settings_service, version_service, worlds_service,
 };
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -18,6 +19,16 @@ use crate::services::{
 #[tauri::command]
 pub async fn auth_login(app: AppHandle) -> Result<auth_service::StoredAccount, String> {
     auth_service::login_with_microsoft(app).await
+}
+
+#[tauri::command]
+pub fn auth_get_login_url() -> String {
+    auth_service::build_microsoft_login_url()
+}
+
+#[tauri::command]
+pub async fn auth_login_with_code(input: String) -> Result<auth_service::StoredAccount, String> {
+    auth_service::login_with_microsoft_code(input).await
 }
 
 #[tauri::command]
@@ -98,6 +109,39 @@ pub async fn versions_list_forge(mc_version: String) -> Vec<String> {
     version_service::list_forge_versions(auth_service::http_client(), &mc_version).await
 }
 
+#[tauri::command]
+pub async fn optifine_list_mc_versions() -> Result<Vec<String>, String> {
+    crate::mcinstall::optifine::list_mc_versions(auth_service::http_client()).await
+}
+
+#[tauri::command]
+pub async fn optifine_list_builds(mc_version: String) -> Result<Vec<crate::mcinstall::optifine::OptifineEntry>, String> {
+    crate::mcinstall::optifine::list_builds(auth_service::http_client(), &mc_version).await
+}
+
+/// Downloads the real OptiFine installer jar and opens it — same GUI a user gets double-clicking
+/// it themselves. Returns the game dir a freshly-created OptiFine profile will actually use (its
+/// `gameDir` is empty, so launch_service.rs falls back to this same default), so the caller can
+/// show the user where to point the installer if it doesn't auto-detect it.
+#[tauri::command]
+pub async fn optifine_launch_installer(mc_version: String, filename: String) -> Result<String, String> {
+    let settings = settings_service::get_settings();
+    let client = auth_service::http_client();
+
+    let java_path = if !settings.game.default_java_path.is_empty() {
+        settings.game.default_java_path.clone()
+    } else {
+        let component = crate::mcinstall::java_runtime::guess_runtime_component(&mc_version);
+        match crate::mcinstall::java_runtime::ensure_java_runtime(client, &component, &paths::runtimes_dir(), |_| {}).await {
+            Ok(Some(bin)) => bin.to_string_lossy().to_string(),
+            _ => "java".to_string(),
+        }
+    };
+
+    crate::mcinstall::optifine::launch_gui_installer(client, &filename, &java_path, &crate::mcinstall::optifine::installer_cache_dir()).await?;
+    Ok(paths::default_game_dir().to_string_lossy().to_string())
+}
+
 // ── Launch ────────────────────────────────────────────────────────────────────
 
 #[tauri::command]
@@ -172,8 +216,11 @@ pub fn profiles_set_active(id: String) -> Option<profile_service::LaunchProfile>
 /// list of installed mod filenames) via a save dialog. Mirrors `profiles_share`'s pack shape
 /// (`bejaPackVersion: 1`) but written to disk instead of uploaded to the Beja API.
 #[tauri::command]
-pub fn profiles_export(app: AppHandle, id: String) -> Value {
-    let Some(profile) = profile_service::get_profile(&id) else { return json!({ "ok": false, "error": "Profile not found" }) };
+pub fn profiles_export(app: AppHandle, id: String, without_beja_client: bool) -> Value {
+    let Some(mut profile) = profile_service::get_profile(&id) else { return json!({ "ok": false, "error": "Profile not found" }) };
+    if without_beja_client {
+        profile.use_beja_client = false;
+    }
     let settings = settings_service::get_settings();
     let game_dir = if !profile.game_dir.is_empty() { profile.game_dir.clone() } else { settings.game.default_game_dir };
     let mods_dir = std::path::Path::new(&game_dir).join("mods");
@@ -210,6 +257,186 @@ pub fn profiles_export(app: AppHandle, id: String) -> Value {
     }
 }
 
+/// Self-contained ZIP export: `profile.json` (portable subset — no local paths/account fields)
+/// plus the actual mod jars, so a recipient without a BejaClient account can just unpack it.
+#[tauri::command]
+pub fn profiles_export_zip(app: AppHandle, id: String, without_beja_client: bool) -> Value {
+    let Some(profile) = profile_service::get_profile(&id) else { return json!({ "ok": false, "error": "Profile not found" }) };
+    let settings = settings_service::get_settings();
+    let game_dir = if !profile.game_dir.is_empty() { profile.game_dir.clone() } else { settings.game.default_game_dir };
+    let mods_dir = std::path::Path::new(&game_dir).join("mods");
+
+    let default_name = {
+        let safe: String = profile.name.chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '_' }).collect();
+        format!("{safe}.zip")
+    };
+
+    let Some(save_path) = app
+        .dialog()
+        .file()
+        .set_title("Export Profile as ZIP")
+        .add_filter("ZIP Archive", &["zip"])
+        .set_file_name(&default_name)
+        .blocking_save_file()
+    else {
+        return json!({ "ok": false, "error": "cancelled" });
+    };
+
+    // Portable subset only — `gameDir`/`javaPath` are absolute local paths that mean nothing on
+    // another machine, and `id`/`createdAt`/`lastPlayed`/`playtimeMs` are this install's own.
+    let manifest = json!({
+        "bejaPackVersion": 1,
+        "exportedAt": chrono::Utc::now().timestamp_millis(),
+        "name": profile.name,
+        "description": profile.description,
+        "version": profile.version,
+        "loader": profile.loader,
+        "loaderVersion": profile.loader_version,
+        "minRam": profile.min_ram,
+        "maxRam": profile.max_ram,
+        "jvmArgs": profile.jvm_args,
+        "resolution": profile.resolution,
+        "useBejaClient": if without_beja_client { false } else { profile.use_beja_client },
+    });
+    let manifest_text = match serde_json::to_string_pretty(&manifest) {
+        Ok(t) => t,
+        Err(e) => return json!({ "ok": false, "error": e.to_string() }),
+    };
+
+    let file = match std::fs::File::create(save_path.to_string()) {
+        Ok(f) => f,
+        Err(e) => return json!({ "ok": false, "error": e.to_string() }),
+    };
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+
+    let write_result = (|| -> std::io::Result<usize> {
+        zip.start_file("profile.json", options)?;
+        std::io::Write::write_all(&mut zip, manifest_text.as_bytes())?;
+
+        let mut mod_count = 0usize;
+        if let Ok(entries) = std::fs::read_dir(&mods_dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name();
+                let Some(name) = name.to_str() else { continue };
+                if !(name.ends_with(".jar") || name.ends_with(".jar.disabled")) {
+                    continue;
+                }
+                let Ok(bytes) = std::fs::read(entry.path()) else { continue };
+                zip.start_file(format!("mods/{name}"), options)?;
+                std::io::Write::write_all(&mut zip, &bytes)?;
+                mod_count += 1;
+            }
+        }
+        zip.finish()?;
+        Ok(mod_count)
+    })();
+
+    match write_result {
+        Ok(mod_count) => json!({ "ok": true, "mods": mod_count }),
+        Err(e) => json!({ "ok": false, "error": e.to_string() }),
+    }
+}
+
+/// Exports a profile as a genuine CurseForge-modpack-shaped ZIP: `manifest.json` +
+/// `overrides/mods/*.jar`. All mods ship inside `overrides/` rather than as `files` entries
+/// resolved by project/file ID — an "overrides-only" pack is a well-established pattern for
+/// packs containing mods that aren't (all) on CurseForge, and any importer that reads the
+/// manifest spec (Lunar Client's modpack import included) treats it exactly like a real one.
+#[tauri::command]
+pub fn profiles_export_curseforge(app: AppHandle, id: String) -> Value {
+    let Some(profile) = profile_service::get_profile(&id) else { return json!({ "ok": false, "error": "Profile not found" }) };
+    let settings = settings_service::get_settings();
+    let game_dir = if !profile.game_dir.is_empty() { profile.game_dir.clone() } else { settings.game.default_game_dir };
+    let mods_dir = std::path::Path::new(&game_dir).join("mods");
+
+    let default_name = {
+        let safe: String = profile.name.chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '_' }).collect();
+        format!("{safe}.zip")
+    };
+
+    let Some(save_path) = app
+        .dialog()
+        .file()
+        .set_title("Export as CurseForge Modpack")
+        .add_filter("ZIP Archive", &["zip"])
+        .set_file_name(&default_name)
+        .blocking_save_file()
+    else {
+        return json!({ "ok": false, "error": "cancelled" });
+    };
+
+    let loader_id = match profile.loader.as_str() {
+        "fabric" | "forge" | "neoforge" | "quilt" if !profile.loader_version.is_empty() => format!("{}-{}", profile.loader, profile.loader_version),
+        other => other.to_string(),
+    };
+
+    let manifest = json!({
+        "minecraft": {
+            "version": profile.version,
+            "modLoaders": [ { "id": loader_id, "primary": true } ],
+        },
+        "manifestType": "minecraftModpack",
+        "manifestVersion": 1,
+        "name": profile.name,
+        "version": "1.0.0",
+        "author": "BejaClient",
+        "files": [],
+        "overrides": "overrides",
+    });
+    let manifest_text = match serde_json::to_string_pretty(&manifest) {
+        Ok(t) => t,
+        Err(e) => return json!({ "ok": false, "error": e.to_string() }),
+    };
+
+    let file = match std::fs::File::create(save_path.to_string()) {
+        Ok(f) => f,
+        Err(e) => return json!({ "ok": false, "error": e.to_string() }),
+    };
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+
+    let write_result = (|| -> std::io::Result<usize> {
+        zip.start_file("manifest.json", options)?;
+        std::io::Write::write_all(&mut zip, manifest_text.as_bytes())?;
+
+        let mut mod_count = 0usize;
+        let mut mod_names: Vec<String> = Vec::new();
+        if let Ok(entries) = std::fs::read_dir(&mods_dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name();
+                let Some(name) = name.to_str() else { continue };
+                // Only enabled mods (bare .jar) — a modpack meant to be played shouldn't ship
+                // disabled ones, unlike the plain folder-mirror ZIP export.
+                if !name.ends_with(".jar") {
+                    continue;
+                }
+                let Ok(bytes) = std::fs::read(entry.path()) else { continue };
+                zip.start_file(format!("overrides/mods/{name}"), options)?;
+                std::io::Write::write_all(&mut zip, &bytes)?;
+                mod_count += 1;
+                mod_names.push(name.trim_end_matches(".jar").to_string());
+            }
+        }
+
+        let escape = |s: &str| s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;");
+        let modlist_html = format!(
+            "<ul>\n{}\n</ul>\n",
+            mod_names.iter().map(|n| format!("<li>{}</li>", escape(n))).collect::<Vec<_>>().join("\n")
+        );
+        zip.start_file("modlist.html", options)?;
+        std::io::Write::write_all(&mut zip, modlist_html.as_bytes())?;
+
+        zip.finish()?;
+        Ok(mod_count)
+    })();
+
+    match write_result {
+        Ok(mod_count) => json!({ "ok": true, "mods": mod_count }),
+        Err(e) => json!({ "ok": false, "error": e.to_string() }),
+    }
+}
+
 /// Port of `src/main/ipc/launcher.ts`'s `profiles:import`.
 #[tauri::command]
 pub fn profiles_import(app: AppHandle) -> Value {
@@ -233,8 +460,11 @@ pub fn profiles_import(app: AppHandle) -> Value {
 }
 
 #[tauri::command]
-pub async fn profiles_share(id: String) -> Value {
-    let Some(profile) = profile_service::get_profile(&id) else { return json!({ "error": "Profile not found" }) };
+pub async fn profiles_share(id: String, without_beja_client: bool) -> Value {
+    let Some(mut profile) = profile_service::get_profile(&id) else { return json!({ "error": "Profile not found" }) };
+    if without_beja_client {
+        profile.use_beja_client = false;
+    }
     let Some(token) = beja_auth::get_beja_token().await else {
         return json!({ "error": "You need to be signed in to share a profile." });
     };
@@ -297,14 +527,19 @@ pub async fn mods_list(profile_id: String) -> Vec<mod_service::ModInfo> {
 }
 
 #[tauri::command]
+pub async fn mods_count_enabled(profile_id: String) -> usize {
+    tokio::task::spawn_blocking(move || mod_service::count_enabled_mods(&profile_id)).await.unwrap_or(0)
+}
+
+#[tauri::command]
 pub async fn mods_check_conflicts(profile_id: String) -> Vec<String> {
     const RULES: &[(&str, &str, &str)] = &[
         ("optifine", "sodium", "OptiFine + Sodium are incompatible. Use Iris+Sodium instead of OptiFine."),
         ("optifine", "iris", "OptiFine + Iris are incompatible. Remove one of them."),
         ("optifine", "rubidium", "OptiFine + Rubidium are incompatible."),
         ("optifabric", "sodium", "OptiFabric + Sodium are incompatible."),
-        ("sodium", "embeddium", "Sodium + Embeddium conflict — both are rendering overhauls."),
-        ("sodium", "rubidium", "Sodium + Rubidium conflict — both are rendering overhauls."),
+        ("sodium", "embeddium", "Sodium + Embeddium conflict - both are rendering overhauls."),
+        ("sodium", "rubidium", "Sodium + Rubidium conflict - both are rendering overhauls."),
         ("lithium", "canary", "Lithium + Canary are incompatible optimization mods."),
     ];
     let mods = tokio::task::spawn_blocking({
@@ -355,6 +590,201 @@ pub fn mods_open_folder(app: AppHandle, profile_id: String) {
     mod_service::open_mods_folder(&app, &profile_id);
 }
 
+// ── Instance Health Doctor ──────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn doctor_run(profile_id: String) -> Result<Vec<instance_doctor_service::HealthCheck>, String> {
+    let profile = profile_service::get_profile(&profile_id).ok_or("Profile not found")?;
+    let mut checks = instance_doctor_service::run_health_check(auth_service::http_client(), &profile).await;
+    let mod_conflicts = mods_check_conflicts(profile_id).await;
+    checks.push(instance_doctor_service::HealthCheck {
+        id: "mod_conflicts".to_string(),
+        label: "Mod conflicts".to_string(),
+        status: if mod_conflicts.is_empty() { "pass".to_string() } else { "warn".to_string() },
+        message: if mod_conflicts.is_empty() { "No known conflicting mod pairs found".to_string() } else { mod_conflicts.join("; ") },
+        fixable: false,
+    });
+    Ok(checks)
+}
+
+/// Re-runs the normal install pipeline — `download_file` already skips anything whose sha1
+/// already matches, so this only actually re-fetches what the Doctor found missing/corrupt.
+#[tauri::command]
+pub async fn doctor_repair(app: AppHandle, profile_id: String) -> Value {
+    let Some(profile) = profile_service::get_profile(&profile_id) else { return json!({ "ok": false, "error": "Profile not found" }) };
+    let settings = settings_service::get_settings();
+    let game_dir = std::path::PathBuf::from(if !profile.game_dir.is_empty() { profile.game_dir.clone() } else { settings.game.default_game_dir });
+    let java_path = if profile.java_path.is_empty() { "java".to_string() } else { profile.java_path.clone() };
+    let app2 = app.clone();
+    let result = version_service::install_version(
+        auth_service::http_client(),
+        &profile.version,
+        &profile.loader,
+        if profile.loader_version.is_empty() { None } else { Some(profile.loader_version.as_str()) },
+        move |task, progress, total| {
+            let _ = app2.emit("doctor:progress", json!({ "task": task, "progress": progress, "total": total }));
+        },
+        &game_dir,
+        settings.launcher.concurrent_downloads as usize,
+        &java_path,
+    )
+    .await;
+    match result {
+        Ok(()) => json!({ "ok": true }),
+        Err(e) => json!({ "ok": false, "error": e }),
+    }
+}
+
+// ── Hardware / auto-tune ────────────────────────────────────────────────────────
+
+/// System RAM + core count for the "Auto-tune" button in Game Settings. `sysinfo` is queried
+/// fresh each call (memory-only refresh, not a whole-system snapshot) — this is a one-shot
+/// settings action, not something polled on a timer.
+#[tauri::command]
+pub fn system_hardware_info() -> Value {
+    let mut sys = sysinfo::System::new();
+    sys.refresh_memory();
+    sys.refresh_cpu_all();
+    json!({
+        "totalRamMb": sys.total_memory() / 1024 / 1024,
+        "cpuCores": sys.cpus().len().max(1),
+    })
+}
+
+// ── Worlds ────────────────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn worlds_list(profile_id: String) -> Vec<worlds_service::WorldInfo> {
+    worlds_service::list_worlds(&profile_service::resolve_game_dir(&profile_id))
+}
+
+#[tauri::command]
+pub fn worlds_open_folder(app: AppHandle, profile_id: String, world_id: String) {
+    let path = worlds_service::world_folder(&profile_service::resolve_game_dir(&profile_id), &world_id);
+    let _ = tauri_plugin_opener::OpenerExt::opener(&app).open_path(path.to_string_lossy().to_string(), None::<&str>);
+}
+
+#[tauri::command]
+pub fn worlds_rename(profile_id: String, world_id: String, new_name: String) -> Value {
+    match worlds_service::rename_world(&profile_service::resolve_game_dir(&profile_id), &world_id, new_name) {
+        Ok(world) => json!({ "ok": true, "world": world }),
+        Err(e) => json!({ "ok": false, "error": e }),
+    }
+}
+
+#[tauri::command]
+pub fn worlds_duplicate(profile_id: String, world_id: String, new_name: String) -> Value {
+    match worlds_service::duplicate_world(&profile_service::resolve_game_dir(&profile_id), &world_id, new_name) {
+        Ok(world) => json!({ "ok": true, "world": world }),
+        Err(e) => json!({ "ok": false, "error": e }),
+    }
+}
+
+#[tauri::command]
+pub fn worlds_delete(profile_id: String, world_id: String) -> Value {
+    match worlds_service::delete_world(&profile_service::resolve_game_dir(&profile_id), &world_id) {
+        Ok(()) => json!({ "ok": true }),
+        Err(e) => json!({ "ok": false, "error": e }),
+    }
+}
+
+// ── Screenshots ───────────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn screenshots_list(profile_id: String) -> Vec<screenshots_service::ScreenshotInfo> {
+    screenshots_service::list_screenshots(&profile_service::resolve_game_dir(&profile_id))
+}
+
+#[tauri::command]
+pub fn screenshots_thumbnail(profile_id: String, id: String) -> Option<String> {
+    screenshots_service::thumbnail(&profile_service::resolve_game_dir(&profile_id), &id)
+}
+
+#[tauri::command]
+pub fn screenshots_delete(profile_id: String, id: String) -> Value {
+    match screenshots_service::delete_screenshot(&profile_service::resolve_game_dir(&profile_id), &id) {
+        Ok(()) => json!({ "ok": true }),
+        Err(e) => json!({ "ok": false, "error": e }),
+    }
+}
+
+#[tauri::command]
+pub fn screenshots_open(app: AppHandle, profile_id: String, id: String) {
+    let Some(path) = screenshots_service::path_for(&profile_service::resolve_game_dir(&profile_id), &id) else { return };
+    let _ = tauri_plugin_opener::OpenerExt::opener(&app).open_path(path.to_string_lossy().to_string(), None::<&str>);
+}
+
+#[tauri::command]
+pub fn screenshots_open_folder(app: AppHandle, profile_id: String) {
+    let path = screenshots_service::folder(&profile_service::resolve_game_dir(&profile_id));
+    let _ = tauri_plugin_opener::OpenerExt::opener(&app).open_path(path.to_string_lossy().to_string(), None::<&str>);
+}
+
+#[tauri::command]
+pub fn screenshots_export(app: AppHandle, profile_id: String, id: String) -> Value {
+    let Some(src) = screenshots_service::path_for(&profile_service::resolve_game_dir(&profile_id), &id) else {
+        return json!({ "ok": false, "error": "Screenshot not found" });
+    };
+    let Some(save_path) = app.dialog().file().set_title("Save Screenshot As").add_filter("PNG Image", &["png"]).set_file_name(&id).blocking_save_file()
+    else {
+        return json!({ "ok": false, "error": "cancelled" });
+    };
+    match std::fs::copy(&src, save_path.to_string()) {
+        Ok(_) => json!({ "ok": true }),
+        Err(e) => json!({ "ok": false, "error": e.to_string() }),
+    }
+}
+
+#[tauri::command]
+pub fn worlds_list_auto_backups(profile_id: String, world_id: String) -> Vec<String> {
+    auto_backup_service::list_backups(&profile_id, &world_id)
+}
+
+#[tauri::command]
+pub fn worlds_restore_auto_backup(profile_id: String, world_id: String, backup_name: String) -> Value {
+    let game_dir = profile_service::resolve_game_dir(&profile_id);
+    match auto_backup_service::restore_backup(&profile_id, &world_id, &backup_name, &game_dir) {
+        Ok(world) => json!({ "ok": true, "world": world }),
+        Err(e) => json!({ "ok": false, "error": e }),
+    }
+}
+
+/// Zips the world and lets the user pick where to save it (a manual "keep this world safe"
+/// backup — separate from any auto-backup policy, there isn't one yet).
+#[tauri::command]
+pub fn worlds_backup(app: AppHandle, profile_id: String, world_id: String) -> Value {
+    let default_name = format!("{world_id}.zip");
+    let Some(save_path) = app
+        .dialog()
+        .file()
+        .set_title("Backup World")
+        .add_filter("ZIP Archive", &["zip"])
+        .set_file_name(&default_name)
+        .blocking_save_file()
+    else {
+        return json!({ "ok": false, "error": "cancelled" });
+    };
+    let dest = std::path::PathBuf::from(save_path.to_string());
+    match worlds_service::backup_world(&profile_service::resolve_game_dir(&profile_id), &world_id, &dest) {
+        Ok(()) => json!({ "ok": true }),
+        Err(e) => json!({ "ok": false, "error": e }),
+    }
+}
+
+/// Restores a world from a `worlds_backup` zip (or any zip shaped like one — a single top-level
+/// folder containing `level.dat`) into this profile's `saves/`, auto-renaming on collision.
+#[tauri::command]
+pub fn worlds_restore(app: AppHandle, profile_id: String) -> Value {
+    let Some(pick) = app.dialog().file().set_title("Restore World").add_filter("ZIP Archive", &["zip"]).blocking_pick_file() else {
+        return json!({ "ok": false, "error": "cancelled" });
+    };
+    let zip_path = std::path::PathBuf::from(pick.to_string());
+    match worlds_service::restore_world(&profile_service::resolve_game_dir(&profile_id), &zip_path) {
+        Ok(world) => json!({ "ok": true, "world": world }),
+        Err(e) => json!({ "ok": false, "error": e }),
+    }
+}
+
 #[tauri::command]
 pub async fn mods_auto_fix(profile_id: String) -> Value {
     let fixed = tokio::task::spawn_blocking(move || {
@@ -398,6 +828,42 @@ pub fn settings_get() -> settings_service::AppSettings {
 pub fn settings_set(settings: settings_service::AppSettings) -> bool {
     settings_service::save_settings(&settings);
     true
+}
+
+// ── BejaClient adapter versions ──────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn client_versions_list(family: String) -> Result<Vec<client_update_service::JarVersionEntry>, String> {
+    let client = reqwest::Client::new();
+    client_update_service::list_versions(&client, &family).await
+}
+
+#[tauri::command]
+pub fn client_version_pinned(family: String) -> Option<String> {
+    settings_service::get_settings().launcher.pinned_client_versions.get(&family).cloned()
+}
+
+#[tauri::command]
+pub async fn client_version_install(family: String, version: String) -> Result<(), String> {
+    let client = reqwest::Client::new();
+    let versions = client_update_service::list_versions(&client, &family).await?;
+    let entry = versions.into_iter().find(|v| v.version == version).ok_or_else(|| format!("Version {version} not found for {family}"))?;
+    client_update_service::install_specific_version(&client, &|_| {}, &|_| {}, &entry).await?;
+
+    let mut settings = settings_service::get_settings();
+    settings.launcher.pinned_client_versions.insert(family, version);
+    settings_service::save_settings(&settings);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn client_version_use_latest(family: String) -> Result<(), String> {
+    let mut settings = settings_service::get_settings();
+    settings.launcher.pinned_client_versions.remove(&family);
+    settings_service::save_settings(&settings);
+
+    let client = reqwest::Client::new();
+    client_update_service::update_family_to_latest(&client, &|_| {}, &|_| {}, &family).await
 }
 
 #[tauri::command]
@@ -611,18 +1077,21 @@ pub async fn modrinth_install_modpack(project_id: String, version_id: Option<Str
 #[tauri::command]
 pub async fn modrinth_install_resourcepack(project_id: String, profile_id: String) -> Result<bool, String> {
     modrinth_service::download_resourcepack(&project_id, &profile_id).await?;
+    install_tracker::record_mod_install(&project_id, &profile_id);
     Ok(true)
 }
 
 #[tauri::command]
 pub async fn modrinth_install_shader(project_id: String, profile_id: String) -> Result<bool, String> {
     modrinth_service::download_shader(&project_id, &profile_id).await?;
+    install_tracker::record_mod_install(&project_id, &profile_id);
     Ok(true)
 }
 
 #[tauri::command]
 pub async fn modrinth_install_datapack(project_id: String, profile_id: String) -> Result<bool, String> {
     modrinth_service::download_datapack(&project_id, &profile_id).await?;
+    install_tracker::record_mod_install(&project_id, &profile_id);
     Ok(true)
 }
 
@@ -674,14 +1143,59 @@ pub async fn check_mod_update(profile_id: String, mod_id: String) -> Option<ModU
 
 #[tauri::command]
 pub async fn modrinth_swap_mod(profile_id: String, old_mod_id: String, project_id: String, version_id: String) -> Result<Vec<mod_service::ModInfo>, String> {
+    let game_dir = profile_service::resolve_game_dir(&profile_id);
+    let old_mod = mod_service::list_mods(&profile_id).into_iter().find(|m| m.id == old_mod_id);
+
+    let new_file_name = modrinth_service::download_mod_version(&project_id, &version_id, &profile_id).await?;
+
+    if let Some(old) = old_mod {
+        let old_path = std::path::PathBuf::from(&old.file_path);
+        mod_update_backup_service::record_update(&game_dir, &old_path, &old.id, &new_file_name, &old.name);
+    }
     tokio::task::spawn_blocking({
         let profile_id = profile_id.clone();
         move || mod_service::delete_mod(&profile_id, &old_mod_id)
     })
     .await
     .ok();
-    modrinth_service::download_mod_version(&project_id, &version_id, &profile_id).await?;
     Ok(mods_list(profile_id).await)
+}
+
+#[tauri::command]
+pub fn mods_recent_updates(profile_id: String) -> Vec<mod_update_backup_service::UpdateLogEntry> {
+    mod_update_backup_service::list_recent(&profile_service::resolve_game_dir(&profile_id))
+}
+
+#[tauri::command]
+pub fn mods_rollback_last_update(profile_id: String) -> Value {
+    match mod_update_backup_service::rollback_last(&profile_service::resolve_game_dir(&profile_id)) {
+        Ok(mod_name) => json!({ "ok": true, "modName": mod_name }),
+        Err(e) => json!({ "ok": false, "error": e }),
+    }
+}
+
+/// Cross-profile update scan for the Mod Update Center — checks every mod in every profile
+/// (sequentially; Modrinth's API doesn't have a batch-lookup-by-filename endpoint) and returns
+/// only the ones that actually have an update, so the UI never has to filter a huge "up to date"
+/// list itself.
+#[tauri::command]
+pub async fn mods_check_all_profiles_updates() -> Vec<Value> {
+    let mut results = Vec::new();
+    for profile in profile_service::list_profiles() {
+        let mods = mod_service::list_mods(&profile.id);
+        for m in mods {
+            if let Some(update) = check_mod_update(profile.id.clone(), m.id.clone()).await {
+                results.push(json!({
+                    "profileId": profile.id,
+                    "profileName": profile.name,
+                    "modId": m.id,
+                    "modName": m.name,
+                    "update": update,
+                }));
+            }
+        }
+    }
+    results
 }
 
 // ── System ────────────────────────────────────────────────────────────────────
@@ -692,12 +1206,48 @@ pub fn system_get_version(app: AppHandle) -> String {
 }
 
 #[tauri::command]
+pub async fn java_runtimes_list() -> Vec<crate::mcinstall::java_runtime::ManagedRuntime> {
+    crate::mcinstall::java_runtime::list_managed(&paths::runtimes_dir()).await
+}
+
+/// Downloads (or verifies) one managed runtime and returns the path to its `java` binary.
+#[tauri::command]
+pub async fn java_runtime_install(component: String) -> Result<String, String> {
+    use crate::mcinstall::java_runtime as jr;
+    if !jr::MANAGED_COMPONENTS.iter().any(|(c, _, _)| *c == component) {
+        return Err(format!("unknown runtime component: {component}"));
+    }
+    let client = auth_service::http_client();
+    match jr::ensure_java_runtime(client, &component, &paths::runtimes_dir(), |_| {}).await? {
+        Some(bin) => Ok(bin.to_string_lossy().to_string()),
+        None => Err("Mojang does not offer this runtime for your platform".to_string()),
+    }
+}
+
+#[tauri::command]
+pub async fn java_runtime_remove(component: String) -> Result<(), String> {
+    use crate::mcinstall::java_runtime as jr;
+    // Refuse to delete the runtime the user pinned as their Java, or the next launch would fail.
+    let pinned = settings_service::get_settings().game.default_java_path;
+    let dir = paths::runtimes_dir().join(&component);
+    if !pinned.is_empty() && std::path::Path::new(&pinned).starts_with(&dir) {
+        return Err("This runtime is selected as your Java executable. Switch to Auto-detect first.".to_string());
+    }
+    jr::remove_managed(&paths::runtimes_dir(), &component).await
+}
+
+#[tauri::command]
 pub async fn system_java_versions() -> Vec<java_discovery::JavaInfo> {
     java_discovery::scan_local_java().await
 }
 
 #[tauri::command]
 pub fn system_open_external(app: AppHandle, url: String) -> Result<(), String> {
+    // this gets called with chat links / mod metadata, so block anything that isn't a plain
+    // http(s) link — a UNC path here would make Windows do an SMB auth handshake against it
+    if !url.starts_with("http://") && !url.starts_with("https://") {
+        return Err("refusing to open non-http(s) url".to_string());
+    }
     tauri_plugin_opener::OpenerExt::opener(&app).open_url(url, None::<&str>).map_err(|e| e.to_string())
 }
 
@@ -953,6 +1503,18 @@ pub async fn friends_remove(uuid: String) -> Value {
     beja_api::delete(&format!("/api/friends/{uuid}"), Some(&token)).await
 }
 
+#[tauri::command]
+pub async fn friends_block(uuid: String, username: String) -> Value {
+    let Some(token) = beja_auth::get_beja_token().await else { return json!({ "error": "not_logged_in" }) };
+    beja_api::post("/api/friends/block", Some(&token), json!({ "targetUuid": uuid, "targetUsername": username })).await
+}
+
+#[tauri::command]
+pub async fn friends_unblock(uuid: String) -> Value {
+    let Some(token) = beja_auth::get_beja_token().await else { return json!({ "error": "not_logged_in" }) };
+    beja_api::delete(&format!("/api/friends/block/{uuid}"), Some(&token)).await
+}
+
 // ── Stats ─────────────────────────────────────────────────────────────────────
 
 #[tauri::command]
@@ -1081,6 +1643,7 @@ pub async fn capes_upload(base64_image: String, filename: String, name: String) 
         Err(e) => json!({ "error": e.to_string() }),
     }
 }
+
 
 #[tauri::command]
 pub async fn capes_report(id: u64) -> Value {
@@ -1245,16 +1808,6 @@ pub fn discord_set_presence(details: String, state: String) {
 }
 
 // ── Video ─────────────────────────────────────────────────────────────────────
-
-#[tauri::command]
-pub fn video_get_scene(app: AppHandle) -> Result<String, String> {
-    crate::video::get_scene_url(&app)
-}
-
-#[tauri::command]
-pub fn video_pick_custom_bg(app: AppHandle, kind: String) -> Option<String> {
-    crate::video::pick_custom_bg(&app, &kind)
-}
 
 // ── Updater ───────────────────────────────────────────────────────────────────
 // Thin wrappers around `tauri-plugin-updater` — see `lib.rs`'s `updater_check` helper for the

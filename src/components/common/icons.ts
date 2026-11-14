@@ -1,7 +1,7 @@
 // Raw SVG path/shape data for the shared <Icon> component.
 // Stroke-based line-icon language (24x24 viewBox, currentColor, round caps/joins)
 // matching the inline SVGs already used in InstanceWizard.vue / AppTopBar.vue.
-// New UI only — not a retrofit of existing icons8 PNG assets elsewhere in the app.
+// New UI only - not a retrofit of existing icons8 PNG assets elsewhere in the app.
 
 import arrowLeftImg from '../../assets/icons/arrow-left.png'
 import arrowRightImg from '../../assets/icons/arrow-right.png'
@@ -48,7 +48,7 @@ export const icons: Record<IconName, string> = {
 }
 
 // A handful of icon names render from vanilla-styled PNG art instead of the
-// stroke-SVG language above — swapped in via <Icon>, so every existing call
+// stroke-SVG language above - swapped in via <Icon>, so every existing call
 // site (toasts, ModsPage warning state, etc.) picks the new art up for free.
 export const iconImages: Partial<Record<IconName, string>> = {
   'chevron-left': arrowLeftImg,

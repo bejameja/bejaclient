@@ -100,7 +100,7 @@ pub async fn extract_natives(native_libraries: Vec<ResolvedLibrary>, libraries_d
                 if is_excluded(&name, &excludes) {
                     continue;
                 }
-                let dest = natives_dir.join(&name);
+                let dest = crate::paths::safe_join(&natives_dir, &name)?;
                 if let Some(parent) = dest.parent() {
                     fs::create_dir_all(parent).map_err(|e| e.to_string())?;
                 }

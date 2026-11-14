@@ -58,7 +58,7 @@
                 <div class="field">
                   <span class="field-label">XP</span>
                   <span v-if="beja" class="xp-val">{{ beja.xp.toLocaleString() }} <span class="xp-unit">XP</span></span>
-                  <span v-else class="field-val">{{ extraLoading ? '…' : '—' }}</span>
+                  <span v-else class="field-val">{{ extraLoading ? '…' : '-' }}</span>
                 </div>
               </div>
 
@@ -183,7 +183,7 @@ watch(() => props.player, async player => {
 }, { immediate: true })
 
 // Front face of a cape texture lives at (1,1)-(11,17) at scale 1. Vanilla
-// textures are 64x32 (2:1), OptiFine uses a 46x22 sheet — same pixel layout,
+// textures are 64x32 (2:1), OptiFine uses a 46x22 sheet - same pixel layout,
 // different canvas size, so derive the scale from the matching base width.
 function cropCapeFront(dataUrl: string): Promise<string> {
   return new Promise(resolve => {
@@ -256,7 +256,6 @@ async function addFriend() {
 .modal {
   position: relative;
   background: $surface;
-  border: 1px solid $border;
   border-radius: $radius-lg;
   width: 640px;
   max-width: 92vw;
@@ -409,7 +408,7 @@ async function addFriend() {
   padding: 3px 10px;
   background: $surface-elevated;
   border: 1px solid $border;
-  border-radius: $radius;
+  border-radius: 12px;
   color: $text-secondary;
   font-size: 11px;
   font-weight: 600;
@@ -436,7 +435,7 @@ async function addFriend() {
   width: 40px;
   height: 64px;
   image-rendering: pixelated;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   border: 1px solid $border;
   background: #0d0d0d;
 }
@@ -459,7 +458,7 @@ async function addFriend() {
   background: $text-primary;
   color: $bg;
   border: none;
-  border-radius: $radius;
+  border-radius: 12px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -474,7 +473,7 @@ async function addFriend() {
   background: $surface-elevated;
   color: $text-primary;
   border: 1px solid $border;
-  border-radius: $radius;
+  border-radius: 12px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;

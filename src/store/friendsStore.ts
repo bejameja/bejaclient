@@ -18,9 +18,10 @@ export interface FriendRequest {
 export const useFriendsStore = defineStore('friends', () => {
   const friends        = ref<Friend[]>([])
   const requests       = ref<FriendRequest[]>([])
+  const blocked        = ref<{ uuid: string; username: string }[]>([])
   const panelHidden    = ref(false)
   const socketStatus   = ref<'connecting' | 'connected' | 'disconnected' | 'error'>('connecting')
-  // Set by FriendsPage.vue while a chat is open — read by App.vue's Discord
+  // Set by FriendsPage.vue while a chat is open - read by App.vue's Discord
   // presence watcher to show "Chatting with <username>".
   const activeChatUsername = ref<string | null>(null)
 
@@ -39,6 +40,7 @@ export const useFriendsStore = defineStore('friends', () => {
         countryCode: r.countryCode ?? null,
         playing:     r.playing ?? null,
       }))
+      blocked.value  = rows.filter(r => r.status === 'blocked').map(r => ({ uuid: r.uuid, username: r.username }))
       requests.value = rows.filter(r => r.status === 'pending').map(r => ({ uuid: r.uuid, username: r.username, direction: r.direction as 'incoming' | 'outgoing' }))
     } catch { /* non-fatal */ }
   }
@@ -83,11 +85,21 @@ export const useFriendsStore = defineStore('friends', () => {
     await refresh()
   }
 
+  async function blockUser(uuid: string, username: string) {
+    await window.api.friends.block(uuid, username)
+    await refresh()
+  }
+
+  async function unblockUser(uuid: string) {
+    await window.api.friends.unblock(uuid)
+    await refresh()
+  }
+
   function togglePanel() {
     panelHidden.value = !panelHidden.value
   }
 
-  // Socket event handlers — called from root component after connect()
+  // Socket event handlers - called from root component after connect()
   function handleOnline(data: { uuid: string; username: string; playing?: { game: string; version: string } | null }) {
     const f = friends.value.find(f => f.uuid === data.uuid)
     if (f) {
@@ -110,7 +122,7 @@ export const useFriendsStore = defineStore('friends', () => {
     }
   }
 
-  // The other party accepted/removed us — refetch rather than patch local state,
+  // The other party accepted/removed us - refetch rather than patch local state,
   // since the diff (pending -> friend, or friend -> gone) is cheap to just reload.
   async function handleAccepted() {
     await refresh()
@@ -121,10 +133,10 @@ export const useFriendsStore = defineStore('friends', () => {
   }
 
   return {
-    friends, requests, panelHidden, socketStatus, activeChatUsername,
+    friends, requests, blocked, panelHidden, socketStatus, activeChatUsername,
     incomingRequests, outgoingRequests, pendingCount, onlineCount,
     connect, refresh,
-    sendRequest, acceptRequest, declineRequest, cancelRequest, removeFriend, togglePanel,
+    sendRequest, acceptRequest, declineRequest, cancelRequest, removeFriend, blockUser, unblockUser, togglePanel,
     handleOnline, handleOffline, handleRequest, handleAccepted, handleRemoved,
   }
 })

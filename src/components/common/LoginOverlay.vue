@@ -1,46 +1,87 @@
 <template>
   <Transition name="login-fade">
-    <div v-if="show" class="login-backdrop">
-      <div class="login-card">
-        <img :src="logoUrl" class="login-logo" alt="BC" />
-        <div class="login-brand">
-          <span class="login-brand-beja">Beja</span><span class="login-brand-client">Client</span>
-        </div>
-        <p class="login-sub">Sign in with your Minecraft account to continue.</p>
-
-        <button class="login-btn" :disabled="accountStore.loading" @click="handleLogin">
-          <span v-if="accountStore.loading && !accountStore.loginStatus" class="login-spinner" />
-          <svg v-else class="login-ms-icon" viewBox="0 0 21 21" fill="none">
-            <rect x="1"  y="1"  width="9" height="9" fill="#F25022"/>
-            <rect x="11" y="1"  width="9" height="9" fill="#7FBA00"/>
-            <rect x="1"  y="11" width="9" height="9" fill="#00A4EF"/>
-            <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
+    <div v-if="show" class="login-screen">
+      <!-- The real titlebar controls (in TopBar) are inert behind this overlay - mirror them
+           here so the window can still be minimized/maximized/closed while signed out. -->
+      <div class="login-win-controls">
+        <button class="win-btn" title="Minimize" @click="minimize">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+            <line x1="2" y1="5.5" x2="9" y2="5.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
           </svg>
-          Sign in with Microsoft
         </button>
-
-        <p v-if="accountStore.loginStatus" class="login-status">
-          {{ accountStore.loginStatus }}
-        </p>
-        <p v-if="accountStore.error && !accountStore.loading" class="login-error">
-          {{ loginErrorMessage }}
-        </p>
-
-        <button class="login-import" @click="handleImport" :disabled="accountStore.loading">
-          Import from Minecraft Launcher
+        <button class="win-btn" title="Maximize" @click="toggleMaximize">
+          <svg v-if="!maximized" width="11" height="11" viewBox="0 0 11 11" fill="none">
+            <rect x="1.9" y="1.9" width="7.2" height="7.2" rx="0.7" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+          </svg>
+          <svg v-else width="11" height="11" viewBox="0 0 11 11" fill="none">
+            <path d="M1.5 4.5V1.5H4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M9.5 6.5V9.5H6.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
         </button>
+        <button class="win-btn win-close" title="Close" @click="close">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+            <line x1="2" y1="2" x2="9" y2="9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <line x1="9" y1="2" x2="2" y2="9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="login-frame">
+        <img :src="logoUrl" class="login-logo" alt="BejaClient" />
+
+        <div class="login-version">Version {{ version }}</div>
+
+        <div class="login-left">
+          <div class="login-heading">
+            <span class="login-heading-line">Log into</span>
+            <span class="login-heading-line"><span class="w-beja">Beja</span><span class="w-client">Client</span></span>
+          </div>
+
+          <button class="login-btn" :disabled="accountStore.loading" @click="handleLogin">
+            <span v-if="accountStore.loading && !accountStore.loginStatus" class="login-spinner" />
+            <template v-else>
+              <svg class="login-ms-icon" viewBox="0 0 21 21" fill="none">
+                <rect x="1"  y="1"  width="9" height="9" fill="#F25022"/>
+                <rect x="11" y="1"  width="9" height="9" fill="#7FBA00"/>
+                <rect x="1"  y="11" width="9" height="9" fill="#00A4EF"/>
+                <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
+              </svg>
+              Sign in with Microsoft
+            </template>
+          </button>
+
+          <div class="login-msg-slot">
+            <p v-if="accountStore.loginStatus" class="login-status">{{ accountStore.loginStatus }}</p>
+            <p v-if="accountStore.error && !accountStore.loading" class="login-error">{{ loginErrorMessage }}</p>
+          </div>
+        </div>
+
+        <img :src="skinPose" class="login-skin-pose" alt="" />
       </div>
     </div>
   </Transition>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import logoUrl from '../../assets/bc-logo-new.png'
+import { computed, onMounted, ref } from 'vue'
+import skinPose from '../../assets/login-skin-pose.png'
+import logoUrl from '../../assets/login-logo.png'
 import { useAccountStore } from '../../store/accountStore'
 
 const props = defineProps<{ show: boolean }>()
 const accountStore = useAccountStore()
+
+const maximized = ref(false)
+const version   = ref('')
+function minimize()       { window.api.window.minimize() }
+function toggleMaximize() { window.api.window.maximize() }
+function close()          { window.api.window.close() }
+
+onMounted(async () => {
+  maximized.value = await window.api.window.isMaximized()
+  window.api.window.onMaximized((v: boolean) => { maximized.value = v })
+  version.value = await window.api.system.getVersion()
+})
 
 const loginErrorMessage = computed(() => {
   const raw = accountStore.error
@@ -58,84 +99,157 @@ const loginErrorMessage = computed(() => {
 async function handleLogin() {
   await accountStore.login()
 }
-
-async function handleImport() {
-  await accountStore.importFromLauncher()
-}
 </script>
 
 <style lang="scss" scoped>
-.login-backdrop {
+.login-screen {
   position: fixed;
   inset: 0;
-  z-index: 500;
+  // Above every other overlay in the app (CommandPalette 9800, ContextMenu 9500, TopBar's own
+  // dropdowns 2000, etc.) - while signed out, nothing behind this should be reachable at all,
+  // not even things that render via Teleport straight to <body>.
+  z-index: 10000;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(16, 16, 16, 0.82);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  // App behind (Hub page, TopBar) shows through blurred instead of a flat/artwork background -
+  // it's already `inert` while this is up, so it's just a backdrop, never interactive.
+  background: rgba(12, 13, 18, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  overflow: hidden;
 }
 
-.login-card {
-  width: 320px;
-  background: $surface;
-  border: 1px solid $border-strong;
-  border-radius: 4px;
-  padding: 36px 32px 28px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0;
-  box-shadow: 0 32px 64px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.04) inset;
+// A bounded 16:9 frame, not the whole app window - everything below is positioned relative to
+// this, not the screen.
+.login-frame {
+  position: relative;
+  z-index: 2;
+  width: min(760px, 56vw);
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 0;
+  overflow: hidden;
 }
 
 .login-logo {
-  width: 40px;
-  height: 40px;
-  filter: brightness(0) invert(1);
-  margin-bottom: 14px;
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 3;
+  height: 26px;
+  width: auto;
+  animation: login-logo-spin 4s linear infinite;
 }
 
-.login-brand {
-  font-size: 22px;
-  line-height: 1;
-  margin-bottom: 10px;
+@keyframes login-logo-spin {
+  to { transform: rotate(360deg); }
 }
 
-.login-brand-beja   { font-weight: 800; color: $text-primary; font-family: 'Plus Jakarta Sans', sans-serif; }
-.login-brand-client { font-weight: 300; color: $text-primary; font-family: 'Plus Jakarta Sans', sans-serif; }
-
-.login-sub {
-  font-size: 12px;
-  color: $text-secondary;
-  text-align: center;
-  line-height: 1.5;
-  margin-bottom: 24px;
-  max-width: 220px;
+.login-version {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  z-index: 3;
+  font-size: 10px;
+  color: #fff;
 }
 
+.login-win-controls {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px;
+  -webkit-app-region: no-drag;
+}
+
+.win-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: $radius-sm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.7);
+  transition: color 150ms ease, background 150ms ease;
+
+  &:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  svg { transform: scale(1.3); }
+}
+
+.win-close:hover {
+  color: #fff;
+  background: #c0413f;
+}
+
+// ── Left column: heading, sign-in button, status/error ───────────────────────
+.login-left {
+  position: absolute;
+  left: 6%;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 20px;
+  width: 42%;
+  min-width: 320px;
+  z-index: 1;
+}
+
+.login-heading {
+  display: flex;
+  flex-direction: column;
+  font-size: 42px;
+  line-height: 1.2;
+  color: $text-primary;
+}
+
+.w-beja   { font-weight: 900; }
+.w-client { font-weight: 300; }
+
+// ── Skin pose, right side ────────────────────────────────────────────────────
+.login-skin-pose {
+  position: absolute;
+  right: -14%;
+  top: 52%;
+  transform: translateY(-50%);
+  height: 118%;
+  width: auto;
+  object-fit: contain;
+  filter: brightness(0.85);
+}
+
+// ── Sign-in button, compact rounded pill ─────────────────────────────────────
 .login-btn {
-  width: 100%;
-  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: $surface-elevated;
-  border: 1px solid $border;
-  border-radius: 4px;
-  color: $text-primary;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 13px;
+  padding: 14px 44px;
+  background: #3A5F9F;
+  border: 1px solid transparent;
+  border-radius: 0;
+  color: #fff;
+  font-size: 15px;
   font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
-  transition: background 120ms, border-color 120ms;
-  margin-bottom: 10px;
+  transition: border-color 120ms, background 120ms;
 
   &:hover:not(:disabled) {
-    background: $border;
-    border-color: $border-strong;
+    background: lighten(#3A5F9F, 6%);
   }
 
   &:disabled {
@@ -151,49 +265,42 @@ async function handleImport() {
 }
 
 .login-spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(255,255,255,0.2);
-  border-top-color: $accent;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.35);
+  border-top-color: #fff;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
-  flex-shrink: 0;
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
+.login-msg-slot {
+  width: 100%;
+}
+
 .login-status {
-  font-size: 11px;
+  font-size: 12px;
   color: $accent;
-  text-align: center;
-  margin-bottom: 6px;
 }
 
 .login-error {
-  font-size: 11px;
+  font-size: 12px;
   color: $error;
-  text-align: center;
-  margin-bottom: 6px;
 }
 
-.login-import {
-  margin-top: 14px;
-  background: none;
-  border: none;
-  color: $text-secondary;
-  font-size: 11px;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  cursor: pointer;
-  padding: 4px 0;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  transition: color 120ms;
+.login-fade-enter-active { transition: opacity 0.35s ease; }
+.login-fade-leave-active {
+  transition: opacity 0.45s ease;
+  // On successful login, the frame collapses vertically from top+bottom toward the center
+  // (not just fades) - the backdrop blur still just fades via the opacity transition above.
+  .login-frame { animation: login-frame-collapse 0.45s cubic-bezier(0.6, 0, 0.8, 0.2) forwards; }
 
-  &:hover:not(:disabled) { color: $text-primary; }
-  &:disabled { opacity: 0.4; cursor: not-allowed; }
+  html.reduce-motion & .login-frame { animation: none; }
 }
-
-.login-fade-enter-active { transition: opacity 0.25s ease; }
-.login-fade-leave-active { transition: opacity 0.2s ease; }
 .login-fade-enter-from, .login-fade-leave-to { opacity: 0; }
+
+@keyframes login-frame-collapse {
+  to { transform: scaleY(0); }
+}
 </style>

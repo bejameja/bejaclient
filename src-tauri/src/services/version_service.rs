@@ -117,6 +117,12 @@ pub async fn install_version(
             let on_progress_log = |line: String| on_progress(line, 85, 100);
             forge_install::install_neoforge(client, lv, game_dir, java_path, &on_progress_log).await?;
         }
+        // OptiFine profiles are installed by running the real OptiFine installer GUI once (see
+        // optifine.rs's module doc for why) — that happens from the pinned OptiFine card, not
+        // here. If launch reaches this arm, that step was skipped or its output went missing.
+        ("optifine", _) => {
+            return Err("OptiFine isn't installed for this profile yet - open it from the pinned OptiFine card and finish the installer.".to_string());
+        }
         _ => {}
     }
 

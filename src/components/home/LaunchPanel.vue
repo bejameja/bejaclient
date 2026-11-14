@@ -13,7 +13,7 @@
       />
       <div class="version-row">
         <span class="version-key">version:</span>
-        <span class="version-val">{{ activeProfile?.version ?? '—' }}</span>
+        <span class="version-val">{{ activeProfile?.version ?? '-' }}</span>
         <div class="version-underline" />
         <span class="loader-chip">{{ loaderBadge }}</span>
       </div>
@@ -139,7 +139,6 @@ async function handleLaunch() {
 // ── Selected instance panel ───────────────────────────────────────────────────
 .selected-instance {
   background: $surface;
-  border: 1px solid $border;
   border-bottom: none;
   padding: 10px 12px 8px;
   display: flex;

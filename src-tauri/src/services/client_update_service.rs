@@ -8,6 +8,26 @@ use std::path::{Path, PathBuf};
 use crate::paths;
 
 const VERSION_JSON_BASE: &str = "http://206.217.141.184:3093/api/jars/current";
+const JARS_LIST_URL: &str = "http://206.217.141.184:3093/api/jars";
+const JARS_DOWNLOAD_BASE: &str = "http://206.217.141.184:3093/api/jars/download";
+
+/// One release row as returned by `GET /api/jars` (all families mixed together — the endpoint
+/// ignores `?family=`, so callers filter client-side).
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all(serialize = "camelCase", deserialize = "snake_case"))]
+pub struct JarVersionEntry {
+    pub id: i64,
+    pub version: String,
+    pub bootstrap_filename: String,
+    #[serde(default)]
+    pub bootstrap_sha256: String,
+    pub adapter_filename: String,
+    #[serde(default)]
+    pub adapter_sha256: String,
+    pub release_date: String,
+    pub is_current: i64,
+    pub family: String,
+}
 
 /// Checks that a file ends with a ZIP end-of-central-directory signature (PK\x05\x06). Cheap
 /// way to detect truncated/corrupt jar downloads without a full zip parser.
@@ -128,6 +148,13 @@ pub fn resolve_adapter_jar(mc_version: Option<&str>) -> Option<PathBuf> {
     None
 }
 
+/// Like `resolve_adapter_jar`, but keyed directly by family (e.g. "v1_21") instead of an MC
+/// version string — used by the manual version picker, which isn't tied to an active launch.
+pub fn resolve_adapter_jar_by_family(family: &str) -> Option<PathBuf> {
+    let prefix = format!("beja-{family}");
+    find_jar(&candidate_dirs(), |f| f.starts_with(&prefix) && f.ends_with(".jar") && !f.contains("-sources") && !f.contains("-dev"))
+}
+
 fn get_local_version(dir: &Path) -> Option<String> {
     if !dir.exists() {
         return None;
@@ -173,47 +200,39 @@ pub async fn check_and_update_client_jar(client: &reqwest::Client, on_log: &impl
 
 async fn check_and_update_client_jar_inner(client: &reqwest::Client, on_log: &impl Fn(String), on_status: &impl Fn(&str), mc_version: Option<&str>) -> Result<(), String> {
     let family = family_for(mc_version);
-    on_log(format!("[BejaClient] Checking for client updates… (family: {family})"));
 
-    let remote: serde_json::Value = client
-        .get(format!("{VERSION_JSON_BASE}?family={family}"))
-        .timeout(std::time::Duration::from_secs(8))
-        .send()
-        .await
-        .map_err(|e| e.to_string())?
-        .json()
-        .await
-        .map_err(|e| e.to_string())?;
-
-    let remote_version = remote["version"].as_str().unwrap_or_default();
-    let remote_url = remote["url"].as_str().unwrap_or_default();
-    if remote_version.is_empty() || remote_url.is_empty() || remote_version == "0.0.0" {
-        on_log(format!("[BejaClient] No released client version yet for {family} — skipping update."));
-        return Ok(());
+    let pinned = crate::services::settings_service::get_settings()
+        .launcher
+        .pinned_client_versions
+        .get(&family)
+        .cloned();
+    if let Some(pinned_version) = pinned {
+        return ensure_pinned_version_installed(client, on_log, on_status, &family, &pinned_version).await;
     }
 
+    update_family_to_latest(client, on_log, on_status, &family).await
+}
+
+/// Downloads and verifies one bootstrap + adapter pair, clearing out any other versions of each
+/// already present in the downloaded-libs dir first (only one version of each may live there —
+/// `find_jar` always picks whichever sorts highest, so stale siblings would just be dead weight).
+async fn install_jar_version(
+    client: &reqwest::Client,
+    on_log: &impl Fn(String),
+    on_status: &impl Fn(&str),
+    version: &str,
+    bootstrap_filename: &str,
+    bootstrap_url: &str,
+    bootstrap_sha256: &str,
+    adapter_filename: &str,
+    adapter_url: &str,
+    adapter_sha256: &str,
+) -> Result<(), String> {
     let dl_dir = get_downloaded_libs_dir();
-    let local_ver = get_local_version(&dl_dir);
-    on_log(format!("[BejaClient] Local: {}  |  Remote: {remote_version}", local_ver.as_deref().unwrap_or("none")));
-
-    let local_bootstrap_valid = local_ver.as_ref().map(|v| has_valid_zip_end(&dl_dir.join(format!("beja-bootstrap-{v}.jar")))).unwrap_or(false);
-    let local_adapter_jar = resolve_adapter_jar(mc_version);
-    let local_adapter_valid = local_adapter_jar.as_ref().map(|p| has_valid_zip_end(p)).unwrap_or(false);
-
-    if let Some(local_ver) = &local_ver {
-        if !semver_gt(remote_version, local_ver) {
-            if local_bootstrap_valid && local_adapter_valid {
-                on_log("[BejaClient] Client JAR is up to date.".to_string());
-                return Ok(());
-            }
-            on_log("[BejaClient] Local client JAR appears corrupted — re-downloading current version.".to_string());
-        }
-    }
-
     let _ = std::fs::create_dir_all(&dl_dir);
 
-    on_status(&format!("Downloading BejaClient {remote_version}…"));
-    on_log(format!("[BejaClient] Downloading {}…", remote["filename"].as_str().unwrap_or_default()));
+    on_status(&format!("Downloading BejaClient {version}…"));
+    on_log(format!("[BejaClient] Downloading {bootstrap_filename}…"));
 
     if let Ok(entries) = std::fs::read_dir(&dl_dir) {
         for f in entries.flatten().filter_map(|e| e.file_name().into_string().ok()).filter(|f| f.starts_with("beja-bootstrap-") && f.ends_with(".jar")) {
@@ -221,28 +240,26 @@ async fn check_and_update_client_jar_inner(client: &reqwest::Client, on_log: &im
         }
     }
 
-    // Use canonical version-based filename regardless of what the server reports — the
-    // server's filename field can lag behind the version field.
-    let dest = dl_dir.join(format!("beja-bootstrap-{remote_version}.jar"));
-    crate::mcinstall::downloader::download_file(client, remote_url, &dest, crate::mcinstall::downloader::DownloadOptions::default()).await?;
+    let dest = dl_dir.join(bootstrap_filename);
+    crate::mcinstall::downloader::download_file(client, bootstrap_url, &dest, crate::mcinstall::downloader::DownloadOptions::default()).await?;
 
     if !has_valid_zip_end(&dest) {
         let _ = std::fs::remove_file(&dest);
         return Err("Downloaded bootstrap JAR is not a valid zip (truncated download?)".to_string());
     }
 
-    if let Some(expected_sha256) = remote["sha256"].as_str() {
+    if !bootstrap_sha256.is_empty() {
         on_log("[BejaClient] Verifying bootstrap checksum…".to_string());
         let actual = compute_sha256(&dest).unwrap_or_default();
-        if !actual.eq_ignore_ascii_case(expected_sha256) {
+        if !actual.eq_ignore_ascii_case(bootstrap_sha256) {
             let _ = std::fs::remove_file(&dest);
-            return Err(format!("Bootstrap checksum mismatch — expected {expected_sha256} got {actual}"));
+            return Err(format!("Bootstrap checksum mismatch - expected {bootstrap_sha256} got {actual}"));
         }
         on_log("[BejaClient] Bootstrap checksum OK.".to_string());
     }
 
     // Adapter JAR — must live next to bootstrap so AdapterLocator finds it.
-    if let (Some(adapter_url), Some(adapter_filename)) = (remote["adapterUrl"].as_str(), remote["adapterFilename"].as_str()) {
+    if !adapter_url.is_empty() && !adapter_filename.is_empty() {
         on_log(format!("[BejaClient] Downloading {adapter_filename}…"));
 
         if let Ok(entries) = std::fs::read_dir(&dl_dir) {
@@ -259,21 +276,135 @@ async fn check_and_update_client_jar_inner(client: &reqwest::Client, on_log: &im
             return Err("Downloaded adapter JAR is not a valid zip (truncated download?)".to_string());
         }
 
-        if let Some(expected_sha256) = remote["adapterSha256"].as_str() {
+        if !adapter_sha256.is_empty() {
             on_log("[BejaClient] Verifying adapter checksum…".to_string());
             let actual = compute_sha256(&adapter_dest).unwrap_or_default();
-            if !actual.eq_ignore_ascii_case(expected_sha256) {
+            if !actual.eq_ignore_ascii_case(adapter_sha256) {
                 let _ = std::fs::remove_file(&adapter_dest);
-                return Err(format!("Adapter checksum mismatch — expected {expected_sha256} got {actual}"));
+                return Err(format!("Adapter checksum mismatch - expected {adapter_sha256} got {actual}"));
             }
             on_log("[BejaClient] Adapter checksum OK.".to_string());
         }
 
         on_log(format!("[BejaClient] Adapter downloaded → {}", adapter_dest.to_string_lossy()));
     } else {
-        on_log("[BejaClient] No adapter URL in version manifest — adapter not updated.".to_string());
+        on_log("[BejaClient] No adapter URL in version manifest - adapter not updated.".to_string());
     }
 
-    on_log(format!("[BejaClient] Update complete → {}", dest.to_string_lossy()));
+    on_log(format!("[BejaClient] Installed {version} → {}", dest.to_string_lossy()));
     Ok(())
+}
+
+/// Fetches all released versions across every family (the endpoint doesn't actually filter by
+/// `?family=`), newest first.
+pub async fn list_versions(client: &reqwest::Client, family: &str) -> Result<Vec<JarVersionEntry>, String> {
+    let all: Vec<JarVersionEntry> = client
+        .get(JARS_LIST_URL)
+        .timeout(std::time::Duration::from_secs(8))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?
+        .json()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let mut filtered: Vec<JarVersionEntry> = all.into_iter().filter(|v| v.family == family).collect();
+    filtered.sort_by(|a, b| {
+        let a_parts: Vec<i64> = a.version.split('.').map(|s| s.parse().unwrap_or(0)).collect();
+        let b_parts: Vec<i64> = b.version.split('.').map(|s| s.parse().unwrap_or(0)).collect();
+        b_parts.cmp(&a_parts)
+    });
+    Ok(filtered)
+}
+
+/// Downloads a specific historical version by its list entry (manual version picker path).
+pub async fn install_specific_version(client: &reqwest::Client, on_log: &impl Fn(String), on_status: &impl Fn(&str), entry: &JarVersionEntry) -> Result<(), String> {
+    let bootstrap_url = format!("{JARS_DOWNLOAD_BASE}/{}", entry.bootstrap_filename);
+    let adapter_url = format!("{JARS_DOWNLOAD_BASE}/{}", entry.adapter_filename);
+    install_jar_version(
+        client, on_log, on_status,
+        &entry.version,
+        &entry.bootstrap_filename, &bootstrap_url, &entry.bootstrap_sha256,
+        &entry.adapter_filename, &adapter_url, &entry.adapter_sha256,
+    ).await
+}
+
+/// Ensures the pinned version is what's actually installed for `family`; installs it if missing,
+/// corrupted, or a different version is present. Falls back to latest if the pin no longer
+/// exists on the server, so a stale/removed pin can't permanently strand the launcher.
+async fn ensure_pinned_version_installed(client: &reqwest::Client, on_log: &impl Fn(String), on_status: &impl Fn(&str), family: &str, pinned_version: &str) -> Result<(), String> {
+    let dl_dir = get_downloaded_libs_dir();
+    let local_ver = get_local_version(&dl_dir);
+    let bootstrap_ok = local_ver.as_deref() == Some(pinned_version)
+        && has_valid_zip_end(&dl_dir.join(format!("beja-bootstrap-{pinned_version}.jar")));
+    let adapter_ok = resolve_adapter_jar_by_family(family)
+        .filter(|p| has_valid_zip_end(p))
+        .and_then(|p| p.file_name().map(|f| f.to_string_lossy().contains(pinned_version)))
+        .unwrap_or(false);
+
+    if bootstrap_ok && adapter_ok {
+        on_log(format!("[BejaClient] Pinned to {pinned_version} ({family}) - already installed."));
+        return Ok(());
+    }
+
+    on_log(format!("[BejaClient] Installing pinned version {pinned_version} ({family})…"));
+    let versions = list_versions(client, family).await?;
+    let Some(entry) = versions.into_iter().find(|v| v.version == pinned_version) else {
+        on_log(format!("[BejaClient] Pinned version {pinned_version} no longer available for {family} - falling back to latest."));
+        return update_family_to_latest(client, on_log, on_status, family).await;
+    };
+    install_specific_version(client, on_log, on_status, &entry).await
+}
+
+/// Fetches client-version.json from the Beja API, compares with the locally installed bootstrap
+/// JAR, and downloads the new version if outdated. Non-fatal at the call site — if anything fails
+/// the launcher continues with whatever JAR is present.
+pub async fn update_family_to_latest(client: &reqwest::Client, on_log: &impl Fn(String), on_status: &impl Fn(&str), family: &str) -> Result<(), String> {
+    on_log(format!("[BejaClient] Checking for client updates… (family: {family})"));
+
+    let remote: serde_json::Value = client
+        .get(format!("{VERSION_JSON_BASE}?family={family}"))
+        .timeout(std::time::Duration::from_secs(8))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?
+        .json()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let remote_version = remote["version"].as_str().unwrap_or_default();
+    let remote_url = remote["url"].as_str().unwrap_or_default();
+    if remote_version.is_empty() || remote_url.is_empty() || remote_version == "0.0.0" {
+        on_log(format!("[BejaClient] No released client version yet for {family} - skipping update."));
+        return Ok(());
+    }
+
+    let dl_dir = get_downloaded_libs_dir();
+    let local_ver = get_local_version(&dl_dir);
+    on_log(format!("[BejaClient] Local: {}  |  Remote: {remote_version}", local_ver.as_deref().unwrap_or("none")));
+
+    let local_bootstrap_valid = local_ver.as_ref().map(|v| has_valid_zip_end(&dl_dir.join(format!("beja-bootstrap-{v}.jar")))).unwrap_or(false);
+    let local_adapter_valid = resolve_adapter_jar_by_family(family).map(|p| has_valid_zip_end(&p)).unwrap_or(false);
+
+    if let Some(local_ver) = &local_ver {
+        if !semver_gt(remote_version, local_ver) {
+            if local_bootstrap_valid && local_adapter_valid {
+                on_log("[BejaClient] Client JAR is up to date.".to_string());
+                return Ok(());
+            }
+            on_log("[BejaClient] Local client JAR appears corrupted - re-downloading current version.".to_string());
+        }
+    }
+
+    // Use canonical version-based filename regardless of what the server reports — the
+    // server's filename field can lag behind the version field.
+    let bootstrap_filename = format!("beja-bootstrap-{remote_version}.jar");
+    install_jar_version(
+        client, on_log, on_status,
+        remote_version,
+        &bootstrap_filename, remote_url, remote["sha256"].as_str().unwrap_or_default(),
+        remote["adapterFilename"].as_str().unwrap_or_default(),
+        remote["adapterUrl"].as_str().unwrap_or_default(),
+        remote["adapterSha256"].as_str().unwrap_or_default(),
+    ).await
 }

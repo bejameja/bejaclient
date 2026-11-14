@@ -12,7 +12,14 @@ export interface Account {
   bejaToken?: string
 }
 
-export type LoaderType = 'vanilla' | 'fabric' | 'forge' | 'quilt' | 'neoforge'
+export type LoaderType = 'vanilla' | 'fabric' | 'forge' | 'quilt' | 'neoforge' | 'optifine'
+
+export interface OptifineBuild {
+  mcVersion: string
+  buildTag: string
+  filename: string
+  preview: boolean
+}
 
 export interface LaunchProfile {
   id: string
@@ -66,10 +73,66 @@ export interface ModInfo {
   iconDataUrl?: string
 }
 
+export interface HealthCheck {
+  id: string
+  label: string
+  status: 'pass' | 'warn' | 'fail'
+  message: string
+  fixable: boolean
+}
+
+export interface WorldInfo {
+  id: string
+  name: string
+  lastPlayed: number | null
+  sizeBytes: number
+  iconDataUrl: string | null
+  hardcore: boolean
+  gameMode: number | null
+  difficulty: number | null
+}
+
+export interface ManagedJavaRuntime {
+  component: string
+  label: string
+  majorVersion: number
+  installed: boolean
+  path: string | null
+  sizeBytes: number
+}
+
+export interface JavaInfo {
+  path: string
+  version: string
+  majorVersion: number
+  arch?: string
+}
+
+export interface ScreenshotInfo {
+  id: string
+  takenAt: number
+  sizeBytes: number
+}
+
 export interface ModUpdateInfo {
   projectId: string
   versionId: string
   versionNumber: string
+}
+
+export interface CrossProfileUpdate {
+  profileId: string
+  profileName: string
+  modId: string
+  modName: string
+  update: ModUpdateInfo
+}
+
+export interface UpdateLogEntry {
+  timestamp: string
+  modName: string
+  oldFileName: string
+  newFileName: string
 }
 
 export interface GameSettings {
@@ -94,6 +157,23 @@ export interface LauncherSettings {
   curseforgeApiKey: string
   advancedMode: boolean
   debugLogging: boolean
+  pinnedClientVersions?: Record<string, string>
+  autoBackupWorlds: boolean
+  autoBackupRetention: number
+  controllerHaptics: boolean
+  hapticsStrength: number
+}
+
+export interface ClientJarVersion {
+  id: number
+  version: string
+  bootstrapFilename: string
+  bootstrapSha256: string
+  adapterFilename: string
+  adapterSha256: string
+  releaseDate: string
+  isCurrent: number
+  family: string
 }
 
 export interface AppearanceSettings {
@@ -105,40 +185,10 @@ export interface AppearanceSettings {
   theme: 'default' | 'win95'
 }
 
-export interface ElementOverride {
-  radius?: 'sharp' | 'default' | 'rounded'
-  outline?: boolean
-  outlineColor?: string
-  outlineWidth?: number
-  color?: string
-  bgColor?: string
-  fontFamily?: string
-  fontSize?: number
-  fontWeight?: 'normal' | 'medium' | 'bold'
-  letterSpacing?: number
-  opacity?: number
-  blur?: number
-  shadow?: 'none' | 'soft' | 'glow' | 'strong'
-  hidden?: boolean
-  bgVideo?: string
-  bgImage?: string
-  offsetX?: number
-  offsetY?: number
-  scale?: number
-}
-
-export interface CustomizationSettings {
-  experimentalEnabled: boolean
-  editorMode: boolean
-  wiggleEnabled: boolean
-  elements: Record<string, ElementOverride>
-}
-
 export interface AppSettings {
   game: GameSettings
   launcher: LauncherSettings
   appearance: AppearanceSettings
-  customization: CustomizationSettings
   activeProfileId: string | null
 }
 
@@ -289,6 +339,8 @@ declare global {
       }
       auth: {
         login(): Promise<Account>
+        getLoginUrl(): Promise<string>
+        loginWithCode(input: string): Promise<Account>
         logout(id: string): Promise<boolean>
         listAccounts(): Promise<Account[]>
         selectAccount(id: string): Promise<Account[]>
@@ -306,6 +358,11 @@ declare global {
         onProgress(cb: (data: VersionProgress) => void): void
         listFabricVersions(mcVersion: string): Promise<FabricLoaderVersion[]>
         listForgeVersions(mcVersion: string): Promise<string[]>
+      }
+      optifine: {
+        listMcVersions(): Promise<string[]>
+        listBuilds(mcVersion: string): Promise<OptifineBuild[]>
+        launchInstaller(mcVersion: string, filename: string): Promise<string>
       }
       launch: {
         start(profileId: string): Promise<void>
@@ -327,9 +384,11 @@ declare global {
         delete(id: string): Promise<boolean>
         getActive(): Promise<LaunchProfile | null>
         setActive(id: string): Promise<LaunchProfile | null>
-        exportPack(id: string): Promise<{ ok: boolean; mods?: number; error?: string } | false>
+        exportPack(id: string, withoutBejaClient?: boolean): Promise<{ ok: boolean; mods?: number; error?: string } | false>
+        exportZip(id: string, withoutBejaClient?: boolean): Promise<{ ok: boolean; mods?: number; error?: string } | false>
+        exportCurseforge(id: string): Promise<{ ok: boolean; mods?: number; error?: string } | false>
         importPack(): Promise<{ profile: LaunchProfile; mods: string[] } | { error: string } | null>
-        share(id: string): Promise<{ id: string; protocolUrl: string; webUrl: string } | { error: string }>
+        share(id: string, withoutBejaClient?: boolean): Promise<{ id: string; protocolUrl: string; webUrl: string } | { error: string }>
         peekShared(shareId: string): Promise<{
           ownerUsername: string
           profileName: string
@@ -346,6 +405,7 @@ declare global {
       }
       mods: {
         list(profileId: string): Promise<ModInfo[]>
+        countEnabled(profileId: string): Promise<number>
         install(profileId: string, filePath?: string): Promise<ModInfo[]>
         toggle(profileId: string, modId: string): Promise<ModInfo[]>
         delete(profileId: string, modId: string): Promise<ModInfo[]>
@@ -353,6 +413,39 @@ declare global {
         checkConflicts(profileId: string): Promise<string[]>
         autoFix(profileId: string): Promise<{ fixed: string[] }>
         checkUpdate(profileId: string, modId: string): Promise<ModUpdateInfo | null>
+        recentUpdates(profileId: string): Promise<UpdateLogEntry[]>
+        rollbackLastUpdate(profileId: string): Promise<{ ok: boolean; modName?: string; error?: string }>
+        checkAllProfilesUpdates(): Promise<CrossProfileUpdate[]>
+      }
+      worlds: {
+        list(profileId: string): Promise<WorldInfo[]>
+        openFolder(profileId: string, worldId: string): Promise<void>
+        rename(profileId: string, worldId: string, newName: string): Promise<{ ok: boolean; world?: WorldInfo; error?: string }>
+        duplicate(profileId: string, worldId: string, newName: string): Promise<{ ok: boolean; world?: WorldInfo; error?: string }>
+        delete(profileId: string, worldId: string): Promise<{ ok: boolean; error?: string }>
+        backup(profileId: string, worldId: string): Promise<{ ok: boolean; error?: string }>
+        restore(profileId: string): Promise<{ ok: boolean; world?: WorldInfo; error?: string }>
+        listAutoBackups(profileId: string, worldId: string): Promise<string[]>
+        restoreAutoBackup(profileId: string, worldId: string, backupName: string): Promise<{ ok: boolean; world?: WorldInfo; error?: string }>
+      }
+      doctor: {
+        run(profileId: string): Promise<HealthCheck[]>
+        repair(profileId: string): Promise<{ ok: boolean; error?: string }>
+        onProgress(cb: (data: { task: string; progress: number; total: number }) => void): void
+      }
+      screenshots: {
+        list(profileId: string): Promise<ScreenshotInfo[]>
+        thumbnail(profileId: string, id: string): Promise<string | null>
+        delete(profileId: string, id: string): Promise<{ ok: boolean; error?: string }>
+        open(profileId: string, id: string): Promise<void>
+        openFolder(profileId: string): Promise<void>
+        export(profileId: string, id: string): Promise<{ ok: boolean; error?: string }>
+      }
+      clientVersions: {
+        list(family: string): Promise<ClientJarVersion[]>
+        pinned(family: string): Promise<string | null>
+        install(family: string, version: string): Promise<void>
+        useLatest(family: string): Promise<void>
       }
       settings: {
         get(): Promise<AppSettings>
@@ -379,9 +472,13 @@ declare global {
       }
       system: {
         getVersion(): Promise<string>
-        getJavaVersions(): Promise<string[]>
+        getJavaVersions(): Promise<JavaInfo[]>
+        listJavaRuntimes(): Promise<ManagedJavaRuntime[]>
+        installJavaRuntime(component: string): Promise<string>
+        removeJavaRuntime(component: string): Promise<void>
         platform: string
         openExternal(url: string): Promise<void>
+        hardwareInfo(): Promise<{ totalRamMb: number; cpuCores: number }>
       }
       players: {
         lookup(username: string): Promise<PlayerProfile | null>
@@ -412,6 +509,8 @@ declare global {
         sendRequest(username: string): Promise<{ ok?: boolean; error?: string }>
         acceptRequest(uuid: string): Promise<{ ok?: boolean; error?: string }>
         removeOrDecline(uuid: string): Promise<{ ok?: boolean; error?: string }>
+        block(uuid: string, username: string): Promise<{ ok?: boolean; error?: string }>
+        unblock(uuid: string): Promise<{ ok?: boolean; error?: string }>
         onOnline(cb: (d: { uuid: string; username: string; playing?: { game: string; version: string } | null }) => void): void
         onOffline(cb: (d: { uuid: string }) => void): void
         onRequest(cb: (d: { uuid: string; username: string }) => void): void
@@ -439,7 +538,6 @@ declare global {
         onVoiceAnswer(cb: (d: { from: string; sdp: string }) => void): void
         onVoiceIce(cb: (d: { from: string; candidate: RTCIceCandidateInit }) => void): void
         onInviteReceived(cb: (d: { partyId: string; fromUuid: string; fromUsername: string }) => void): void
-        onEmote(cb: (d: { uuid: string; emote: string }) => void): void
       }
       installs: {
         get(): Promise<{ mods: Record<string, string[]>; servers: Record<string, string[]> }>
@@ -494,7 +592,7 @@ declare global {
         list(): Promise<{ week: string; quests: Quest[] }>
         progress(questId: string, amount: number): Promise<{ questId: string; progress: number; claimed: boolean } | null>
         claim(questId: string): Promise<{ awarded: boolean; xp_gained?: number; xp?: number; coins_gained?: number; balance?: number }>
-        leaderboard(): Promise<{ entries: LeaderboardEntry[]; myRank: number | null }>
+        leaderboard(): Promise<{ entries: LeaderboardEntry[]; myRank: number | null; myXp?: number }>
       }
       wallet: {
         getBalance(): Promise<{ balance: number }>
@@ -502,10 +600,6 @@ declare global {
       shop: {
         list(): Promise<{ items: ShopItem[]; owned: string[] }>
         purchase(itemId: string): Promise<{ purchased: boolean; reason?: string; item?: ShopItem; balance?: number }>
-      }
-      video: {
-        getScene(): Promise<string>
-        pickCustomBg(kind: 'video' | 'image'): Promise<string | null>
       }
     }
   }

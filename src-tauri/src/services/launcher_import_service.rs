@@ -204,7 +204,7 @@ pub fn detect_all() -> Vec<DetectedProfile> {
 
 pub fn import_profile(id: &str) -> Result<profile_service::LaunchProfile, String> {
     let detected = detect_all();
-    let hit = detected.into_iter().find(|p| p.id == id).ok_or("Profile no longer detected — it may already be imported")?;
+    let hit = detected.into_iter().find(|p| p.id == id).ok_or("Profile no longer detected - it may already be imported")?;
 
     let settings = crate::services::settings_service::get_settings();
     Ok(profile_service::create_profile(profile_service::NewProfile {

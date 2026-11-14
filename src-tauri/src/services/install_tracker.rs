@@ -14,7 +14,7 @@ pub struct TrackerData {
 }
 
 fn tracker_path() -> std::path::PathBuf {
-    paths::user_data_dir().join("install-tracker.json")
+    paths::instance_dir().join("install-tracker.json")
 }
 
 fn load() -> TrackerData {

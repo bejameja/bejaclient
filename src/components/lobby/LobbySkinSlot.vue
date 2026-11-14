@@ -22,9 +22,9 @@
 
     <!-- ── Filled player slot ─────────────────────────────────────────── -->
     <template v-else>
-      <div class="slot-player">
+      <div class="slot-player" @contextmenu.prevent="onContextMenu">
 
-        <!-- Crown — kept out of the bounce-in transform below so its fixed
+        <!-- Crown - kept out of the bounce-in transform below so its fixed
              -68px offset never gets carried past .video-card's clipped top
              edge during the entrance animation. -->
         <div v-if="member.isLeader" class="slot-crown">
@@ -35,7 +35,7 @@
 
         <div class="slot-body" :class="{ 'slot-body--entering': isEntering }">
 
-          <!-- Glow halo (speaking) — sits BEHIND the canvas -->
+          <!-- Glow halo (speaking) - sits BEHIND the canvas -->
           <div class="slot-glow-wrap">
             <Transition name="glow-fade">
               <div v-if="member.isSpeaking" class="slot-speaking-glow" />
@@ -44,7 +44,7 @@
             <!-- Shimmer skeleton shown while skin loads -->
             <div v-if="isLoadingSkin" class="slot-shimmer" :style="{ width: dims.w + 'px', height: dims.h + 'px' }" />
 
-            <!-- 3D canvas — always rendered, opacity-hidden while loading -->
+            <!-- 3D canvas - always rendered, opacity-hidden while loading -->
             <canvas
               ref="canvasEl"
               class="slot-canvas"
@@ -66,17 +66,21 @@
       </div>
     </template>
 
+    <PlayerProfileModal v-model="profileOpen" :player="profilePlayer" />
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed, nextTick } from 'vue'
 import { SkinViewer, IdleAnimation } from 'skinview3d'
-import { useLobbyStore, type PartyMember } from '../../store/lobbyStore'
+import type { PartyMember } from '../../store/lobbyStore'
+import PlayerProfileModal from '../friends/PlayerProfileModal.vue'
+import { openContextMenu, type ContextMenuItem } from '../../composables/useContextMenu'
+import type { PlayerProfile } from '../../types'
 
-const lobbyStore = useLobbyStore()
 
-// Module-level texture cache — survives component remounts
+// Module-level texture cache - survives component remounts
 const _skinTextureCache = new Map<string, string>() // skinUrl → data-url or same url
 
 const props = defineProps<{
@@ -104,6 +108,23 @@ const canvasEl     = ref<HTMLCanvasElement | null>(null)
 const wrapEl       = ref<HTMLElement | null>(null)
 const isEntering   = ref(false)
 const isLoadingSkin = ref(false)
+const profileOpen  = ref(false)
+
+const profilePlayer = computed<PlayerProfile | null>(() => {
+  if (!props.member) return null
+  const { uuid, username, skinUrl, capeUrl, skinModel } = props.member
+  return { uuid, username, skinUrl, capeUrl, skinModel }
+})
+
+function onContextMenu(event: MouseEvent): void {
+  if (!props.member) return
+  const username = props.member.username
+  const items: ContextMenuItem[] = [
+    { label: 'View Profile', icon: 'eye', onClick: () => { profileOpen.value = true } },
+    { label: 'Copy Username', icon: 'copy', onClick: () => navigator.clipboard.writeText(username) },
+  ]
+  openContextMenu(event, items)
+}
 
 let viewer: SkinViewer | null = null
 
@@ -118,11 +139,11 @@ function startRenderLoop(): void {
     rafId = requestAnimationFrame(tick)
     if (!viewer || document.hidden) return
 
-    // Lerp Y-rotation — smooth weighted follow
+    // Lerp Y-rotation - smooth weighted follow
     currentRotY += (targetRotY - currentRotY) * 0.055
     viewer.playerWrapper.rotation.y = currentRotY
 
-    // Breathing bob — subtle Y oscillation
+    // Breathing bob - subtle Y oscillation
     breathPhase += 0.016
     viewer.playerWrapper.position.y = Math.sin(breathPhase) * 0.022
   }
@@ -134,7 +155,7 @@ function stopRenderLoop(): void {
 }
 
 // SkinViewer.dispose() releases Three.js-side resources but doesn't force the
-// underlying WebGL context to free immediately — the browser only reclaims it
+// underlying WebGL context to free immediately - the browser only reclaims it
 // whenever GC gets around to it, which isn't guaranteed to be prompt. Lots of
 // slots mounting/unmounting in a short window (HMR during dev, or just many
 // party members) can exhaust the browser's finite WebGL context pool before
@@ -176,7 +197,7 @@ function buildViewer(): void {
   viewer.renderer.setClearColor(0x000000, 0) // transparent bg
   viewer.zoom = 1
 
-  // Custom idle — subtle breathing/sway matching the hero skin
+  // Custom idle - subtle breathing/sway matching the hero skin
   const customIdle = (player: any, time: number) => {
     const env = (1 - Math.cos(Math.PI * time)) / 2
     player.skin.head.rotation.x = -0.1745 * env
@@ -209,7 +230,7 @@ async function loadSkin(): Promise<void> {
   isLoadingSkin.value = true
   try {
     await viewer.loadSkin(skinUrl, skinModel === 'slim' ? 'slim' : 'default')
-  } catch { /* non-fatal — use default Steve */ }
+  } catch { /* non-fatal - use default Steve */ }
   isLoadingSkin.value = false
 
   if (capeUrl) {
@@ -224,25 +245,7 @@ function playEntrance(): void {
   setTimeout(() => { isEntering.value = false }, 700)
 }
 
-// ── Emotes — mirrors HeroSkinViewer.triggerEmote(): a transient speed pulse
-// on whatever pose is already playing, not a distinct per-emote animation.
-let emoteTimer: ReturnType<typeof setTimeout> | null = null
-
-function triggerEmote(): void {
-  if (!viewer) return
-  if (emoteTimer) clearTimeout(emoteTimer)
-  viewer.animations.speed = 2.8
-  emoteTimer = setTimeout(() => { if (viewer) viewer.animations.speed = 1 }, 2200)
-}
-
-watch(
-  () => lobbyStore.lastEmote,
-  emote => {
-    if (emote && props.member && emote.uuid === props.member.uuid) triggerEmote()
-  },
-)
-
-// ── Visibility — pause RAF when window hidden ────────────────────────────────
+// ── Visibility - pause RAF when window hidden ────────────────────────────────
 
 function onVisibilityChange(): void {
   if (!document.hidden && viewer && rafId === null) startRenderLoop()
@@ -262,7 +265,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('visibilitychange', onVisibilityChange)
-  if (emoteTimer) clearTimeout(emoteTimer)
   stopRenderLoop()
   disposeViewer(viewer)
   viewer = null
@@ -280,7 +282,7 @@ watch(
       return
     }
     if (!prev) {
-      // New member appeared — build viewer + entrance anim
+      // New member appeared - build viewer + entrance anim
       nextTick(() => {
         buildViewer()
         playEntrance()
@@ -314,7 +316,7 @@ watch(dims, () => {
   align-items: center;
   justify-content: center;
   gap: 14px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   cursor: pointer;
   color: rgba(255,255,255,0.3);
   font-family: $font-family;
@@ -373,9 +375,26 @@ watch(dims, () => {
   flex-direction: column;
   align-items: center;
   position: relative;
+
+  // Hugs the character's actual rendered silhouette (canvas alpha), not a
+  // bounding-box rectangle - drop-shadow (unlike box-shadow) reads the
+  // source's alpha channel, so stacking it in a ring around 0-blur offsets
+  // traces the skin's outline instead of drawing a box around empty
+  // transparent canvas space.
+  &:hover .slot-canvas {
+    filter:
+      drop-shadow(1.5px 0 0 rgba(255, 255, 255, 0.45))
+      drop-shadow(-1.5px 0 0 rgba(255, 255, 255, 0.45))
+      drop-shadow(0 1.5px 0 rgba(255, 255, 255, 0.45))
+      drop-shadow(0 -1.5px 0 rgba(255, 255, 255, 0.45))
+      drop-shadow(1.1px 1.1px 0 rgba(255, 255, 255, 0.45))
+      drop-shadow(-1.1px 1.1px 0 rgba(255, 255, 255, 0.45))
+      drop-shadow(1.1px -1.1px 0 rgba(255, 255, 255, 0.45))
+      drop-shadow(-1.1px -1.1px 0 rgba(255, 255, 255, 0.45));
+  }
 }
 
-// Everything except the crown — the crown stays out of this so the
+// Everything except the crown - the crown stays out of this so the
 // entrance bounce's translateY(-48px) doesn't carry it past .video-card's
 // clipped top edge (see .slot-crown's top offset below).
 .slot-body {
@@ -383,7 +402,7 @@ watch(dims, () => {
   flex-direction: column;
   align-items: center;
 
-  // Entrance animation — drop + bounce
+  // Entrance animation - drop + bounce
   &--entering {
     animation: slot-bounce-in 600ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
   }
@@ -417,14 +436,14 @@ watch(dims, () => {
 // ── Glow wrap (speaking aura) ─────────────────────────────────────────────────
 .slot-glow-wrap {
   position: relative;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   overflow: visible;
 }
 
 .slot-speaking-glow {
   position: absolute;
   inset: -8px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.22) 0%, rgba(85, 200, 140, 0.12) 45%, transparent 70%);
   animation: speaker-pulse 0.95s ease-in-out infinite;
   pointer-events: none;
@@ -443,7 +462,7 @@ watch(dims, () => {
 
 // ── Shimmer skeleton ──────────────────────────────────────────────────────────
 .slot-shimmer {
-  border-radius: 4px;
+  border-radius: $radius-sm;
   background: linear-gradient(
     90deg,
     $surface-elevated 25%,
@@ -470,7 +489,7 @@ watch(dims, () => {
   position: relative;
   z-index: 1;
   opacity: 0;
-  transition: opacity 350ms ease;
+  transition: opacity 350ms ease, filter 150ms ease;
 
   &--ready { opacity: 1; }
 }
@@ -507,7 +526,7 @@ watch(dims, () => {
   span {
     display: block;
     width: 3px;
-    border-radius: 4px;
+    border-radius: $radius-sm;
     background: $success;
     animation: soundbar 0.7s ease-in-out infinite;
 
@@ -534,7 +553,7 @@ watch(dims, () => {
   color: $accent;
   font-weight: 700;
   background: rgba(85, 178, 255, 0.18);
-  border-radius: 4px;
+  border-radius: $radius-sm;
   padding: 1px 5px;
   letter-spacing: 0.5px;
 }

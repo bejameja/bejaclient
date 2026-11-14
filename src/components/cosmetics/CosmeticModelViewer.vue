@@ -66,7 +66,7 @@ let model:    any = null
 let frameId = 0
 let looping = false
 
-// The Cosmetics tab renders one of these per owned item — an unbounded grid.
+// The Cosmetics tab renders one of these per owned item - an unbounded grid.
 // Creating a real WebGLRenderer per card unconditionally silently exceeds
 // Chromium's per-page WebGL context budget once a collection gets large
 // enough, force-losing the *oldest* live context elsewhere (e.g. the Hub's
@@ -74,7 +74,7 @@ let looping = false
 // Only building the renderer for on/near-screen cards keeps the live count
 // bounded to what's actually visible, however big the collection is. The
 // canvas itself is v-if'd (not just the renderer disposed) so the old
-// context is actually eligible for GC once a card scrolls away — disposing
+// context is actually eligible for GC once a card scrolls away - disposing
 // a THREE.WebGLRenderer frees its GPU resources but not the context slot on
 // a canvas that stays in the DOM, and a browser won't hand a canvas a second
 // live context anyway.
@@ -205,7 +205,7 @@ onMounted(() => {
 })
 
 // Only build the actual THREE scene/renderer while the card is on/near
-// screen — torn down again once it scrolls away. See the isVisible comment
+// screen - torn down again once it scrolls away. See the isVisible comment
 // above for why an unconditional per-card renderer is the real bug.
 watch(isVisible, async visible => {
   if (visible) {
@@ -222,7 +222,7 @@ watch(() => props.modelUrl, url => {
   loadModel(url)
 })
 
-// Paused via KeepAlive tab switches — a raw three.js render loop left
+// Paused via KeepAlive tab switches - a raw three.js render loop left
 // running behind an inactive tab is a straight GPU/CPU leak per tab visited.
 onActivated(() => { if (scene && camera && renderer) startLoop() })
 onDeactivated(stopLoop)

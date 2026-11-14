@@ -53,7 +53,7 @@
           </svg>
         </div>
 
-        <!-- Dropdown — teleported to body to escape all stacking contexts -->
+        <!-- Dropdown - teleported to body to escape all stacking contexts -->
         <Teleport to="body">
           <Transition name="dd">
             <div v-if="dropdownOpen" ref="dropdownRef" class="acc-dropdown" :style="dropdownStyle" @click.stop>
@@ -251,8 +251,8 @@ onUnmounted(() => {
   flex-shrink: 0;
   display: grid;
   // Right column is a FIXED width (not auto) so gem/account/win-controls content
-  // changes never reflow the 1fr nav column — see .right-group/.account-pill below.
-  // 306px (not 320px) so .gem-pill's left edge — the start of this column —
+  // changes never reflow the 1fr nav column - see .right-group/.account-pill below.
+  // 306px (not 320px) so .gem-pill's left edge - the start of this column -
   // lines up with .friends-panel's left edge on HomePage (318px wide, but this
   // header also carries a 12px right padding that HomePage's content doesn't).
   grid-template-columns: auto 1fr 306px;
@@ -261,7 +261,7 @@ onUnmounted(() => {
   -webkit-app-region: drag;
 }
 
-// Middle grid column — centers .topnav within the space between the brand
+// Middle grid column - centers .topnav within the space between the brand
 // and the right-hand controls, regardless of how wide either side is.
 .nav-center {
   display: flex;

@@ -5,7 +5,7 @@ use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use super::{profile_service, settings_service};
+use super::profile_service;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ModInfo {
@@ -71,13 +71,7 @@ fn extract_mod_meta(file_path: &Path) -> (Option<String>, Option<String>) {
 }
 
 fn get_mods_dir(profile_id: &str) -> PathBuf {
-    let profile = profile_service::get_profile(profile_id);
-    let settings = settings_service::get_settings();
-    let game_dir = profile
-        .map(|p| p.game_dir)
-        .filter(|d| !d.is_empty())
-        .unwrap_or(settings.game.default_game_dir);
-    Path::new(&game_dir).join("mods")
+    Path::new(&profile_service::resolve_game_dir(profile_id)).join("mods")
 }
 
 fn ensure_mods_dir(mods_dir: &Path) {
@@ -141,6 +135,18 @@ pub fn list_mods(profile_id: &str) -> Vec<ModInfo> {
 
     mods.sort_by(|a, b| a.name.cmp(&b.name));
     mods
+}
+
+/// Number of enabled mods, from the folder listing alone. `list_mods` opens every jar to read its metadata and icon,
+/// which is far too slow just to show a count on a profile card.
+pub fn count_enabled_mods(profile_id: &str) -> usize {
+    let mods_dir = get_mods_dir(profile_id);
+    let Ok(entries) = fs::read_dir(&mods_dir) else { return 0 };
+    entries
+        .flatten()
+        .filter(|e| e.file_type().map(|t| t.is_file()).unwrap_or(false))
+        .filter(|e| e.file_name().to_str().map(|n| n.ends_with(".jar")).unwrap_or(false))
+        .count()
 }
 
 pub fn toggle_mod(profile_id: &str, mod_id: &str) -> Result<Vec<ModInfo>, String> {

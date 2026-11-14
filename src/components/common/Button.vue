@@ -41,7 +41,7 @@ withDefaults(
   justify-content: center;
   gap: $sp-2;
   border: none;
-  border-radius: $radius;
+  border-radius: 12px;
   font-family: $font-family;
   font-weight: 600;
   cursor: pointer;
@@ -77,7 +77,7 @@ withDefaults(
     letter-spacing: 0.02em;
   }
 
-  // Variants — white bg + black text for primary; neutral for the rest
+  // Variants - white bg + black text for primary; neutral for the rest
   &.variant-primary {
     background: $text-primary;
     background-image: $gradient-sheen;

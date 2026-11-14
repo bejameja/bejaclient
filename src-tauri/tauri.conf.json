@@ -57,7 +57,8 @@
     "resources": {
       "../resources/beja-libs/beja-bootstrap-*.jar": "beja-libs/",
       "../resources/beja-libs/beja-v1_21-*.jar": "beja-libs/",
-      "../resources/capes/*.png": "capes/"
+      "../resources/capes/*.png": "capes/",
+      "WebView2Loader.dll": "./"
     },
     "windows": {
       "nsis": {

@@ -1,5 +1,5 @@
 <template>
-  <Teleport to="body">
+  <Teleport to="#toast-dock">
     <div class="toast-stack" aria-live="polite">
       <TransitionGroup name="toast-pop">
         <div
@@ -8,18 +8,19 @@
           class="toast-card"
         >
           <!-- Avatar -->
-          <div class="toast-avatar">{{ toast.username[0].toUpperCase() }}</div>
+          <img class="toast-avatar" :src="`https://mc-heads.net/head/${toast.uuid}/80`" alt="" @error="(e: Event) => ((e.target as HTMLImageElement).src = 'https://mc-heads.net/head/MHF_Steve/80')" />
 
           <!-- Info -->
           <div class="toast-info">
-            <div class="toast-eyebrow">Friend Request</div>
+            <span class="toast-word toast-word--blue">Friend Request</span>
             <div class="toast-name">{{ toast.username }}</div>
+            <div v-if="toast.id === activeToasts[0]?.id && !lobbyStore.pendingInvite" class="toast-hint">Hold Esc to accept</div>
           </div>
 
           <!-- Buttons -->
           <div class="toast-btns">
-            <button class="toast-accept" @click="accept(toast)">Accept</button>
-            <button class="toast-decline" @click="dismiss(toast.id)">✕</button>
+            <button class="toast-accept" :class="{ holding: holding && toast.id === activeToasts[0]?.id }" @click="accept(toast)">Accept</button>
+            <button class="toast-decline" @click="dismiss(toast.id)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><line x1="3" y1="3" x2="13" y2="13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="13" y1="3" x2="3" y2="13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
           </div>
 
           <!-- Progress bar auto-dismiss indicator -->
@@ -31,11 +32,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useNotificationsStore } from '../../store/notificationsStore'
 import { useFriendsStore } from '../../store/friendsStore'
+import { useLobbyStore } from '../../store/lobbyStore'
 
 const TOAST_MS = 8000
+const HOLD_MS = 700
 
 interface Toast {
   id: string
@@ -46,6 +49,7 @@ interface Toast {
 
 const notifStore   = useNotificationsStore()
 const friendsStore = useFriendsStore()
+const lobbyStore   = useLobbyStore()
 
 const activeToasts = ref<Toast[]>([])
 const seenIds      = new Set<string>()
@@ -88,71 +92,96 @@ async function accept(toast: Toast): Promise<void> {
   notifStore.remove(toast.id)
   dismiss(toast.id)
 }
+
+// ── Hold Esc to accept the oldest request (a party invite on screen goes first) ──
+const holding = ref(false)
+let holdTimer: ReturnType<typeof setTimeout> | null = null
+
+function stopHold(): void {
+  holding.value = false
+  if (holdTimer) { clearTimeout(holdTimer); holdTimer = null }
+}
+
+function onKeyDown(e: KeyboardEvent): void {
+  if (e.key !== 'Escape' || e.repeat || holdTimer) return
+  if (lobbyStore.pendingInvite || !activeToasts.value.length) return
+  holding.value = true
+  holdTimer = setTimeout(() => {
+    stopHold()
+    const first = activeToasts.value[0]
+    if (first) void accept(first)
+  }, HOLD_MS)
+}
+function onKeyUp(e: KeyboardEvent): void { if (e.key === 'Escape') stopHold() }
+
+onMounted(() => { window.addEventListener('keydown', onKeyDown); window.addEventListener('keyup', onKeyUp) })
+onBeforeUnmount(() => { window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp); stopHold() })
 </script>
 
 <style lang="scss" scoped>
 .toast-stack {
-  position: fixed;
-  bottom: 24px;
-  right: 80px; // clears the right panel
-  z-index: 9000;
   display: flex;
   flex-direction: column-reverse;
-  gap: 10px;
+  gap: 8px;
   pointer-events: none;
 }
 
+// Same look as the Social page: near-black surface, hairline border, 12px corners, white primary pill.
 .toast-card {
   pointer-events: all;
   display: flex;
   align-items: center;
   gap: 12px;
-  width: 320px;
-  padding: 13px 14px 16px; // extra bottom for progress bar
-  background: $surface-elevated;
-  border: 1px solid $border-strong;
-  border-radius: $radius-lg;
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.55),
-    0 2px 8px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  width: 340px;
+  padding: 12px 12px 14px;
+  background: #13141A;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
   position: relative;
   overflow: hidden;
 }
 
 .toast-avatar {
-  width: 38px;
-  height: 38px;
-  border-radius: 4px;
-  background: $surface;
-  border: 1px solid $border-strong;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  font-weight: 700;
-  color: $text-primary;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: #232328;
+  image-rendering: pixelated;
   flex-shrink: 0;
+  display: block;
 }
 
 .toast-info {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
 }
 
-.toast-eyebrow {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: $accent;
-  margin-bottom: 2px;
+// the Minecrafter highlight word (same colours as the Social tabs)
+.toast-word {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-family: 'Minecrafter', 'Plus Jakarta Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.5;
+  white-space: nowrap;
+
+  &--blue { color: #4660FE; background: #090C20; }
+  &--green { color: #8BE28B; background: #0E1A10; }
 }
 
 .toast-name {
+  max-width: 100%;
   font-size: 13px;
   font-weight: 600;
-  color: $text-primary;
+  color: #fff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -165,53 +194,80 @@ async function accept(toast: Toast): Promise<void> {
 }
 
 .toast-accept {
-  padding: 5px 12px;
-  border-radius: $radius-sm;
+  height: 30px;
+  padding: 0 14px;
+  border-radius: 12px;
   border: none;
-  background: $accent;
-  color: #fff;
+  background: #fff;
+  color: #0a0a0b;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
   font-family: $font-family;
-  transition: background $transition;
+  transition: background 140ms ease;
 
-  &:hover { background: $primary-hover; }
+  &:hover { background: rgba(255, 255, 255, 0.8); }
 }
 
 .toast-decline {
-  width: 28px;
-  height: 28px;
-  border-radius: $radius-sm;
-  border: 1px solid $border-strong;
+  width: 30px;
+  height: 30px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
   background: transparent;
-  color: $text-muted;
-  font-size: 14px;
+  color: rgba(255, 255, 255, 0.55);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color $transition, background $transition;
+  transition: color 140ms ease, background 140ms ease, border-color 140ms ease;
 
-  &:hover { color: $text-primary; background: rgba(255,255,255,0.08); }
+  &:hover { color: #fff; background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.3); }
 }
 
-// Shrinking progress bar at bottom
+// Shrinking progress line at the bottom
 .toast-bar {
   position: absolute;
   bottom: 0;
   left: 0;
-  height: 3px;
+  height: 2px;
   width: 100%;
-  background: $accent;
+  background: rgba(255, 255, 255, 0.35);
   transform-origin: left;
   animation: shrink linear forwards;
-  opacity: 0.7;
 }
 
 @keyframes shrink {
   from { transform: scaleX(1); }
   to   { transform: scaleX(0); }
+}
+
+// hold Esc to accept: the button fills while the key is down
+.toast-accept {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: #8BE28B;
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+  &.holding::before { animation: hold-fill 700ms linear forwards; }
+}
+
+.toast-hint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+@keyframes hold-fill {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
 }
 
 </style>

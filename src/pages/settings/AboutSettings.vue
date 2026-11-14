@@ -14,7 +14,7 @@
     <div class="about-grid">
       <div class="about-card">
         <h3 class="card-title">Engine</h3>
-        <p class="card-text">Built on <span class="highlight">BejaClient's own launcher core</span> — in-house version resolution, asset/library downloading, and game launching, with no third-party launcher library dependency.</p>
+        <p class="card-text">Built on <span class="highlight">BejaClient's own launcher core</span> - in-house version resolution, asset/library downloading, and game launching, with no third-party launcher library dependency.</p>
       </div>
       <div class="about-card">
         <h3 class="card-title">Technology</h3>
@@ -33,9 +33,9 @@
     <div class="config-note">
       <span class="note-label">Azure Client ID</span>
       <span class="note-text">
-        To enable Microsoft login, register an Azure app at portal.azure.com and set the
-        <code>BEJACLIENT_AZURE_CLIENT_ID</code> environment variable (or replace the constant in
-        <code>src/main/services/authService.ts</code>).
+        To enable Microsoft login, register an Azure app at portal.azure.com and replace the
+        <code>AZURE_CLIENT_ID</code> constant in
+        <code>src-tauri/src/services/auth_service.rs</code>.
       </span>
     </div>
   </div>
@@ -47,7 +47,7 @@ import { ref, onMounted } from 'vue'
 const version = ref('…')
 onMounted(async () => { version.value = await window.api.system.getVersion() })
 
-const techs = ['Electron', 'Vue 3', 'TypeScript', 'skinview3d', 'Pinia', 'Vite']
+const techs = ['Tauri', 'Rust', 'Vue 3', 'TypeScript', 'skinview3d', 'Pinia', 'Vite']
 
 function open(url: string) {
   window.api.system.openExternal(url)
@@ -116,7 +116,6 @@ function open(url: string) {
 
 .about-card {
   background: $surface;
-  border: 1px solid $border;
   border-radius: $radius;
   padding: $sp-4;
   display: flex;
@@ -171,7 +170,7 @@ function open(url: string) {
   color: $text-secondary;
   background: $surface-elevated;
   border: 1px solid $border;
-  border-radius: $radius;
+  border-radius: 12px;
   padding: $sp-2 $sp-4;
   cursor: pointer;
   transition: background $transition;
@@ -184,7 +183,6 @@ function open(url: string) {
 
 .config-note {
   background: $surface;
-  border: 1px solid $border;
   border-radius: $radius;
   padding: $sp-4;
   display: flex;
@@ -208,7 +206,7 @@ function open(url: string) {
   code {
     background: $surface-elevated;
     border: 1px solid $border;
-    border-radius: 4px;
+    border-radius: $radius-sm;
     padding: 1px 4px;
     font-size: 11px;
     color: $text-secondary;

@@ -6,8 +6,8 @@
         <!-- Header -->
         <div class="invite-header">
           <div class="invite-tabs">
-            <button class="invite-tab" :class="{ active: tab === 'invite' }" @click="tab = 'invite'">Invite</button>
-            <button class="invite-tab" :class="{ active: tab === 'join' }"   @click="tab = 'join'">Join by Code</button>
+            <button class="invite-tab" :class="{ active: tab === 'invite' }" @click="tab = 'invite'"><span class="invite-word invite-word--blue">Friends</span></button>
+            <button class="invite-tab" :class="{ active: tab === 'join' }"   @click="tab = 'join'"><span class="invite-word invite-word--green">Code</span></button>
           </div>
           <button class="invite-close" @click="$emit('close')">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -20,14 +20,14 @@
         <!-- ── Invite Friends tab ─────────────────────────────────────────── -->
         <template v-if="tab === 'invite'">
           <div class="invite-search-wrap">
-            <svg class="invite-search-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <svg class="invite-search-icon" width="15" height="15" viewBox="0 0 16 16" fill="none">
               <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.5"/>
               <line x1="10" y1="10" x2="14" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
             </svg>
             <input v-model="search" class="invite-search" placeholder="Search friends..." autofocus />
           </div>
 
-          <div v-if="onlineFriends.length > 0" class="invite-section-label">Online — {{ onlineFriends.length }}</div>
+          <div v-if="onlineFriends.length > 0" class="invite-section-label">Online <span class="invite-count">{{ onlineFriends.length }}</span></div>
 
           <TransitionGroup tag="div" name="invite-item-pop" class="invite-list">
             <div
@@ -36,20 +36,26 @@
               class="invite-item"
               :class="{ offline: !friend.online, invited: invitedSet.has(friend.uuid) }"
             >
-              <div class="invite-avatar">{{ friend.username[0].toUpperCase() }}</div>
+              <div class="invite-avatar-wrap">
+                <img
+                  class="invite-avatar"
+                  :src="`https://mc-heads.net/head/${friend.uuid}/64`"
+                  alt=""
+                  @error="(e: Event) => ((e.target as HTMLImageElement).src = 'https://mc-heads.net/head/MHF_Steve/64')"
+                />
+                <span class="invite-dot" :class="{ online: friend.online }" />
+              </div>
               <div class="invite-info">
                 <div class="invite-name">{{ friend.username }}</div>
-                <div class="invite-status">
-                  <span class="invite-dot" :class="{ online: friend.online }" />
-                  {{ friend.online ? 'Online' : 'Offline' }}
-                </div>
+                <div class="invite-status">{{ friend.online ? 'Online' : 'Offline' }}</div>
               </div>
               <button
                 class="invite-btn"
+                :class="{ done: invitedSet.has(friend.uuid) }"
                 :disabled="!friend.online || invitedSet.has(friend.uuid)"
                 @click="invite(friend)"
               >
-                {{ invitedSet.has(friend.uuid) ? 'Invited ✓' : 'Invite' }}
+                {{ invitedSet.has(friend.uuid) ? 'Invited' : 'Invite' }}
               </button>
             </div>
 
@@ -148,6 +154,9 @@ async function doJoin(): Promise<void> {
 </script>
 
 <style lang="scss" scoped>
+// Same look as the Social page: near-black surfaces, hairline borders, pill toggles, white primary buttons and the
+// coloured Minecrafter words. Corners stay at the launcher's $radius-sm (12px on the pill buttons).
+
 // ── Backdrop ──────────────────────────────────────────────────────────────────
 .invite-backdrop {
   position: fixed;
@@ -163,15 +172,17 @@ async function doJoin(): Promise<void> {
 
 // ── Panel ─────────────────────────────────────────────────────────────────────
 .invite-panel {
-  width: 360px;
-  border-radius: 4px;
+  width: 340px;
+  border-radius: $radius-sm;
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 92px);
-  background: #0d0d0d;
-  border: 1px solid rgba(255, 255, 255, 0.61);
-  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.75);
+  background: #0a0a0b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
   overflow: hidden;
+  padding: 16px;
+  gap: 14px;
 }
 
 // ── Header / tabs ─────────────────────────────────────────────────────────────
@@ -179,129 +190,162 @@ async function doJoin(): Promise<void> {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 18px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
 }
 
 .invite-tabs {
   display: flex;
-  gap: 4px;
+  gap: 5px;
 }
 
 .invite-tab {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-family: $font-family;
+  padding: 8px 10px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: $text-muted;
-  padding: 8px 14px 12px;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  transition: color 200ms, border-color 200ms;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+
+  &:hover { color: rgba(255, 255, 255, 0.85); border-color: rgba(255, 255, 255, 0.3); }
 
   &.active {
-    color: $text-primary;
-    border-bottom-color: $accent;
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #fff;
   }
-  &:not(.active):hover { color: $text-secondary; }
+}
+
+// the Minecrafter highlight words (same colours as the Social tabs)
+.invite-word {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  border-radius: $radius-sm;
+  padding: 1px 6px;
+  font-family: 'Minecrafter', 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: 0.08em;
+
+  &--blue { color: #4660FE; background: #090C20; }
+  &--green { color: #8BE28B; background: #0E1A10; }
 }
 
 .invite-close {
   background: none;
   border: none;
   cursor: pointer;
-  color: $text-muted;
+  color: rgba(255, 255, 255, 0.45);
   padding: 6px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   display: flex;
   align-items: center;
-  transition: color 200ms, background 200ms;
-  margin-bottom: 8px;
+  transition: color 140ms ease, background 140ms ease;
 
-  &:hover { color: $text-primary; background: rgba(255,255,255,0.07); }
+  &:hover { color: #fff; background: rgba(255, 255, 255, 0.07); }
 }
 
 // ── Search ────────────────────────────────────────────────────────────────────
 .invite-search-wrap {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: 14px 18px;
-  padding: 9px 14px;
-  background: #0a0a0b;
-  border: 1px solid rgba(137, 137, 137, 0.5);
-  border-radius: 4px;
-  transition: border-color 200ms;
+  gap: 8px;
+  height: 38px;
+  padding: 0 10px;
+  background: #131315;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: $radius-sm;
+  transition: border-color 140ms ease;
   flex-shrink: 0;
 
-  &:focus-within {
-    border-color: rgba(255, 255, 255, 0.61);
-  }
+  &:focus-within { border-color: rgba(255, 255, 255, 0.25); }
 }
 
-.invite-search-icon { color: $text-muted; flex-shrink: 0; }
+.invite-search-icon { color: rgba(255, 255, 255, 0.5); flex-shrink: 0; }
 
 .invite-search {
   flex: 1;
+  min-width: 0;
   background: none;
   border: none;
   outline: none;
-  font-size: 13px;
-  color: $text-primary;
-  font-family: $font-family;
-  &::placeholder { color: rgba(255,255,255,0.22); }
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.85);
+  &::placeholder { color: rgba(255, 255, 255, 0.35); }
 }
 
 // ── Section label ─────────────────────────────────────────────────────────────
 .invite-section-label {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1.4px;
-  text-transform: uppercase;
-  color: $text-muted;
-  padding: 4px 18px 8px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #fff;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  flex-shrink: 0;
+  margin-bottom: -6px;
+}
+
+.invite-count {
+  margin-left: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.4);
 }
 
 // ── Friend list ───────────────────────────────────────────────────────────────
 .invite-list {
   overflow-y: auto;
   flex: 1;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.08) transparent;
-  padding-bottom: 8px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
 }
 
 .invite-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 9px 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  transition: background 150ms;
+  gap: 10px;
+  padding: 8px;
+  margin: 0 -8px;
+  border-radius: $radius-sm;
 
-  &:last-child { border-bottom: none; }
-  &:hover:not(.offline) { background: rgba(255,255,255,0.04); }
-  &.offline { opacity: 0.4; }
+  // name dims for offline friends, like the Social list
+  .invite-name { color: #fff; transition: color 200ms ease; }
+  &.offline .invite-name { color: rgba(255, 255, 255, 0.22); }
+}
+
+.invite-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
 }
 
 .invite-avatar {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
+  border-radius: $radius-sm;
+  image-rendering: pixelated;
+  display: block;
+}
+
+.invite-dot {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
-  background: linear-gradient(135deg, rgba(62,184,255,0.18), rgba(62,184,255,0.05));
-  border: 1px solid rgba(62, 184, 255, 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 800;
-  color: $accent;
-  flex-shrink: 0;
+  background: #3a3a3f;
+  border: 2px solid #0a0a0b;
+
+  &.online { background: #30d158; box-shadow: 0 0 5px rgba(48, 209, 88, 0.65); }
 }
 
 .invite-info { flex: 1; min-width: 0; }
@@ -309,138 +353,123 @@ async function doJoin(): Promise<void> {
 .invite-name {
   font-size: 13px;
   font-weight: 600;
-  color: $text-primary;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .invite-status {
-  display: flex;
-  align-items: center;
-  gap: 5px;
   font-size: 11px;
-  color: $text-muted;
-  margin-top: 2px;
-}
-
-.invite-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.2);
-  flex-shrink: 0;
-
-  &.online { background: $success; box-shadow: 0 0 6px rgba(48, 209, 88, 0.7); }
+  color: rgba(255, 255, 255, 0.35);
+  margin-top: 1px;
 }
 
 .invite-btn {
-  padding: 6px 16px;
-  border-radius: 4px;
+  flex-shrink: 0;
+  padding: 6px 14px;
   border: none;
-  background: #0d0d0d;
-  color: #aaa;
+  border-radius: $radius-sm;
+  background: #fff;
+  color: #0a0a0b;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: 0.06em;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 80ms, color 80ms;
+  transition: background 140ms ease, opacity 140ms ease, color 140ms ease;
 
-  &:not(:disabled):hover {
-    background: #1a1a1a;
-    color: #fff;
+  &:hover:not(:disabled) { background: rgba(255, 255, 255, 0.8); }
+  &:disabled { opacity: 0.3; cursor: default; }
+
+  // sent: quiet outline, like the cancel buttons of the request list
+  &.done {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.55);
+    opacity: 1;
   }
-  &:disabled { opacity: 0.35; cursor: default; }
 }
 
 .invite-empty {
-  padding: 40px 20px;
-  text-align: center;
-  font-size: 13px;
-  color: $text-muted;
+  padding: 24px 4px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
   font-style: italic;
 }
 
 // ── Join by Code ─────────────────────────────────────────────────────────────
 .join-body {
-  padding: 32px 24px 28px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 20px;
+  gap: 14px;
 }
 
 .join-hint {
   font-size: 12px;
-  color: $text-muted;
+  color: rgba(255, 255, 255, 0.5);
   margin: 0;
-  line-height: 1.6;
-  text-align: center;
+  line-height: 1.7;
 }
 
 .join-input-row {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
 }
 
 .join-code-input {
   flex: 1;
-  background: #0a0a0b;
-  border: 1px solid rgba(137, 137, 137, 0.5);
-  border-radius: 4px;
-  padding: 12px 16px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: 0.35em;
-  color: $text-primary;
+  min-width: 0;
+  height: 44px;
+  background: #131315;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: $radius-sm;
+  padding: 0 14px;
+  font-family: 'Minecrafter', 'IBM Plex Mono', monospace;
+  font-size: 18px;
+  letter-spacing: 0.3em;
+  color: #fff;
   text-transform: uppercase;
-  outline: none;
-  transition: border-color 200ms, background 200ms;
   text-align: center;
+  outline: none;
+  transition: border-color 140ms ease;
 
-  &::placeholder { color: rgba(255,255,255,0.15); }
-  &:focus {
-    border-color: rgba(255, 255, 255, 0.61);
-    background: #0d0d0d;
-  }
+  &::placeholder { color: rgba(255, 255, 255, 0.15); }
+  &:focus { border-color: rgba(255, 255, 255, 0.25); }
 }
 
 .join-btn {
-  padding: 12px 22px;
-  border-radius: 4px;
+  flex-shrink: 0;
+  height: 44px;
+  padding: 0 18px;
   border: none;
-  background: #0d0d0d;
-  color: #aaa;
-  font-size: 12px;
-  font-weight: 400;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  border-radius: $radius-sm;
+  background: #fff;
+  color: #0a0a0b;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
   cursor: pointer;
-  transition: background 80ms, color 80ms;
   white-space: nowrap;
+  transition: background 140ms ease, opacity 140ms ease;
 
-  &:not(:disabled):hover {
-    background: #1a1a1a;
-    color: #fff;
-  }
+  &:hover:not(:disabled) { background: rgba(255, 255, 255, 0.8); }
   &:disabled { opacity: 0.35; cursor: default; }
 }
 
-.join-error   { font-size: 12px; color: #ff453a; margin: 0; text-align: center; }
-.join-success { font-size: 12px; color: $success; margin: 0; text-align: center; }
+.join-error   { font-size: 12px; color: #f87171; margin: 0; }
+.join-success { font-size: 12px; color: #30d158; margin: 0; }
 
 // ── Slide transition ──────────────────────────────────────────────────────────
 .invite-slide-enter-active,
 .invite-slide-leave-active {
-  transition: opacity 200ms ease, transform 200ms cubic-bezier(0.2, 0, 0, 1);
+  transition: opacity 200ms ease;
   .invite-panel { transition: transform 200ms cubic-bezier(0.2, 0, 0, 1); }
 }
-.invite-slide-enter-from { opacity: 0; .invite-panel { transform: translateX(16px) scale(0.98); } }
-.invite-slide-leave-to   { opacity: 0; .invite-panel { transform: translateX(16px) scale(0.98); } }
+.invite-slide-enter-from { opacity: 0; .invite-panel { transform: translateX(16px); } }
+.invite-slide-leave-to   { opacity: 0; .invite-panel { transform: translateX(16px); } }
 
 // Invite row enter/leave/reorder (search filtering, online/offline sort)
 .invite-item-pop-enter-active,
@@ -448,6 +477,6 @@ async function doJoin(): Promise<void> {
   transition: opacity 180ms ease, transform 180ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 .invite-item-pop-move { transition: transform 220ms cubic-bezier(0.25, 1, 0.5, 1); }
-.invite-item-pop-enter-from { opacity: 0; transform: scale(0.96) translateY(-6px); }
-.invite-item-pop-leave-to   { opacity: 0; transform: scale(0.96); }
+.invite-item-pop-enter-from { opacity: 0; transform: translateY(-6px); }
+.invite-item-pop-leave-to   { opacity: 0; }
 </style>

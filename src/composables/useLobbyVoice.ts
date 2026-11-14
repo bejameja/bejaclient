@@ -1,6 +1,7 @@
 import { ref, onUnmounted } from 'vue'
 import { useLobbyStore } from '../store/lobbyStore'
 import { useAccountStore } from '../store/accountStore'
+import { openMicStream, VOICE_INPUT_EVENT } from './voiceDevice'
 
 const STUN: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
@@ -28,14 +29,39 @@ export function useLobbyVoice() {
 
   async function init(): Promise<boolean> {
     try {
-      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      localStream = await openMicStream()
       hasPermission.value = true
       setupVAD()
+      window.addEventListener(VOICE_INPUT_EVENT, switchInput)
       return true
     } catch {
       hasPermission.value = false
       return false
     }
+  }
+
+  /** The microphone was changed in Settings: swap it in under the running calls (no reconnect needed). */
+  async function switchInput(): Promise<void> {
+    if (!localStream) return
+    let next: MediaStream
+    try {
+      next = await openMicStream()
+    } catch {
+      return   // keep the old microphone
+    }
+    const track = next.getAudioTracks()[0]
+    if (!track) return
+    track.enabled = !isMuted.value
+    for (const pc of peers.values()) {
+      const sender = pc.getSenders().find(s => s.track?.kind === 'audio')
+      if (sender) sender.replaceTrack(track).catch(() => {})
+    }
+    const old = localStream
+    localStream = next
+    old.getTracks().forEach(t => t.stop())
+    if (vadFrame !== null) cancelAnimationFrame(vadFrame)
+    audioCtx?.close().catch(() => {})
+    setupVAD()
   }
 
   function setupVAD(): void {
@@ -164,6 +190,7 @@ export function useLobbyVoice() {
   }
 
   function dispose(): void {
+    window.removeEventListener(VOICE_INPUT_EVENT, switchInput)
     if (vadFrame !== null) cancelAnimationFrame(vadFrame)
     audioCtx?.close().catch(() => {})
     peers.forEach(pc => pc.close())

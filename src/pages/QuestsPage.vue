@@ -107,7 +107,7 @@ import Icon from '../components/common/Icon.vue'
 import WipPage from '../components/common/WipPage.vue'
 import { useSlidingTabIndicator } from '../composables/useSlidingTabIndicator'
 
-// Temporary kill-switch while quests/leaderboard backend is being reworked —
+// Temporary kill-switch while quests/leaderboard backend is being reworked -
 // flip back to false to restore the real Quests/Leaderboard tabs.
 const MAINTENANCE = true
 
@@ -179,6 +179,7 @@ onMounted(() => {
   padding: 8px 22px;
   background: #0d0d0d;
   border: none;
+  border-radius: 12px;
   color: #aaa;
   font-size: 13px;
   cursor: pointer;
@@ -238,7 +239,7 @@ onMounted(() => {
   cursor: pointer;
   padding: 2px;
   margin-right: 6px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   transition: color 140ms $ease-out, background 140ms $ease-out;
 
   &:hover { color: $text-primary; background: rgba(255, 255, 255, 0.08); }

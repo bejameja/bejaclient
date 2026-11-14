@@ -5,6 +5,7 @@ use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
 use std::fs;
 
 use crate::paths;
@@ -55,6 +56,35 @@ pub struct LauncherSettings {
     pub advanced_mode: bool,
     #[serde(rename = "debugLogging")]
     pub debug_logging: bool,
+    /// Family (e.g. "v1_21") → pinned BejaClient adapter version. When a family has no entry
+    /// here, the launcher always auto-updates to whatever the backend reports as current.
+    #[serde(rename = "pinnedClientVersions", default)]
+    pub pinned_client_versions: HashMap<String, String>,
+    /// Zips every singleplayer world right after a play session ends — see
+    /// `auto_backup_service`. Off by default: it's extra disk usage and I/O the user should
+    /// opt into, not something sprung on an existing install via a silent settings migration.
+    #[serde(rename = "autoBackupWorlds", default)]
+    pub auto_backup_worlds: bool,
+    #[serde(rename = "autoBackupRetention", default = "default_backup_retention")]
+    pub auto_backup_retention: u32,
+    /// Rumbles a connected controller while navigating the launcher with it.
+    #[serde(rename = "controllerHaptics", default = "default_controller_haptics")]
+    pub controller_haptics: bool,
+    /// 0 to 100: how hard the controller rumbles.
+    #[serde(rename = "hapticsStrength", default = "default_haptics_strength")]
+    pub haptics_strength: u32,
+}
+
+fn default_controller_haptics() -> bool {
+    true
+}
+
+fn default_haptics_strength() -> u32 {
+    60
+}
+
+fn default_backup_retention() -> u32 {
+    3
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -74,22 +104,10 @@ pub struct AppearanceSettings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CustomizationSettings {
-    #[serde(rename = "editorMode")]
-    pub editor_mode: bool,
-    #[serde(rename = "wiggleEnabled")]
-    pub wiggle_enabled: bool,
-    /// `Record<string, ElementOverride>` on the TS side — kept as raw JSON since the override
-    /// shape has ~20 optional fields the Rust side never needs to inspect, only round-trip.
-    pub elements: Value,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
     pub game: GameSettings,
     pub launcher: LauncherSettings,
     pub appearance: AppearanceSettings,
-    pub customization: CustomizationSettings,
     #[serde(rename = "activeProfileId")]
     pub active_profile_id: Option<String>,
 }
@@ -117,6 +135,11 @@ fn default_settings() -> AppSettings {
             curseforge_api_key: String::new(),
             advanced_mode: false,
             debug_logging: false,
+            pinned_client_versions: HashMap::new(),
+            auto_backup_worlds: false,
+            auto_backup_retention: default_backup_retention(),
+            controller_haptics: default_controller_haptics(),
+            haptics_strength: default_haptics_strength(),
         },
         appearance: AppearanceSettings {
             language: "en".into(),
@@ -126,11 +149,6 @@ fn default_settings() -> AppSettings {
             disable_hover_effects: false,
             disable_splash_screen: false,
             theme: "default".into(),
-        },
-        customization: CustomizationSettings {
-            editor_mode: false,
-            wiggle_enabled: true,
-            elements: Value::Object(Default::default()),
         },
         active_profile_id: None,
     }
