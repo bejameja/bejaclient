@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "2.0.3"
+version = "2.0.4"
 description = "BejaClient — A Better Minecraft Launcher (Tauri + Rust edition)"
 authors = ["Beja"]
 license = ""
