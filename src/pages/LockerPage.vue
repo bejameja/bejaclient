@@ -235,6 +235,7 @@ import { useShopStore } from '../store/shopStore'
 import type { Rarity, PlayerCosmetic } from '../types/cosmetics'
 import type { CommunityCape } from '../types'
 import { RARITIES, RARITY_ORDER } from '../types/cosmetics'
+import bejaDefaultCape from '../assets/capes/beja-default.png'
 import { showToast } from '../composables/useToasts'
 
 const lockerStore = useLockerStore()
