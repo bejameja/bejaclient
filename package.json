@@ -1,7 +1,7 @@
 {
   "name": "bejaclient",
   "productName": "BejaClient",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "A Better Minecraft Launcher (Tauri + Rust edition)",
   "author": {
     "name": "Beja",
@@ -13,6 +13,7 @@
     "build": "vue-tsc --noEmit && vite build",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
+    "instance2": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/second-instance.ps1",
     "tauri:build": "tauri build",
     "release": "node scripts/release.mjs"
   },

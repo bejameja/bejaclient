@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "BejaClient",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "identifier": "com.bejaclient.launcher",
   "build": {
     "frontendDist": "../dist",
@@ -57,8 +57,7 @@
     "resources": {
       "../resources/beja-libs/beja-bootstrap-*.jar": "beja-libs/",
       "../resources/beja-libs/beja-v1_21-*.jar": "beja-libs/",
-      "../resources/capes/*.png": "capes/",
-      "../resources/scene.mp4": "scene.mp4"
+      "../resources/capes/*.png": "capes/"
     },
     "windows": {
       "nsis": {

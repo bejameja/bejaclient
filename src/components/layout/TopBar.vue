@@ -34,7 +34,7 @@
       <Tooltip v-if="account" text="Violet Gems" placement="bottom">
         <div class="gem-pill">
           <img class="gem-pill-icon" :src="gemIcon" alt="" />
-          <span>{{ gemDisplay.toLocaleString() }}</span>
+          <span class="gem-count">{{ gemDisplay.toLocaleString() }}</span>
         </div>
       </Tooltip>
 
@@ -252,7 +252,10 @@ onUnmounted(() => {
   display: grid;
   // Right column is a FIXED width (not auto) so gem/account/win-controls content
   // changes never reflow the 1fr nav column — see .right-group/.account-pill below.
-  grid-template-columns: auto 1fr 320px;
+  // 306px (not 320px) so .gem-pill's left edge — the start of this column —
+  // lines up with .friends-panel's left edge on HomePage (318px wide, but this
+  // header also carries a 12px right padding that HomePage's content doesn't).
+  grid-template-columns: auto 1fr 306px;
   align-items: center;
   padding: 8px 12px 8px 14px;
   -webkit-app-region: drag;
@@ -274,9 +277,9 @@ onUnmounted(() => {
 .right-group {
   display: flex;
   align-items: center;
-  // Stretches to fill the fixed 420px column so .gem-pill (flex-start, first
-  // child) always sits at the same spot; .account-pill's margin-left: auto
-  // pushes the account+win-controls cluster flush right within this box.
+  // Stretches to fill the fixed 306px column so .gem-pill (flex-start, first
+  // child) always sits at the same spot; .win-controls' margin-left: auto
+  // pushes it flush right within this box.
   justify-self: stretch;
   flex-shrink: 0;
 }
@@ -373,7 +376,7 @@ onUnmounted(() => {
   color: #fff;
   font-size: 8px;
   font-weight: 700;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -426,7 +429,8 @@ onUnmounted(() => {
   height: 30px;
   padding: 0 12px;
   margin-right: 8px;
-  background: none;
+  background: #1B1C24;
+  border-radius: $radius-sm;
   color: #fff;
   font-size: 12px;
   line-height: 1;
@@ -441,6 +445,12 @@ onUnmounted(() => {
   image-rendering: pixelated;
 }
 
+.gem-count {
+  color: #8B2FD6;
+  font-weight: 600;
+  font-size: 13px;
+}
+
 // ── Account pill ──────────────────────────────────────────────────────────────
 .account-pill {
   position: relative;
@@ -451,7 +461,8 @@ onUnmounted(() => {
   height: 30px;
   padding: 0 10px 0 6px;
   margin-right: 4px;
-  background: none;
+  background: #1B1C24;
+  border-radius: $radius-sm;
   cursor: pointer;
   min-width: 0;
   flex-shrink: 1;
@@ -472,7 +483,7 @@ onUnmounted(() => {
 .account-head {
   width: 18px;
   height: 18px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   image-rendering: pixelated;
   flex-shrink: 0;
 }
@@ -544,7 +555,7 @@ onUnmounted(() => {
 .dd-head {
   width: 18px;
   height: 18px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   image-rendering: pixelated;
   flex-shrink: 0;
 }
@@ -577,7 +588,7 @@ onUnmounted(() => {
   border: none;
   color: rgba(255, 255, 255, 0.5);
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   opacity: 0;
   transition: opacity 100ms, background 100ms, color 100ms;
 
@@ -601,7 +612,7 @@ onUnmounted(() => {
 .win-btn {
   width: 30px;
   height: 30px;
-  border-radius: 4px;
+  border-radius: $radius-sm;
   display: flex;
   align-items: center;
   justify-content: center;

@@ -1,5 +1,5 @@
 <template>
-  <div ref="containerRef" class="hero-viewer" :class="{ 'hero-viewer--pop': props.pop }">
+  <div ref="containerRef" class="hero-viewer" :class="{ 'hero-viewer--pop': props.pop, 'hero-viewer--interactive': props.interactive }">
     <canvas ref="canvasRef" class="viewer-canvas" />
   </div>
 </template>
@@ -31,6 +31,10 @@ const props = withDefaults(defineProps<{
   // element, which collapses since .hero-viewer's own width/height:100% then
   // has no definite size to resolve against).
   pop?:              boolean
+  // Shows a white hover outline around the character — used for the local
+  // player's own hero viewer in the Hub, which is also right-clickable.
+  // Off by default so other usages (e.g. PlayerProfileModal) stay untouched.
+  interactive?:      boolean
 }>(), {
   model:            'auto-detect',
   animation:        'walk',
@@ -39,6 +43,7 @@ const props = withDefaults(defineProps<{
   showWings:        false,
   autoRotateSpeed:  0,
   pop:              false,
+  interactive:      false,
 })
 
 const containerRef = ref<HTMLDivElement | null>(null)
@@ -164,8 +169,8 @@ function buildViewer() {
     viewer.animations.speed = 0.7
   }
 
-  viewer.globalLight.intensity = 0.62
-  viewer.cameraLight.intensity = 0.5
+  viewer.globalLight.intensity = 0.4
+  viewer.cameraLight.intensity = 0.85
 
   controls = createOrbitControls(viewer)
   controls.enableZoom   = false
@@ -353,5 +358,23 @@ defineExpose({ triggerEmote })
   height: 100%;
   pointer-events: auto;
   cursor: v-bind("isDragging ? 'grabbing' : 'grab'");
+  transition: filter 150ms ease;
+}
+
+/* Hugs the character's actual rendered silhouette (canvas alpha), not a
+   bounding-box rectangle — drop-shadow (unlike box-shadow) reads the
+   source's alpha channel, so stacking it in a ring around 0-blur offsets
+   traces the skin's outline instead of drawing a box around empty
+   transparent canvas space. */
+.hero-viewer--interactive:hover .viewer-canvas {
+  filter:
+    drop-shadow(1.5px 0 0 rgba(255, 255, 255, 0.45))
+    drop-shadow(-1.5px 0 0 rgba(255, 255, 255, 0.45))
+    drop-shadow(0 1.5px 0 rgba(255, 255, 255, 0.45))
+    drop-shadow(0 -1.5px 0 rgba(255, 255, 255, 0.45))
+    drop-shadow(1.1px 1.1px 0 rgba(255, 255, 255, 0.45))
+    drop-shadow(-1.1px 1.1px 0 rgba(255, 255, 255, 0.45))
+    drop-shadow(1.1px -1.1px 0 rgba(255, 255, 255, 0.45))
+    drop-shadow(-1.1px -1.1px 0 rgba(255, 255, 255, 0.45));
 }
 </style>

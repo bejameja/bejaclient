@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "2.0.1"
+version = "2.0.2"
 description = "BejaClient — A Better Minecraft Launcher (Tauri + Rust edition)"
 authors = ["Beja"]
 license = ""
@@ -52,6 +52,12 @@ hickory-resolver = "0.24"
 zip = "2"
 async_zip = { version = "0.0.17", features = ["full"] }
 
+# Screenshot thumbnails (PNG-only decode/resize — Minecraft only ever writes PNG screenshots)
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+# Hardware detection (RAM/CPU) for the JVM auto-tune wizard
+sysinfo = "0.32"
+
 # Realtime (Beja friends/lobby socket)
 rust_socketio = { version = "0.6", features = ["async"] }
 
@@ -72,3 +78,9 @@ rusqlite = { version = "0.31", features = ["bundled"] }
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52"
 junction = "1"
+windows = { version = "0.61", features = ["Win32_Foundation", "Win32_Security_Cryptography"] }
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
