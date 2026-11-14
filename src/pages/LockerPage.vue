@@ -310,7 +310,15 @@ interface CapeEntry {
 }
 
 const BEJA_ORIGINAL_ID  = 'beja-original'
-const BEJA_ORIGINAL_URL = 'http://127.0.0.1:25588/beja-default.png'
+// Bundled by Vite rather than fetched over HTTP: the old Electron build served
+// this from a local static server on :25588, which the Tauri port never brought
+// across — so the URL resolved to nothing and the cape rendered blank.
+const BEJA_ORIGINAL_URL = bejaDefaultCape
+// What the Original cape's URL used to be. Anyone who equipped it before the
+// switch above still has this dead URL persisted as their cape_url (backend or
+// localStorage), so it has to keep resolving to the Original cape — otherwise
+// it fails the dedupe check below and gets listed as a second, unloadable card.
+const BEJA_ORIGINAL_LEGACY_URL = 'http://127.0.0.1:25588/beja-default.png'
 
 const ownedCapes    = ref<CapeEntry[]>([])
 const capesLoading  = ref(false)
@@ -458,6 +466,12 @@ async function loadOwnedCapes() {
     if (!bejaActiveUrl) {
       const local = loadLocalCapeUrl()
       if (local) { bejaActiveUrl = local; debugLines.push('cape_url from local fallback') }
+    }
+    // Migrate the pre-bundling Original-cape URL onto its current one.
+    if (bejaActiveUrl === BEJA_ORIGINAL_LEGACY_URL) {
+      bejaActiveUrl = BEJA_ORIGINAL_URL
+      saveLocalCapeUrl(BEJA_ORIGINAL_URL)
+      debugLines.push('migrated legacy beja-original cape_url')
     }
   } else {
     debugLines.push('no uuid on account')
@@ -1032,7 +1046,7 @@ watch(() => account.value?.uuid, () => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 16px 20px;
+  padding: 0 8px 12px;
   gap: 12px;
   overflow: hidden;
 }

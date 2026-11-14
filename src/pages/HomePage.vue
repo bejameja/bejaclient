@@ -425,7 +425,7 @@ function cancelJoinInline(): void {
 // blur cancels only when empty - mid-code, a stray focus loss (e.g. alt-tab)
 // shouldn't silently discard what they typed; keydown.esc is the explicit cancel.
 function onJoinInputBlur(): void {
-  if (!joinCodeInline.value) cancelJoinInline()
+  cancelJoinInline()
 }
 
 async function submitJoinInline(): Promise<void> {

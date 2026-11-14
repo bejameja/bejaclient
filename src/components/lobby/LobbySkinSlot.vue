@@ -9,7 +9,7 @@
 
     <!-- ── Empty invite slot ──────────────────────────────────────────── -->
     <template v-if="!member">
-      <button class="slot-invite" @click="$emit('invite')">
+      <div class="slot-invite">
         <div class="invite-icon-wrap">
           <svg class="invite-plus" width="26" height="26" viewBox="0 0 26 26" fill="none">
             <line x1="13" y1="4" x2="13" y2="22" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
@@ -17,7 +17,7 @@
           </svg>
         </div>
         <span class="slot-invite-label">Invite</span>
-      </button>
+      </div>
     </template>
 
     <!-- ── Filled player slot ─────────────────────────────────────────── -->
@@ -89,8 +89,6 @@ const props = defineProps<{
   size: '2xl' | 'xl' | 'lg' | 'md' | 'sm' | 'xs'
   initialRotationY?: number
 }>()
-
-defineEmits<{ invite: [] }>()
 
 const dims = computed(() => {
   const map: Record<string, { w: number; h: number }> = {
