@@ -31,7 +31,7 @@
 Welcome to the BejaClient repository, the codebase for the BejaClient Minecraft client.
 
 > [!IMPORTANT]
-> This repository is **not** used to distribute the client. Download BejaClient exclusively from the official website **[bejaclient.xyz](https://bejaclient.xyz)**. This repo only serves as hosting for auto-updates and the source code.
+> This repository is **not** used to distribute the client. Download BejaClient exclusively from the official website **[bejaclient.net](https://bejaclient.net)**. This repo only serves as hosting for auto-updates and the source code.
 
 If you're not a developer and just stumbled upon this repo: you can get the client and all the info at **[bejaclient.xyz](https://bejaclient.xyz)**.
 
